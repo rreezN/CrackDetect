@@ -1,6 +1,9 @@
 # crackdetect
 
-:)
+To pull files using dvc:
+```
+dvc pull
+```
 
 ## Project structure
 
