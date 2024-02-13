@@ -18,7 +18,9 @@ dvc pull
 
 1. All data must be interpolated by distance driven
 
-2. For Autopi GPS this implies calculating distance from time and speed. Note that gps, accl and gyro do not sample at the same frequency. Hence, speed must be interpolated by time to align gps, accl and gyro.*
+2. For Autopi GPS this implies calculating distance from time and speed. <br> 
+Note that gps, accl and gyro do not sample at the same frequency. Hence, speed must be interpolated by time to align gps, accl and gyro. <br>
+Longitude and latitude are gound in Autopi Gopro GPS as column 3 and 4 respectively. Time is column 2 and 2D and 3D speed is column 6 and 7. Time is always column 2 for Autopi Gopro data.
 
 3. Investigate how Aran data must be aligned. Are there a distance measure or do we also need to calculate that.
 
