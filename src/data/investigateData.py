@@ -35,6 +35,8 @@ data_zp_vh = pd.read_csv('../../data/raw/ref_data/cph1_zp_vh.csv', sep=';', enco
 data_iri_hh = pd.read_csv('../../data/raw/ref_data/cph1_iri_mpd_rut_hh.csv', sep=';', encoding='unicode_escape')
 data_iri_vh = pd.read_csv('../../data/raw/ref_data/cph1_iri_mpd_rut_vh.csv', sep=';', encoding='unicode_escape')
 
+median_lambda = lambda df: df.groupby(df.index // 10)['column_name'].median()
+
 # %% Investigate data
 data_zp_hh_columns = data_zp_hh.columns
 data_zp_vh_columns = data_zp_vh.columns
