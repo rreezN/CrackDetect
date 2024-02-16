@@ -23,8 +23,11 @@ def convertdata(data, parameter):
     rstar = parameter['rstar']
     b = parameter['b']
     r = parameter['r']
-    out = ((data - bstar*rstar) - b)*r
-    return out
+    # We only convert data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
+    col0 = data[:,0]
+    col1 = ((data[:,1]-bstar*rstar)-b)*r
+    data = np.column_stack((col0, col1))
+    return data
 
 
 def unpack_hdf5(hdf5_file):
