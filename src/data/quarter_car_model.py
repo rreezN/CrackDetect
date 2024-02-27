@@ -28,6 +28,10 @@ class QuarterCarModel:
             distance = self.Zinterpolated.df['Distance [m]'].to_numpy()
             self.dx = distance[1] - distance[0] # Sampling interval [m]
             self.dt = 0.01 # Time step [s] --> THIS IS A GUESS
+            
+            # TODO: INSERT GREEN MOBILITY SPEED (samme opløsning som p79 data)
+            # skal måske interpoleres til samme opløsning som p79 data
+            # spatial resolution = 0.05 (omsamplet)
             self.v = self.dx/self.dt # Velocity in [m/s]
             
             # Manipulate velocity for testing of code (only for testing, remove later)
