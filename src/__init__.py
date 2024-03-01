@@ -1,2 +1,2 @@
-from crackdetect.models.model import MyNeuralNet
-from crackdetect.predict_model import predict
+from src.predict_model import predict
+from src.util.utils import set_all_seeds
