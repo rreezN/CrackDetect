@@ -3,10 +3,13 @@ import glob
 import os
 import csv
 import pandas as pd
+from tqdm import tqdm
+import numpy as np
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', windowsize=10, transform=None):
-        self.windowsize = windowsize
+    def __init__(self, data_path='data/processed', windowsize=10, rut='straight-edge', transform=None):
+        self.windowsize = windowsize # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
+        self.rut = rut
         self.aran = sorted(glob.glob(data_path + '/aran/*.csv'))
         self.gm = sorted(glob.glob(data_path + '/gm/*.csv'))
         self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
@@ -17,33 +20,30 @@ class Platoon(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         # Read data
-        aran = pd.read_csv(self.aran[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
+        aran = pd.read_csv(self.aran[idx], sep=';', encoding='unicode_escape', engine='pyarrow').fillna(0)
         gm = pd.read_csv(self.gm[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
         gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
         p79 = pd.read_csv(self.p79[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
 
         # Split data into windows
-        windows = len(aran) // self.windowsize
-        aran_split = [aran[i*self.windowsize:(i+1)*self.windowsize] for i in range(windows)]
-        gm_split = [gm[i*self.windowsize:(i+1)*self.windowsize] for i in range(windows)]
-        gopro_split = [gopro[i*self.windowsize:(i+1)*self.windowsize] for i in range(windows)]
-        p79_split = [p79[i*self.windowsize:(i+1)*self.windowsize] for i in range(windows)]
-
-        # Calculate KPIs for each window
-        KPIs = []
-        for i in range(windows):
-            KPIs.append(self.calculateKPIs(aran_split[i]))
-        print(KPIs)
-
+        n_windows = len(gm) // self.windowsize
         
-        # Return (windows, acceleration), (KPIs)
-        return KPIs
+        # Calculate KPIs for each window
+        KPIs = np.array([self.calculateKPIs(aran[i*self.windowsize:(i+1)*self.windowsize], rut=self.rut) for i in range(n_windows)])
+        
+        # Split other data correspondingly
+        gm_split = [gm[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
+        gopro_split = [gopro[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
+        p79_split = [p79[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
 
-    def calculateKPIs(self, df):
+        train = NotImplementedError() # TODO
+        return train, KPIs # train data, labels
+
+    def calculateKPIs(self, df, rut='straight-edge'):
         # damage index
         KPI_DI = self.damageIndex(df)
         # rutting index
-        KPI_RUT = self.ruttingMean(df)
+        KPI_RUT = self.ruttingMean(df, rut)
         # patching index
         PI = self.patchingSum(df)
         # IRI
@@ -59,48 +59,56 @@ class Platoon(torch.utils.data.Dataset):
 
     @staticmethod
     def crackingSum(df):
-        # LCS = df['Revner På Langs Små (m)'].fillna(0)
-        # LCM = df['Revner På Langs Middelstore (m)'].fillna(0)
-        # LCL = df['Revner På Langs Store (m)'].fillna(0)
-        # TCS = df['Transverse Low (m)'].fillna(0)
-        # TCM = df['Transverse Medium (m)'].fillna(0)
-        # TCL = df['Transverse High (m)'].fillna(0)
-        # return (LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)
-        return 0
-
+        """
+        Conventional/longitudinal and transverse cracks are reported as length. 
+        """
+        LCS = df['Revner På Langs Små (m)']
+        LCM = df['Revner På Langs Middelstore (m)']
+        LCL = df['Revner På Langs Store (m)']
+        TCS = df['Transverse Low (m)']
+        TCM = df['Transverse Medium (m)']
+        TCL = df['Transverse High (m)']
+        return np.mean((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1))
+    
     @staticmethod
     def alligatorSum(df):
-        ACS = 0
-        ACM = 0
-        ACL = 0
-        return (3*ACS + 4*ACM + 5*ACL)**(0.3)
+        """
+        alligator cracks are computed as area of the pavement affected by the damage
+        """
+        ACS = df['Krakeleringer Små (m²)']
+        ACM = df['Krakeleringer Middelstore (m²)']
+        ACL = df['Krakeleringer Store (m²)']
+        return np.mean((3*ACS + 4*ACM + 5*ACL)**(0.3))
     
     @staticmethod
     def potholeSum(df):
-        PAS = 0
-        PAM = 0
-        PAL = 0
-        PAD = 0
-        return (5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)
+        PAS = df['Slaghuller Max Depth Low (mm)']
+        PAM = df['Slaghuller Max Depth Medium (mm)']
+        PAL = df['Slaghuller Max Depth High (mm)']
+        PAD = df['Slaghuller Max Depth Delamination (mm)']
+        return np.mean((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1))
 
     @staticmethod
-    def ruttingMean(df):
-        RDL = 0
-        RDR = 0
-        return ((RDL +RDR)/2)**(0.5)
+    def ruttingMean(df, rut):
+        if rut == 'straight-edge':
+            RDL = df['LRUT Straight Edge (mm)']
+            RDR = df['RRUT Straight Edge (mm)']
+        elif rut == 'wire':
+            RDL = df['LRUT Wire (mm)']
+            RDR = df['RRUT Wire (mm)']
+        return np.mean(((RDL +RDR)/2)**(0.5))
 
     @staticmethod
     def iriMean(df):
-        IRL = 0
-        IRR = 0
-        return ((IRL + IRR)/2)**(0.2)
+        IRL = df['Venstre IRI (m/km)']
+        IRR = df['Højre IRI (m/km)']
+        return np.mean(((IRL + IRR)/2)**(0.2))
 
     @staticmethod   
     def patchingSum(df):
-        # LCSe = df['Revner På Langs Sealed (m)'].fillna(0)
-        # TCSe = df['Transverse Sealed (m)'].fillna(0)
-        # return (LCSe**2 + 2*TCSe)**(0.1)
-        return 0
+        LCSe = df['Revner På Langs Sealed (m)']
+        TCSe = df['Transverse Sealed (m)']
+        return np.mean((LCSe**2 + 2*TCSe)**(0.1))
 
 
 if __name__ == '__main__':
