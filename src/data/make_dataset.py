@@ -203,7 +203,7 @@ def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
         if section[key].values.dtype == 'O':
             # Skip object columns
             continue
-        new_section[key] = interpolate(distance, section[key].values.fillna(0), resampled_distances)
+        new_section[key] = interpolate(distance, section[key].fillna(0).values, resampled_distances)
     new_section = pd.DataFrame(new_section)
     return new_section
 
