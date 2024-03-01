@@ -3,6 +3,9 @@
 
 docs/site/
 
+# virtualenv
+fleetenv/
+
 # test cache
 manual_test/
 
