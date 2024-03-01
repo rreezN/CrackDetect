@@ -7,12 +7,12 @@ from tqdm import tqdm
 import numpy as np
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', windowsize=10, rut='straight-edge', transform=None):
+    def __init__(self, data_path='data/processed', windowsize=5, rut='straight-edge', transform=None):
         self.windowsize = windowsize # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
         self.rut = rut
         self.aran = sorted(glob.glob(data_path + '/aran/*.csv'))
         self.gm = sorted(glob.glob(data_path + '/gm/*.csv'))
-        self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
+        # self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
         self.p79 = sorted(glob.glob(data_path + '/p79/*.csv'))
 
     def __len__(self):
@@ -20,20 +20,25 @@ class Platoon(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         # Read data
-        aran = pd.read_csv(self.aran[idx], sep=';', encoding='unicode_escape', engine='pyarrow').fillna(0)
-        gm = pd.read_csv(self.gm[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
-        gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
-        p79 = pd.read_csv(self.p79[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
+        aran = pd.read_csv(self.aran[idx], sep=';', encoding='utf8', engine='pyarrow').fillna(0)
+        # gm = pd.read_csv(self.gm[idx], sep=';', encoding='utf8', engine='pyarrow')
+        # gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
+        p79 = pd.read_csv(self.p79[idx], sep=';', encoding='utf8', engine='pyarrow')
+
+        # get row idx where different between distance is just under windowsize
+
 
         # Split data into windows
-        n_windows = len(gm) // self.windowsize
+        n_windows = len(aran) // self.windowsize
         
+        # TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregne korrekt
         # Calculate KPIs for each window
         KPIs = np.array([self.calculateKPIs(aran[i*self.windowsize:(i+1)*self.windowsize], rut=self.rut) for i in range(n_windows)])
         
+        # TODO Vi skal have lavet training data
         # Split other data correspondingly
-        gm_split = [gm[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
-        gopro_split = [gopro[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
+        # gm_split = [gm[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
+        # gopro_split = [gopro[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
         p79_split = [p79[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
 
         train = NotImplementedError() # TODO
