@@ -262,22 +262,22 @@ if __name__ == '__main__':
                     # Match to ARAN data
                     aran_hh_match = find_best_start_and_end_indeces(aran_hh[["Lon", "Lat"]].values, segment_lonlat)
                     aran_segment = cut_dataframe_by_indeces(aran_hh, *aran_hh_match)
-                    aran_segment.to_csv(f'data/interim/aran/segment_{i}.csv', sep=';', index=False)
+                    aran_segment.to_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';', index=False)
 
                     # Match to P79 data
                     p79_hh_match = find_best_start_and_end_indeces(p79_hh[["Lon", "Lat"]].values, segment_lonlat)
                     p79_segment = cut_dataframe_by_indeces(p79_hh, *p79_hh_match)
-                    p79_segment.to_csv(f'data/interim/p79/segment_{i}.csv', sep=';', index=False)
+                    p79_segment.to_csv(f'data/interim/p79/segment_{i:03d}.csv', sep=';', index=False)
                 else:
                     # Match to ARAN data
                     aran_vh_match = find_best_start_and_end_indeces(aran_vh[["Lon", "Lat"]].values, segment_lonlat)
                     aran_segment = cut_dataframe_by_indeces(aran_vh, *aran_vh_match)
-                    aran_segment.to_csv(f'data/interim/aran/segment_{i}.csv', sep=';', index=False)
+                    aran_segment.to_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';', index=False)
 
                     # Match to P79 data
                     p79_vh_match = find_best_start_and_end_indeces(p79_vh[["Lon", "Lat"]].values, segment_lonlat)
                     p79_segment = cut_dataframe_by_indeces(p79_vh, *p79_vh_match)
-                    p79_segment.to_csv(f'data/interim/p79/segment_{i}.csv', sep=';', index=False)
+                    p79_segment.to_csv(f'data/interim/p79/segment_{i:03d}.csv', sep=';', index=False)
         
         case "resample":
             # Resample the gm data to a fixed frequency
@@ -292,16 +292,16 @@ if __name__ == '__main__':
                 pbar.set_description(f"Resampling {segment_file.split('/')[-1]}")
                 segment = unpack_hdf5(segment_file)
                 resampled_segment = resample_gm(segment)
-                resampled_segment.to_csv(f'data/processed/gm/segment_{i}.csv', sep=';', index=False)
+                resampled_segment.to_csv(f'data/processed/gm/segment_{i:03d}.csv', sep=';', index=False)
 
                 # Resample the P79
                 p79_segment = pd.read_csv(f'data/interim/p79/segment_{i}.csv', sep=';')
                 resampled_distances = resampled_segment["distance"].values
                 resampled_p79_segment = resample_p79(p79_segment, resampled_distances)
-                resampled_p79_segment.to_csv(f'data/processed/p79/segment_{i}.csv', sep=';', index=False)
+                resampled_p79_segment.to_csv(f'data/processed/p79/segment_{i:03d}.csv', sep=';', index=False)
                 
                 # Resample the ARAN
                 aran_segment = pd.read_csv(f'data/interim/aran/segment_{i}.csv', sep=';')
                 resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
-                resampled_aran_segment.to_csv(f'data/processed/aran/segment_{i}.csv', sep=';', index=False)
+                resampled_aran_segment.to_csv(f'data/processed/aran/segment_{i:03d}.csv', sep=';', index=False)
             
