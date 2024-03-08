@@ -20,3 +20,6 @@ Have `python >= 3.10`?
 6. `python -m pip install -r requirements.txt`
 7. ...
 8. Profit
+
+To activate venv:
+`.\fleetenv\Scripts\Activate.ps1`
