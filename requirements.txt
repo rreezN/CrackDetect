@@ -8,3 +8,6 @@ tqdm
 torch
 opencv-python
 h5py
+matplotlib
+numpy
+pandas

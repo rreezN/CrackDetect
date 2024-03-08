@@ -24,6 +24,9 @@ class QuarterCarModel:
         # Load green mobility data
         self.gm_acc, self.gm_velocity = self.load_gm()
         
+        # TODO: Not sure about this conversion
+        self.gm_acc = (self.gm_acc * 9.80665)-9.80665 # Convert from g to m/s^2
+        
         # Calculate time interval
         self.dx = self.p79_distance[1] - self.p79_distance[0] # sampling interval [m]
         self.dt = self.dx / self.gm_velocity
@@ -47,9 +50,9 @@ class QuarterCarModel:
             numpy array, numpy_array: Green Mobility z-acceleration data, Green mobility velocity data
         """
         data_path = f'data/processed/'
-        gm_df = pd.read_csv(data_path + f'gm/{self.segment}_gm.csv')
+        gm_df = pd.read_csv(data_path + f'gm/{self.segment}.csv', sep=';', encoding='utf8', engine='pyarrow')
         # TODO: Maybe fix the column names ?
-        gm_z_acc = gm_df['acc.z'].to_numpy()
+        gm_z_acc = gm_df['acc.xyz_2'].to_numpy()
         gm_velocity = gm_df['spd_veh'].to_numpy()
         
         return gm_z_acc, gm_velocity
@@ -61,8 +64,8 @@ class QuarterCarModel:
             numpy array, numpy array: Raw road profile data, distance data
         """
         data_path = f'data/processed/'
-        profile_df = pd.read_csv(data_path + f'p79/{self.segment}_p79.csv')
-        profile = ((profile_df[f'Laser {self.lasers[0]} [mm]'].to_numpy() + profile_df[f'Laser {self.lasers[1]} [mm]'].to_numpy()) * 1e-3) / 2
+        profile_df = pd.read_csv(data_path + f'p79/{self.segment}.csv', sep=';', encoding='utf8', engine='pyarrow')
+        profile = ((profile_df[f' Laser {self.lasers[0]} [mm]'].to_numpy() + profile_df[f' Laser {self.lasers[1]} [mm]'].to_numpy()) * 1e-3) / 2
         distance = profile_df['Distance [m]'].to_numpy()
         
         return profile, distance
@@ -132,35 +135,86 @@ class QuarterCarModel:
         Returns:
             float: Cross-correlation
         """
-        return np.correlate(self.synth_acc, self.gm_acc)
+        return np.correlate(self.synth_acc, self.gm_acc)[0]
     
     def plot_road_profile(self):
         """Plot the road profile
         """
+        distance = self.p79_distance - self.p79_distance[0]
         plt.figure(figsize=(15,5))
-        plt.plot(self.p79_distance, self.Zraw, color='black', label='Raw profile', linewidth=0.5)
-        plt.plot(self.p79_distance, self.Zpfm, color='red', label='Smoothened profile', linestyle='dotted')
+        plt.plot(distance, self.Zraw, color='black', label='Raw profile', linewidth=0.5)
+        plt.plot(distance, self.Zpfm, color='red', label='Smoothened profile', linestyle='dotted')
         plt.title(f'{self.segment} road profile')
         plt.xlabel('Distance [m]')
         plt.ylabel('Elevation [mm]')
+        plt.legend()
         plt.tight_layout()
         plt.savefig(f'reports/figures/quarter_car_model/{self.segment}_road_profile.png', dpi=300)
-        plt.show()    
+        #plt.show()    
         
     def plot_synth_acc(self):
         """Plot the synthetic acceleration
         """
         plt.figure(figsize=(15,5))
-        plt.plot(self.p79_distance, self.gm_acc, color='black', label='Green Mobility acceleration', linewidth=0.5)
-        plt.plot(self.p79_distance, self.synth_acc, color='red', label='Synthetic acceleration', linestyle='dotted')
-        plt.title(f'{self.segment} synthetic acceleration')
-        plt.xlabel('Time [s]')
+        distance = self.p79_distance - self.p79_distance[0]
+        plt.plot(distance, self.gm_acc, color='black', label='Green Mobility acceleration', linewidth=0.5)
+        plt.plot(distance, self.synth_acc, color='red', label='Synthetic acceleration', linestyle='dotted')
+        plt.title(f'{self.segment} synthetic acceleration, euc_dis: {self.get_euclidean_distance():.2f}, cross_corr: {self.get_cross_correlation():.2f}')
+        plt.xlabel('Distance [m]')
         plt.ylabel('Acceleration [m/s^2]')
+        plt.legend()
         plt.tight_layout()
         plt.savefig(f'reports/figures/quarter_car_model/{self.segment}_synth_acc.png', dpi=300)
-        plt.show()
+        #plt.show()
     
+    def plot_combined(self):
+        """Plot the road profile and the synthetic acceleration
+        """
+        plt.figure(figsize=(15,10))
+        distance = self.p79_distance - self.p79_distance[0]
+        plt.subplot(2, 1, 1)
+        plt.plot(distance, self.Zraw*1e3, color='black', label='Raw profile', linewidth=0.5)
+        plt.plot(distance, self.Zpfm*1e3, color='red', label='Smoothened profile', linestyle='dotted')
+        plt.title(f'{self.segment} road profile')
+        plt.xlabel('Distance [m]')
+        plt.ylabel('Elevation [mm]')
+        plt.legend()
+        
+        plt.subplot(2, 1, 2)
+        plt.plot(distance, self.gm_acc, color='black', label='Green Mobility acceleration', linewidth=0.5)
+        plt.plot(distance, self.synth_acc, color='red', label='Synthetic acceleration', linestyle='dotted')
+        plt.title(f'{self.segment} synthetic acceleration, euc_dis: {self.get_euclidean_distance():.2f}, cross_corr: {self.get_cross_correlation():.2f}')
+        plt.xlabel('Distance [m]')
+        plt.ylabel('Acceleration [m/s^2]')
+        plt.legend()
+        
+        plt.tight_layout()
+        plt.savefig(f'reports/figures/quarter_car_model/{self.segment}_combined.png', dpi=300)
+        #plt.show()
 
+    def plot_combined_one(self):
+        # TODO: This needs fixing and prettying up
+        fig, ax1 = plt.subplots(figsize=(15,5))
+        distance = self.p79_distance - self.p79_distance[0]
+        ax1.plot(distance, self.Zraw*1e3, color='black', label='Raw profile', linewidth=0.5)
+        ax1.plot(distance, self.Zpfm*1e3, color='red', label='Smoothened profile', linestyle='dotted')
+        ax1.set(ylim=(-40, 40))
+        ax1.set_ylabel('Eleveation [mm]')
+        
+        ax2 = ax1.twinx()
+        ax2.plot(distance, self.gm_acc, color='blue', label='Green Mobility acceleration', linewidth=0.5)
+        ax2.plot(distance, self.synth_acc, color='green', label='Synthetic acceleration', linestyle='dotted')
+        ax2.set(ylim=(-5, 5))
+        ax2.set_ylabel('Acceleration [m/s^2]')
+        
+        plt.title(f'{self.segment} road profile and synthetic acceleration')
+        plt.xlabel('Distance [m]')
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f'reports/figures/quarter_car_model/{self.segment}_combined_one.png', dpi=300)
+        
+        
 def argparser():
     parser = argparse.ArgumentParser(prog="Quarter Car Model", description='Creates a quarter car model and compares it to green mobility data')
     parser.add_argument('--segment', type=str, default='segment_001', help='The segment to analyze')
@@ -172,8 +226,9 @@ def argparser():
 if __name__ == '__main__':
     args = argparser()
     qcm = QuarterCarModel(args.segment, args.lasers)
-    qcm.plot_road_profile()
-    qcm.plot_synth_acc()
+    #qcm.plot_road_profile()
+    #qcm.plot_synth_acc()
+    qcm.plot_combined()
     print(f'Euclidean distance: {qcm.get_euclidean_distance()}')
     print(f'Cross-correlation: {qcm.get_cross_correlation()}')
 

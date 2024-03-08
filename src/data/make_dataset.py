@@ -148,6 +148,7 @@ def resample_gm(section: dict, frequency: int = 250):
         section['measurements']['spd_veh'][:, 1]
     )
     distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / 3.6)
+    distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / 3.6)
     distance = np.insert(distance, 0, 0)
 
     start_time = time[0]
@@ -202,7 +203,7 @@ def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
         if section[key].values.dtype == 'O':
             # Skip object columns
             continue
-        new_section[key] = interpolate(distance, section[key].values.fillna(0), resampled_distances)
+        new_section[key] = interpolate(distance, section[key].fillna(0).values, resampled_distances)
     new_section = pd.DataFrame(new_section)
     return new_section
 
@@ -301,7 +302,7 @@ if __name__ == '__main__':
                 resampled_p79_segment.to_csv(f'data/processed/p79/segment_{i:03d}.csv', sep=';', index=False)
                 
                 # Resample the ARAN
-                aran_segment = pd.read_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';')
+                aran_segment = pd.read_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';').fillna(0)
                 resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
                 resampled_aran_segment.to_csv(f'data/processed/aran/segment_{i:03d}.csv', sep=';', index=False)
             
