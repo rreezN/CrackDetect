@@ -8,6 +8,7 @@ from tqdm import tqdm
 from torch import nn
 from torch.utils.data import DataLoader
 from sktime.regression.dummy import DummyRegressor
+from sktime.regression.kernel_based import RocketRegressor
 from sktime.utils import mlflow_sktime
 
 from src.util.utils import set_all_seeds
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument("--project_name", type=str, default="Version 0.1")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num_epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--window_size", type=int, default=10, help="Window size for data in meters")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
 
@@ -82,7 +83,6 @@ if __name__ == "__main__":
     valset = Platoon(data_type='val', window_size=args.window_size)
     val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=3)
     print("### Loading the data completed ###") if args.verbose else None
-
 
     # Define the model
     if args.model_name == "dummy_regressor":
