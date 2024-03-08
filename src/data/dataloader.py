@@ -34,8 +34,6 @@ class Platoon(torch.utils.data.Dataset):
         else:
             raise ValueError('data_type must be either "train", "test" or "val"')
 
-
-
     def __len__(self):
         return len(self.aran_paths)
     
@@ -60,13 +58,13 @@ class Platoon(torch.utils.data.Dataset):
              Eller skal den måske regnes manuelt ud fra p79 data?
         """ 
         # Calculate KPIs for each window
-        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut) for (i, val) in list(enumerate(indices))[1:]])
+        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
         
         # Split other data correspondingly
         # p79_split = [p79[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
         gm_split = [gm[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
 
-        train = [df['acc.xyz_2'].tolist() for df in gm_split] # NOTE look into more variables in the future
+        train = np.array([df['acc.xyz_2'].to_numpy() for df in gm_split], dtype=object) # NOTE look into more variables in the future
         return train, KPIs # train data, labels
 
     def calculateWindowIndices(self, df):
@@ -87,7 +85,7 @@ class Platoon(torch.utils.data.Dataset):
         PI = self.patchingSum(df)
         # IRI
         IRI = self.iriMean(df)
-        return [KPI_DI, KPI_RUT, PI, IRI]
+        return np.array([KPI_DI, KPI_RUT, PI, IRI])
 
     def damageIndex(self, df):
         crackingsum = self.crackingSum(df)

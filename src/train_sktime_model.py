@@ -3,6 +3,7 @@ import wandb
 import argparse
 import os
 import sys
+import numpy as np
 
 from tqdm import tqdm
 from torch import nn
@@ -21,15 +22,19 @@ def train(model: DummyRegressor, train_loader: DataLoader, val_loader: DataLoade
 
     for epoch in iterator:
         train_loss = []
-        for data, target in train_loader:
-            model.fit(data, target)
-            loss = model.score(data, target)
-            train_loss.append(loss.item())
+        for data_segment, target_segment in train_loader:
+            for data, target in zip(data_segment, target_segment):
+                data_repeated = np.repeat(data[np.newaxis, :], len(target), axis=0)
+                model.fit(data_repeated, target)
+                loss = model.score(data_repeated, target)
+                train_loss.append(loss.item())
 
         val_loss = []
-        for data, target in val_loader:
-            loss = model.score(data, target)
-            val_loss.append(loss.item())
+        for data_segment, target_segment in val_loader:
+            for data, target in zip(data_segment, target_segment):
+                data_repeated = np.repeat(data[np.newaxis, :], len(target), axis=0)
+                loss = model.score(data_repeated, target)
+                val_loss.append(loss.item())
         
         train_loss = sum(train_loss) / len(train_loss)
         val_loss = sum(val_loss) / len(val_loss)
@@ -58,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--project_name", type=str, default="Version 0.1")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num_epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--window_size", type=int, default=10, help="Window size for data in meters")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
 
