@@ -11,7 +11,7 @@ from sktime.regression.dummy import DummyRegressor
 from sktime.utils import mlflow_sktime
 
 from src.util.utils import set_all_seeds
-from src.data.make_dataset import Platoon
+from src.data.dataloader import Platoon
 
 def train(model: DummyRegressor, train_loader: DataLoader, val_loader: DataLoader, args: argparse.Namespace) -> None:
 
@@ -77,9 +77,9 @@ if __name__ == "__main__":
 
     # Load the data
     print("### Loading the data ###") if args.verbose else None
-    trainset = Platoon(train=True, window_size=args.window_size)
+    trainset = Platoon(data_type='train', window_size=args.window_size)
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=3)
-    valset = Platoon(train=False, window_size=args.window_size)
+    valset = Platoon(data_type='val', window_size=args.window_size)
     val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=3)
     print("### Loading the data completed ###") if args.verbose else None
 
