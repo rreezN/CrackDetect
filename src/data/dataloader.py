@@ -7,13 +7,13 @@ from tqdm import tqdm
 import numpy as np
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', windowsize=5, rut='straight-edge', transform=None):
+    def __init__(self, data_path='data/processed', windowsize=10, rut='straight-edge', transform=None):
         self.windowsize = windowsize # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
         self.rut = rut
         self.aran = sorted(glob.glob(data_path + '/aran/*.csv'))
         self.gm = sorted(glob.glob(data_path + '/gm/*.csv'))
         # self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
-        self.p79 = sorted(glob.glob(data_path + '/p79/*.csv'))
+        # self.p79 = sorted(glob.glob(data_path + '/p79/*.csv'))
 
     def __len__(self):
         return len(self.aran)
@@ -21,28 +21,41 @@ class Platoon(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # Read data
         aran = pd.read_csv(self.aran[idx], sep=';', encoding='utf8', engine='pyarrow').fillna(0)
-        # gm = pd.read_csv(self.gm[idx], sep=';', encoding='utf8', engine='pyarrow')
+        gm = pd.read_csv(self.gm[idx], sep=';', encoding='utf8', engine='pyarrow')
         # gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
-        p79 = pd.read_csv(self.p79[idx], sep=';', encoding='utf8', engine='pyarrow')
+        # p79 = pd.read_csv(self.p79[idx], sep=';', encoding='utf8', engine='pyarrow')
 
-        # get row idx where different between distance is just under windowsize
+        # Get row idx where difference between distance is either the exact window size or just over
+        indices = self.calculateWindowIndices(aran['distance'])
 
+        """
+        TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregne korrekt
 
-        # Split data into windows
-        n_windows = len(aran) // self.windowsize
-        
-        # TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregne korrekt
+        TODO Husk at rette IRI udregningerne til at være baseret på p79 data - hvis det er det vi gerne vil
+             
+             Det kan evt. også være data fra cph_zp_hh(vh).csv. som så bare skal integreres i vores pipeline. Den indeholder IRI, MPD og RUT data
+             med en spatial-resolution på 10m.
+
+             Eller skal den måske regnes manuelt ud fra p79 data?
+        """ 
         # Calculate KPIs for each window
-        KPIs = np.array([self.calculateKPIs(aran[i*self.windowsize:(i+1)*self.windowsize], rut=self.rut) for i in range(n_windows)])
+        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut) for (i, val) in list(enumerate(indices))[1:]])
         
-        # TODO Vi skal have lavet training data
         # Split other data correspondingly
-        # gm_split = [gm[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
-        # gopro_split = [gopro[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
-        p79_split = [p79[i*self.windowsize:(i+1)*self.windowsize] for i in range(n_windows)]
+        # p79_split = [p79[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
+        gm_split = [gm[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
 
-        train = NotImplementedError() # TODO
+        train = [df['acc.xyz_2'].tolist() for df in gm_split] # NOTE look into more variables in the future
         return train, KPIs # train data, labels
+
+    def calculateWindowIndices(self, df):
+        indices = [0]
+        count = 1
+        for i, cur_distance in enumerate(df):
+            if cur_distance >= self.windowsize*count: # NOTE windowsize is in meters
+                indices.append(i)
+                count += 1
+        return indices
 
     def calculateKPIs(self, df, rut='straight-edge'):
         # damage index
