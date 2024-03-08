@@ -168,6 +168,13 @@ def remove_duplicates(time, value):
     return time[time_mask], value[time_mask]
 
 
+def calculate_distance_from_time_and_speed(time, speed, conversion_factor=1):
+    # Calculate the distance from the time and speed measurements
+    distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / conversion_factor)
+    distance = np.insert(distance, 0, 0)
+    return distance
+
+
 def resample_gm(section: dict, frequency: int = 250):
     # Resample the gm data to a fixed frequency by interpolating the measurements by distance
 
@@ -176,9 +183,7 @@ def resample_gm(section: dict, frequency: int = 250):
         section['measurements']['spd_veh'][:, 0],
         section['measurements']['spd_veh'][:, 1]
     )
-    distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / 3.6)
-    distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / 3.6)
-    distance = np.insert(distance, 0, 0)
+    distance = calculate_distance_from_time_and_speed(time, speed, 3.6)
 
     start_time = time[0]
     end_time = time[-1]
@@ -239,6 +244,32 @@ def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
     return new_section
 
 
+def resample_gopro(accl: pd.DataFrame, gps5: pd.DataFrame, gyro: pd.DataFrame, resampled_distances: np.ndarray):
+    # Interpolate the speed measurements from the GPS data
+    gps5_time, gps5_speed = gps5["date"].values, gps5["GPS (3D speed) [m/s]"].values
+    interpolate_accl_speed = interpolate(gps5_time, gps5_speed, accl["date"].values)
+    interpolate_gyro_speed = interpolate(gps5_time, gps5_speed, gyro["date"].values)
+
+    # Calculate distances
+    measurement_distances = {
+        "accl": calculate_distance_from_time_and_speed(accl["date"].values, interpolate_accl_speed),
+        "gps5": calculate_distance_from_time_and_speed(gps5_time, gps5_speed),
+        "gyro": calculate_distance_from_time_and_speed(gyro["date"].values, interpolate_gyro_speed)
+    }
+
+    new_section = {
+        "distance": resampled_distances,
+    }
+    for name, measurement in zip(["accl", 'gps5', 'gyro'], [accl, gps5, gyro]):
+        for key in measurement.columns:
+            if key in new_section.keys() or measurement[key].values.dtype == 'O':
+                # Skip object columns and duplicates
+                continue
+            new_section[key] = interpolate(measurement_distances[name], measurement[key].values, resampled_distances)
+    new_section = pd.DataFrame(new_section)
+    return new_section
+
+
 def csv_files_together(car_trip, go_pro_names, car_number):
     # Load all the gopro data 
     for measurement in ['accl', 'gps5', 'gyro']:
@@ -285,7 +316,9 @@ def convert():
         "16006": "car3"
     }
     
-    for car_trip in car_trips:
+    pbar = tqdm(car_trips)
+    for car_trip in pbar:
+        pbar.set_description(f"Converting {car_trip}")
         csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
         
 
@@ -380,9 +413,12 @@ def resample():
     Path('data/processed/gm').mkdir(parents=True, exist_ok=True)
     Path('data/processed/aran').mkdir(parents=True, exist_ok=True)
     Path('data/processed/p79').mkdir(parents=True, exist_ok=True)
+    Path('data/processed/gopro').mkdir(parents=True, exist_ok=True)
 
     pbar = tqdm(segment_files)
     for i, segment_file in enumerate(pbar):
+        if i < 120:
+            continue
         pbar.set_description(f"Resampling {segment_file.split('/')[-1]}")
         segment = unpack_hdf5(segment_file)
         resampled_segment = resample_gm(segment)
@@ -400,6 +436,16 @@ def resample():
         resampled_aran_segment.to_csv(f'data/processed/aran/segment_{i:03d}.csv', sep=';', index=False)
         
         # TODO Resample the GoPro data
+        try:
+            accl = pd.read_csv(f'data/interim/gopro/accl/segment_{i:03d}.csv', sep=';')
+            gps5 = pd.read_csv(f'data/interim/gopro/gps5/segment_{i:03d}.csv', sep=';')
+            gyro = pd.read_csv(f'data/interim/gopro/gyro/segment_{i:03d}.csv', sep=';')
+        except FileNotFoundError:
+            continue
+        
+        resampled_gopro_segment = resample_gopro(accl, gps5, gyro, resampled_distances)
+        resampled_gopro_segment.to_csv(f'data/processed/gopro/segment_{i:03d}.csv', sep=';', index=False)
+        
         
             
 if __name__ == '__main__':
