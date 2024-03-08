@@ -24,8 +24,8 @@ class QuarterCarModel:
         # Load green mobility data
         self.gm_acc, self.gm_velocity = self.load_gm()
         
-        # TODO: Not sure about this conversion
-        self.gm_acc = (self.gm_acc * 9.80665)-9.80665 # Convert from g to m/s^2
+        self.gm_acc = (self.gm_acc - 1) * 9.80665 # Convert from g to m/s^2
+        self.gm_velocity = self.gm_velocity * 0.277778 # Convert from km/h to m/s
         
         # Calculate time interval
         self.dx = self.p79_distance[1] - self.p79_distance[0] # sampling interval [m]
