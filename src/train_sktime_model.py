@@ -7,6 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from torch import nn
+import numpy as np
 from torch.utils.data import DataLoader
 from sktime.regression.dummy import DummyRegressor
 from sktime.regression.kernel_based import RocketRegressor
@@ -41,19 +42,21 @@ def train(model: DummyRegressor, train_loader: DataLoader, val_loader: DataLoade
 
         if val_loss < best_model_loss:
             best_model_loss = val_loss
-            model_path = os.path.join("models", args.model, f"model_e{epoch}.pt")
+            model_path = os.path.join("models", args.model_name, f"model_e{epoch}")
+            if not os.path.exists(os.path.dirname(model_path)):
+                os.makedirs(os.path.dirname(model_path))
             mlflow_sktime.save_model(sktime_model=model, path=model_path)
 
-            artifact = wandb.Artifact(name=f"model_e{epoch}", type='model')
-            artifact.add_file(model_path)
-            run.log_artifact(artifact)
+            # artifact = wandb.Artifact(name=f"model_e{epoch}", type='model')
+            # artifact.add_dir(model_path)
+            # run.log_artifact(artifact)
 
         wandb.log({
             "train_loss": train_loss, 
             "val_loss": val_loss,
             "epoch": epoch
             })
-        
+
         iterator.set_description(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
 
@@ -84,9 +87,9 @@ if __name__ == "__main__":
     # Load the data
     print("### Loading the data ###") if args.verbose else None
     trainset = Platoon(data_type='train', window_size=args.window_size)
-    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=3)
+    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=1)
     valset = Platoon(data_type='val', window_size=args.window_size)
-    val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=3)
+    val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=1)
     print("### Loading the data completed ###") if args.verbose else None
 
     # Define the model

@@ -6,6 +6,9 @@ docs/site/
 # virtualenv
 fleetenv/
 
+# models
+models/
+
 # test cache
 manual_test/
 
