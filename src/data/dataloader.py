@@ -5,23 +5,44 @@ import csv
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', windowsize=10, rut='straight-edge', transform=None):
-        self.windowsize = windowsize # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
+    def __init__(self, data_path='data/processed', data_type='train', window_size=10, rut='straight-edge', random_state=42,  transform=None):
+        self.windowsize = window_size # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
         self.rut = rut
-        self.aran = sorted(glob.glob(data_path + '/aran/*.csv'))
-        self.gm = sorted(glob.glob(data_path + '/gm/*.csv'))
+        self.aran_paths = sorted(glob.glob(data_path + '/aran/*.csv'))
+        self.gm_paths  = sorted(glob.glob(data_path + '/gm/*.csv'))
         # self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
         # self.p79 = sorted(glob.glob(data_path + '/p79/*.csv'))
 
+        # Create indices for train, test and validation
+        X = np.arange(len(self.aran_paths))
+        # split into train, test and validation
+        train_indices, test_indices, _, _ = train_test_split(X, X, test_size=0.2, random_state=random_state)
+        train_indices, val_indices, _, _ = train_test_split(train_indices, train_indices, test_size=0.1, random_state=random_state)
+        
+        if data_type == 'train':
+            self.aran_paths = [self.aran_paths[i] for i in train_indices]
+            self.gm_paths = [self.gm_paths[i] for i in train_indices]
+        elif data_type == 'test':
+            self.aran_paths = [self.aran_paths[i] for i in test_indices]
+            self.gm_paths = [self.gm_paths[i] for i in test_indices]
+        elif data_type == 'val':
+            self.aran_paths = [self.aran_paths[i] for i in val_indices]
+            self.gm_paths = [self.gm_paths[i] for i in val_indices]
+        else:
+            raise ValueError('data_type must be either "train", "test" or "val"')
+
+
+
     def __len__(self):
-        return len(self.aran)
+        return len(self.aran_paths)
     
     def __getitem__(self, idx):
         # Read data
-        aran = pd.read_csv(self.aran[idx], sep=';', encoding='utf8', engine='pyarrow').fillna(0)
-        gm = pd.read_csv(self.gm[idx], sep=';', encoding='utf8', engine='pyarrow')
+        aran = pd.read_csv(self.aran_paths[idx], sep=';', encoding='utf8', engine='pyarrow').fillna(0)
+        gm = pd.read_csv(self.gm_paths[idx], sep=';', encoding='utf8', engine='pyarrow')
         # gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
         # p79 = pd.read_csv(self.p79[idx], sep=';', encoding='utf8', engine='pyarrow')
 
@@ -130,7 +151,7 @@ class Platoon(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    data = Platoon()
+    data = Platoon(data_type='train')
 
     for i in range(len(data)):
         print(data[i])
