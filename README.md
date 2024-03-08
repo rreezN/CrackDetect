@@ -23,3 +23,7 @@ Have `python >= 3.10`?
 
 To activate venv:
 `.\fleetenv\Scripts\Activate.ps1`
+
+# SKTime data explanation
+[Here](https://github.com/sktime/sktime/blob/main/examples/AA_datatypes_and_datasets.ipynb) is a notebook containing explanations and examples for the various datatypes that SKTime can use.
+[Here](https://www.sktime.net/en/latest/examples/02_classification.html) is another quick start guide to SKTime regression.

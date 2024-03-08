@@ -3,6 +3,9 @@
 
 docs/site/
 
+# Wandb
+wandb/
+
 # virtualenv
 fleetenv/
 
