@@ -53,38 +53,46 @@ def unpack_hdf5_(group, convert: bool = False):
     return data
 
 
-def save_hdf5(data, hdf5_file):
-    with h5py.File(hdf5_file, 'w') as f:
-        save_hdf5_(data, f)
+def save_hdf5(data, hdf5_file, segment_id: str = None):
+    if segment_id is None:
+        with h5py.File(hdf5_file, 'w') as f:
+            save_hdf5_(data, f)
+    else:
+        with h5py.File(hdf5_file, 'a') as f:
+            segment_group = f.create_group(str(segment_id))
+            save_hdf5_(data, segment_group)
 
 
 def save_hdf5_(data, group):
     for key, value in data.items():
+        key = key.replace('/', '_')
         if isinstance(value, dict):
             subgroup = group.create_group(key)
             save_hdf5_(value, subgroup)
         else:
             if isinstance(value, np.ndarray):
                 group.create_dataset(key, data=value)
+            elif isinstance(value, pd.Series):
+                group.create_dataset(key, data=value.values)
             elif isinstance(value, str):
                 group.create_dataset(key, data=value.encode('utf-8'))
     
 
-def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10):
+def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0):
     # direction is either 'hh' or 'vh'
     pbar = tqdm(autopi.items())
-    segment_index = 0
     for trip_name, trip in pbar:
         for pass_name, pass_ in trip.items():
             pbar.set_description(f"Interpolating {trip_name} {pass_name}")
             segments = segment_gm_trip(pass_, trip_name, pass_name, direction, speed_threshold=speed_threshold, time_threshold=time_threshold)
             for segment in segments:
                 # Save the segment dictionary to a hdf5 file
-                segment_path = Path(f'data/interim/gm/segment_{segment_index:03d}.hdf5')
-                save_hdf5(segment, segment_path)
+                segment_path = Path(f'data/interim/gm/segments.hdf5')
+                save_hdf5(segment, segment_path, segment_id=segment_index)
 
                 # Increment the segment index
                 segment_index += 1
+    return segment_index
 
 
 def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10):
@@ -138,8 +146,8 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
 def find_best_start_and_end_indeces_by_time(current_segment, gopro_time):
     # Find the start and end indeces of the section data based on time
     
-    current_segment_start_time = current_segment["measurements"]["gps"][0][0]
-    current_segment_end_time = current_segment["measurements"]["gps"][-1][0]
+    current_segment_start_time = current_segment["measurements"]["gps"][()][0, 0]
+    current_segment_end_time = current_segment["measurements"]["gps"][()][-1, 0]
     segment_time = [current_segment_start_time, current_segment_end_time]
     
     diff_start = (gopro_time - segment_time[0]).abs()
@@ -175,13 +183,13 @@ def calculate_distance_from_time_and_speed(time, speed, conversion_factor=1):
     return distance
 
 
-def resample_gm(section: dict, frequency: int = 250):
+def resample_gm(section: h5py.Group, frequency: int = 250):
     # Resample the gm data to a fixed frequency by interpolating the measurements by distance
 
     # Calculate the distance between each point
     time, speed = remove_duplicates(
-        section['measurements']['spd_veh'][:, 0],
-        section['measurements']['spd_veh'][:, 1]
+        section['measurements']['spd_veh'][()][:, 0],
+        section['measurements']['spd_veh'][()][:, 1]
     )
     distance = calculate_distance_from_time_and_speed(time, speed, 3.6)
 
@@ -193,15 +201,17 @@ def resample_gm(section: dict, frequency: int = 250):
 
     # Create a new section pd dataframe
     new_section = {
-        "trip_name": np.repeat(section["trip_name"], n_samples),
-        "pass_name": np.repeat(section["pass_name"], n_samples),
-        "direction": np.repeat(section["direction"], n_samples),
+        "trip_name": section["trip_name"],
+        "pass_name": section["pass_name"],
+        "direction": section["direction"],
+        "measurements": {}
     }
 
-    new_section["time"] = resampled_time
-    new_section["distance"] = resampled_distance
+    new_section["measurements"]["time"] = resampled_time
+    new_section["measurements"]["distance"] = resampled_distance
 
     for key, measurement in section['measurements'].items():
+        measurement = measurement[()]
         measurement_time, measurement_value = remove_duplicates(measurement[:, 0], measurement[:, 1:])
 
         # Interpolate distance by time
@@ -210,64 +220,67 @@ def resample_gm(section: dict, frequency: int = 250):
         if measurement_value.shape[1] > 1:
             # If the measurement is not 1D, add a column for each dimension
             for i in range(measurement_value.shape[1]):
-                new_section[f"{key}_{i}"] = interpolate(measurement_distance, measurement_value[:, i], resampled_distance)
+                new_section["measurements"][f"{key}_{i}"] = interpolate(measurement_distance, measurement_value[:, i], resampled_distance)
         else:
-            new_section[key] = interpolate(measurement_distance, measurement_value.flatten(), resampled_distance)
+            new_section["measurements"][key] = interpolate(measurement_distance, measurement_value.flatten(), resampled_distance)
 
-    # Convert the new section to a pd dataframe
-    new_section = pd.DataFrame(new_section)
     return new_section
 
 
-def resample_p79(section: pd.DataFrame, resampled_distances: np.ndarray):
-    distance = section["Distance [m]"].values - section["Distance [m]"].values.min()
-    new_section = {
-        "distance": resampled_distances,
-    }
-    for key in section.columns:
-        new_section[key] = interpolate(distance, section[key].values, resampled_distances)
-    new_section = pd.DataFrame(new_section)
-    return new_section
+def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray):
+    gps5 = section["gps5"]
+    gps5_time, gps5_speed = gps5["date"][()], gps5["GPS (3D speed) [m_s]"][()]
+    accl = section["accl"]
+    accl_time = accl["date"][()]
+    gyro = section["gyro"]
+    gyro_time = gyro["date"][()]
 
-
-def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
-    distance = np.abs(section["BeginChainage"].values - section["BeginChainage"].values[0])
-    new_section = {
-        "distance": resampled_distances,
-    }
-    for key in section.columns:
-        if section[key].values.dtype == 'O':
-            # Skip object columns
-            continue
-        new_section[key] = interpolate(distance, section[key].fillna(0).values, resampled_distances)
-    new_section = pd.DataFrame(new_section)
-    return new_section
-
-
-def resample_gopro(accl: pd.DataFrame, gps5: pd.DataFrame, gyro: pd.DataFrame, resampled_distances: np.ndarray):
     # Interpolate the speed measurements from the GPS data
-    gps5_time, gps5_speed = gps5["date"].values, gps5["GPS (3D speed) [m/s]"].values
-    interpolate_accl_speed = interpolate(gps5_time, gps5_speed, accl["date"].values)
-    interpolate_gyro_speed = interpolate(gps5_time, gps5_speed, gyro["date"].values)
+    interpolate_accl_speed = interpolate(gps5_time, gps5_speed, accl_time)
+    interpolate_gyro_speed = interpolate(gps5_time, gps5_speed, gyro_time)
 
     # Calculate distances
     measurement_distances = {
-        "accl": calculate_distance_from_time_and_speed(accl["date"].values, interpolate_accl_speed),
+        "accl": calculate_distance_from_time_and_speed(accl_time, interpolate_accl_speed),
         "gps5": calculate_distance_from_time_and_speed(gps5_time, gps5_speed),
-        "gyro": calculate_distance_from_time_and_speed(gyro["date"].values, interpolate_gyro_speed)
+        "gyro": calculate_distance_from_time_and_speed(gyro_time, interpolate_gyro_speed)
     }
 
     new_section = {
         "distance": resampled_distances,
     }
     for name, measurement in zip(["accl", 'gps5', 'gyro'], [accl, gps5, gyro]):
-        for key in measurement.columns:
-            if key in new_section.keys() or measurement[key].values.dtype == 'O':
+        for key, value in measurement.items():
+            if key in new_section.keys():
                 # Skip object columns and duplicates
                 continue
-            new_section[key] = interpolate(measurement_distances[name], measurement[key].values, resampled_distances)
-    new_section = pd.DataFrame(new_section)
+            new_section[key] = interpolate(measurement_distances[name], value[()], resampled_distances)
     return new_section
+
+
+# def resample_p79(section: h5py.Group, resampled_distances: np.ndarray):
+#     distance_array = section["Distance [m]"][()]
+#     distance = distance_array - distance_array.min()
+#     new_section = {
+#         "distance": resampled_distances,
+#     }
+#     for key, measurement in section.items():
+#         new_section[key] = interpolate(distance, measurement[()], resampled_distances)
+#     return new_section
+
+
+# def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
+#     distance = np.abs(section["BeginChainage"].values - section["BeginChainage"].values[0])
+#     new_section = {
+#         "distance": resampled_distances,
+#     }
+#     for key in section.columns:
+#         if section[key].values.dtype == 'O':
+#             # Skip object columns
+#             continue
+#         new_section[key] = interpolate(distance, section[key].fillna(0).values, resampled_distances)
+#     new_section = pd.DataFrame(new_section)
+#     return new_section
 
 
 def csv_files_together(car_trip, go_pro_names, car_number):
@@ -278,8 +291,9 @@ def csv_files_together(car_trip, go_pro_names, car_number):
             trip_folder = f"data/raw/gopro_data/{car_number}/{trip_id}"
             new_data = pd.read_csv(f'{trip_folder}/{trip_id}_HERO8 Black-{measurement.upper()}.csv')
             new_data['date'] = pd.to_datetime(new_data['date']).map(dt.datetime.timestamp)
-            if "unknow" in new_data.columns:
-                new_data.drop("unknown")
+            
+            # Drop all non-float columns
+            new_data = new_data.select_dtypes(include=['float64', 'float32'])
         
             if gopro_data is not None:
                 gopro_data = pd.concat([gopro_data, new_data])
@@ -287,7 +301,7 @@ def csv_files_together(car_trip, go_pro_names, car_number):
                 gopro_data = new_data
             
         # save gopro_data[measurement
-        new_folder = f"data/raw/gopro_data/{car_trip}"
+        new_folder = f"data/interim/gopro/{car_trip}"
         Path(new_folder).mkdir(parents=True, exist_ok=True)
         
         gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
@@ -299,9 +313,9 @@ def convert():
     autopi_hh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', convert=True)
     autopi_vh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5', convert=True)
 
-    Path('data/raw/gm').mkdir(parents=True, exist_ok=True)
-    save_hdf5(autopi_hh, 'data/raw/gm/converted_platoon_CPH1_HH.hdf5')
-    save_hdf5(autopi_vh, 'data/raw/gm/converted_platoon_CPH1_VH.hdf5')
+    Path('data/interim/gm').mkdir(parents=True, exist_ok=True)
+    save_hdf5(autopi_hh, 'data/interim/gm/converted_platoon_CPH1_HH.hdf5')
+    save_hdf5(autopi_vh, 'data/interim/gm/converted_platoon_CPH1_VH.hdf5')
     
     # Create gopro data for the three trips
     car_trips = ["16011", "16009", "16006"]
@@ -324,127 +338,135 @@ def convert():
 
 def segment():
     # Load data
-    autopi_hh = unpack_hdf5('data/raw/gm/converted_platoon_CPH1_HH.hdf5', convert=False)
-    autopi_vh = unpack_hdf5('data/raw/gm/converted_platoon_CPH1_VH.hdf5', convert=False)
+    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5', convert=False)
+    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5', convert=False)
 
-    # Create folders for saving
-    Path('data/interim/gm').mkdir(parents=True, exist_ok=True)
+    # Remove old segment file if it exists
+    segment_path = Path('data/interim/gm/segments.hdf5')
+    if segment_path.exists():
+        segment_path.unlink()
 
     # Segment data
-    segment_gm(autopi_hh['GM'], 'hh')
-    segment_gm(autopi_vh['GM'], 'vh')
+    segment_index = segment_gm(autopi_hh['GM'], 'hh')
+    segment_gm(autopi_vh['GM'], 'vh', segment_index=segment_index)
 
 
 def match_data():
-    # Find gm segment files
-    segment_files = glob('data/interim/gm/*.hdf5')
-    segment_files = sorted(segment_files)
+    # Define path to segment files
+    segment_file = 'data/interim/gm/segments.hdf5'
 
     # Load reference and GoPro data
-    aran_hh = pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape')
-    aran_vh = pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape')
+    aran = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
+    }
 
-    p79_hh = pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape')
-    p79_vh = pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+    p79 = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+    }
     
     gopro_data = {}
     car_trips = ["16011", "16009", "16006"]
     for trip_id in car_trips:
         gopro_data[trip_id] = {}
         for measurement in ['gps5', 'accl', 'gyro']:
-            gopro_data[trip_id][measurement] = pd.read_csv(f'data/raw/gopro_data/{trip_id}/{measurement}.csv')
+            gopro_data[trip_id][measurement] = pd.read_csv(f'data/interim/gopro/{trip_id}/{measurement}.csv')
 
     # Create folders for saving
     Path('data/interim/aran').mkdir(parents=True, exist_ok=True)
     Path('data/interim/p79').mkdir(parents=True, exist_ok=True)
+    Path('data/interim/gopro').mkdir(parents=True, exist_ok=True)
+
+    # Remove old segment files if they exist
+    for folder in ['aran', 'p79', 'gopro']:
+        segment_path = Path(f'data/interim/{folder}/segments.hdf5')
+        if segment_path.exists():
+            segment_path.unlink()
 
     # Match data
-    pbar = tqdm(segment_files)
-    for i, segment_file in enumerate(pbar):
-        pbar.set_description(f"Matching {segment_file.split('/')[-1]}")
-        segment = unpack_hdf5(segment_file)
+    with h5py.File(segment_file, 'r') as f:
+        segment_files = [f[str(i)] for i in range(len(f))]
+        pbar = tqdm(segment_files)
+        for i, segment in enumerate(pbar):
+            pbar.set_description(f"Matching segment {i+1:03d}/{len(segment_files)}")
 
-        segment_lonlat = segment['measurements']['gps'][:, 2:0:-1]
+            direction = segment['direction'][()].decode("utf-8")
+            trip_name = segment["trip_name"][()].decode('utf-8')
+            pass_name = segment["pass_name"][()].decode('utf-8')
 
-        if segment['direction'] == 'hh':
+            segment_lonlat = segment['measurements']['gps'][()][:, 2:0:-1]
+
+            aran_dir = aran[direction]
+            p79_dir = p79[direction]
+
             # Match to ARAN data
-            aran_hh_match = find_best_start_and_end_indeces_by_lonlat(aran_hh[["Lon", "Lat"]].values, segment_lonlat)
-            aran_segment = cut_dataframe_by_indeces(aran_hh, *aran_hh_match)
-            aran_segment.to_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';', index=False)
+            aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
+            aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
+            save_hdf5(aran_segment, 'data/interim/aran/segments.hdf5', segment_id=i)
 
             # Match to P79 data
-            p79_hh_match = find_best_start_and_end_indeces_by_lonlat(p79_hh[["Lon", "Lat"]].values, segment_lonlat)
-            p79_segment = cut_dataframe_by_indeces(p79_hh, *p79_hh_match)
-            p79_segment.to_csv(f'data/interim/p79/segment_{i:03d}.csv', sep=';', index=False)
-        else:
-            # Match to ARAN data
-            aran_vh_match = find_best_start_and_end_indeces_by_lonlat(aran_vh[["Lon", "Lat"]].values, segment_lonlat)
-            aran_segment = cut_dataframe_by_indeces(aran_vh, *aran_vh_match)
-            aran_segment.to_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';', index=False)
-
-            # Match to P79 data
-            p79_vh_match = find_best_start_and_end_indeces_by_lonlat(p79_vh[["Lon", "Lat"]].values, segment_lonlat)
-            p79_segment = cut_dataframe_by_indeces(p79_vh, *p79_vh_match)
-            p79_segment.to_csv(f'data/interim/p79/segment_{i:03d}.csv', sep=';', index=False)
-            
-        # gopro is a little different..
-        current_segment = unpack_hdf5(segment_file)
-        if current_segment["trip_name"] not in ["16006", "16009", "16011"]:
-            continue
-        
-        for measurement in ['gps5', 'accl', 'gyro']:
-            start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(current_segment, gopro_data[current_segment["trip_name"]][measurement]["date"])
-
-            if max(start_diff, end_diff) > 1:
+            p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
+            p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
+            save_hdf5(p79_segment, 'data/interim/p79/segments.hdf5', segment_id=i)
+                
+            # gopro is a little different..
+            if trip_name not in ["16006", "16009", "16011"]:
                 continue
             
-            gopro_segment = gopro_data[current_segment["trip_name"]][measurement][start_index:end_index]
-            Path(f"data/interim/gopro/{measurement}/").mkdir(parents=True, exist_ok=True)
-            gopro_segment.to_csv(f'data/interim/gopro/{measurement}/segment_{i:03d}.csv', sep=';', index=False)
+            gopro_segment = {}
+            for measurement in ['gps5', 'accl', 'gyro']:
+                start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(segment, gopro_data[trip_name][measurement]["date"])
 
+                if max(start_diff, end_diff) > 1:
+                    continue
+                
+                gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
+
+            save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
 
 def resample():
 # Resample the gm data to a fixed frequency
-    segment_files = glob('data/interim/gm/*.hdf5')
-    segment_files = sorted(segment_files)
-
-    print("Hej fra resample :-)")
+    gm_segment_file = 'data/interim/gm/segments.hdf5'
     
     Path('data/processed/gm').mkdir(parents=True, exist_ok=True)
     Path('data/processed/aran').mkdir(parents=True, exist_ok=True)
     Path('data/processed/p79').mkdir(parents=True, exist_ok=True)
     Path('data/processed/gopro').mkdir(parents=True, exist_ok=True)
 
-    pbar = tqdm(segment_files)
-    for i, segment_file in enumerate(pbar):
-        if i < 120:
-            continue
-        pbar.set_description(f"Resampling {segment_file.split('/')[-1]}")
-        segment = unpack_hdf5(segment_file)
-        resampled_segment = resample_gm(segment)
-        resampled_segment.to_csv(f'data/processed/gm/segment_{i:03d}.csv', sep=';', index=False)
+    with h5py.File(gm_segment_file, 'r') as f:
+        segment_files = [f[str(i)] for i in range(len(f))]
+        pbar = tqdm(segment_files)
+        with h5py.File('data/interim/gopro/segments.hdf5', 'r') as f2:
+            for i, segment in enumerate(pbar):
+                pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
 
-        # Resample the P79
-        p79_segment = pd.read_csv(f'data/interim/p79/segment_{i:03d}.csv', sep=';')
-        resampled_distances = resampled_segment["distance"].values
-        resampled_p79_segment = resample_p79(p79_segment, resampled_distances)
-        resampled_p79_segment.to_csv(f'data/processed/p79/segment_{i:03d}.csv', sep=';', index=False)
-        
-        # Resample the ARAN
-        aran_segment = pd.read_csv(f'data/interim/aran/segment_{i:03d}.csv', sep=';').fillna(0)
-        resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
-        resampled_aran_segment.to_csv(f'data/processed/aran/segment_{i:03d}.csv', sep=';', index=False)
-        
-        # TODO Resample the GoPro data
-        try:
-            accl = pd.read_csv(f'data/interim/gopro/accl/segment_{i:03d}.csv', sep=';')
-            gps5 = pd.read_csv(f'data/interim/gopro/gps5/segment_{i:03d}.csv', sep=';')
-            gyro = pd.read_csv(f'data/interim/gopro/gyro/segment_{i:03d}.csv', sep=';')
-        except FileNotFoundError:
-            continue
-        
-        resampled_gopro_segment = resample_gopro(accl, gps5, gyro, resampled_distances)
-        resampled_gopro_segment.to_csv(f'data/processed/gopro/segment_{i:03d}.csv', sep=';', index=False)
+                # Resample the GM data
+                resampled_gm_segment = resample_gm(segment)
+                resampled_distances = resampled_gm_segment["measurements"]["distance"]
+                
+                # TODO Resample the GoPro data
+                if str(i) in f2.keys():
+                    gopro_segment = f2[str(i)]
+                    resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
+
+                
+                # Split GM, GoPro, P79 and ARAN data into 1 second segments
+
+
+                # resampled_gopro_segment = resample_gopro(accl, gps5, gyro, resampled_distances)
+                # resampled_gopro_segment.to_csv(f'data/processed/gopro/segment_{i:03d}.csv', sep=';', index=False)
+
+                
+                # Resample the P79
+                # with h5py.File('data/interim/p79/segments.hdf5', 'r') as f:
+                #     p79_segment = f[str(i)]
+                #     resampled_p79_segment = resample_p79(p79_segment, resampled_distances)
+                
+                # Resample the ARAN
+                # with h5py.File('data/interim/aran/segments.hdf5', 'r') as f:
+                #     aran_segment = f[str(i)]
+                #     resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
         
         
             
