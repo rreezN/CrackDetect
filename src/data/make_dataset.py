@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import h5py
 import datetime as dt
+import matplotlib.pyplot as plt
 from pathlib import Path
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -72,7 +73,7 @@ def save_hdf5_(data, group):
         else:
             if isinstance(value, np.ndarray):
                 group.create_dataset(key, data=value)
-            elif isinstance(value, pd.Series):
+            elif isinstance(value, pd.Series) and not value.dtype == 'O':
                 group.create_dataset(key, data=value.values)
             elif isinstance(value, str):
                 group.create_dataset(key, data=value.encode('utf-8'))
@@ -421,57 +422,113 @@ def match_data():
                 if max(start_diff, end_diff) > 1:
                     continue
                 
-                # TODO when i=2 gopor_segment is empty..?
                 gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
 
-            save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
+            if gopro_segment != {}:
+                save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
 
 def resample():
-# Resample the gm data to a fixed frequency
+    # Resample the gm data to a fixed frequency
+    frequency = 250
+    seconds_per_step = 1
+
+    aran_counts = []
+    p79_counts = []
+
     gm_segment_file = 'data/interim/gm/segments.hdf5'
     
-    Path('data/processed/gm').mkdir(parents=True, exist_ok=True)
-    Path('data/processed/aran').mkdir(parents=True, exist_ok=True)
-    Path('data/processed/p79').mkdir(parents=True, exist_ok=True)
-    Path('data/processed/gopro').mkdir(parents=True, exist_ok=True)
+    Path('data/processed').mkdir(parents=True, exist_ok=True)
 
-    for folder in ["aran", "p79", "gopro", "gm"]:
-        segment_path = Path(f'data/processed/{folder}/segments.hdf5')
-        if segment_path.exists():
-            segment_path.unlink()
-        
+    segment_path = Path(f'data/processed/segments.hdf5')
+    if segment_path.exists():
+        segment_path.unlink()
+    
+    # Load raw reference data
+        # Load reference and GoPro data
+    aran = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
+    }
+
+    p79 = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+    }
+
     with h5py.File(gm_segment_file, 'r') as f:
         segment_files = [f[str(i)] for i in range(len(f))]
         pbar = tqdm(segment_files)
         with h5py.File('data/interim/gopro/segments.hdf5', 'r') as f2:
-            with h5py.File('data/processed/gopro/segments.hdf5', 'a') as f3:
+            with h5py.File('data/processed/segments.hdf5', 'a') as f3:
                 for i, segment in enumerate(pbar):
                     pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
-                    segment_gopro_subgroup = f3.create_group(str(i))
+                    segment_subgroup = f3.create_group(str(i))
+
+                    # Get relevant reference data
+                    direction = segment['direction'][()].decode("utf-8")
+                    aran_dir = aran[direction]
+                    p79_dir = p79[direction]
 
                     # Resample the GM data
-                    resampled_gm_segment = resample_gm(segment)
+                    resampled_gm_segment = resample_gm(segment, frequency=frequency)
                     resampled_distances = resampled_gm_segment["measurements"]["distance"]
-                    
-                    # TODO Resample the GoPro data
-                    if str(i) in f2.keys():       
+
+                    # Cut the aran and p79 data by the lonlat of the segment
+                    bit_lon = resampled_gm_segment['measurements']['gps_1']
+                    bit_lat = resampled_gm_segment['measurements']['gps_0']
+                    bit_lonlat = np.column_stack((bit_lon, bit_lat))
+                    aran_segment_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, bit_lonlat)
+                    aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_segment_match)
+
+                    p79_segment_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, bit_lonlat)
+                    p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_segment_match)
+
+                    # resample the gopro data
+                    gopro_data_exists = False
+                    if str(i) in f2.keys():
+                        gopro_data_exists = True
                         gopro_segment = f2[str(i)]
                         resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
-                        # save the resampled gopro data in groups of 250 in a hdf5 file
-                        for j in range(250, len(resampled_gopro_segment["distance"]), 250):
-                            time_subgroup = segment_gopro_subgroup.create_group(str(int(j/250)))
+
+                    # Cut segments into 1 second bits
+                    steps = (len(resampled_distances) // (frequency * seconds_per_step))
+                    for j in range(steps):
+                        start = j*frequency*seconds_per_step
+                        end = (j+1)*frequency*seconds_per_step
+                        time_subgroup = segment_subgroup.create_group(str(j))
+
+                        # Save the resampled GM data in groups of 'frequency' length
+                        gm_group = time_subgroup.create_group("gm")
+                        gm_measurements = {}
+                        for key, value in resampled_gm_segment.items():
+                            if key == "measurements":
+                                for measurement_key, measurement_value in value.items():
+                                    values = measurement_value[start: end]
+                                    gm_measurements[measurement_key] = values
+                            else:
+                                gm_group.create_dataset(key, data=value)
+                        save_hdf5_(gm_group, time_subgroup)
+
+                        if gopro_data_exists:
+                            # save the resampled gopro data in groups of 'frequency' length
+                            gopro_group = time_subgroup.create_group("gopro")
                             for key, value in resampled_gopro_segment.items():
-                                    values = value[j-250:j]
-                                    time_subgroup.create_dataset(key, data=values)
-        
-        debug = 1
-                
-                # Split GM, GoPro, P79 and ARAN data into 1 second segments
+                                values = value[start: end]
+                                gopro_group.create_dataset(key, data=values)
+            
+                        # Find the corresponding ARAN and P79 data for each 1 second bit using closest lonlat points
+                        aran_group = time_subgroup.create_group("aran")
+                        bit_lonlat_time = bit_lonlat[start: end]
+                        aran_match_bit = find_best_start_and_end_indeces_by_lonlat(aran_segment[["Lon", "Lat"]].values, bit_lonlat_time)
+                        aran_bit = cut_dataframe_by_indeces(aran_segment, *aran_match_bit).to_dict('series')
+                        save_hdf5_(aran_bit, aran_group)
+                        aran_counts.append(len(aran_bit["BeginChainage"]))
 
-
-                # resampled_gopro_segment = resample_gopro(accl, gps5, gyro, resampled_distances)
-                # resampled_gopro_segment.to_csv(f'data/processed/gopro/segment_{i:03d}.csv', sep=';', index=False)
-
+                        p79_group = time_subgroup.create_group("p79")
+                        p79_match_bit = find_best_start_and_end_indeces_by_lonlat(p79_segment[["Lon", "Lat"]].values, bit_lonlat_time)
+                        p79_bit = cut_dataframe_by_indeces(p79_segment, *p79_match_bit).to_dict('series')
+                        save_hdf5_(p79_bit, p79_group)
+                        p79_counts.append(len(p79_bit["Distance [m]"]))
                 
                 # Resample the P79
                 # with h5py.File('data/interim/p79/segments.hdf5', 'r') as f:
@@ -482,7 +539,19 @@ def resample():
                 # with h5py.File('data/interim/aran/segments.hdf5', 'r') as f:
                 #     aran_segment = f[str(i)]
                 #     resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
-        
+    
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].hist(aran_counts, bins=20)
+    axes[0].set_title("ARAN segment length distribution")
+    axes[0].set_xlabel("Number of points")
+    axes[0].set_ylabel("Frequency")
+    axes[1].hist(p79_counts, bins=20)
+    axes[1].set_title("P79 segment length distribution")
+    axes[1].set_xlabel("Number of points")
+    axes[1].set_ylabel("Frequency")
+    plt.tight_layout()
+    plt.show()
+    
         
             
 if __name__ == '__main__':
