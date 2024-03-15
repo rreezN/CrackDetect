@@ -64,8 +64,10 @@ class Platoon(torch.utils.data.Dataset):
         # Split other data correspondingly
         # p79_split = [p79[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
         gm_split = [gm[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
+        # Cut each entry in gm_split to length 10
+        gm_split = [df[:11] for df in gm_split]
 
-        train = np.array([df['acc.xyz_2'].to_numpy() for df in gm_split], dtype=object) # NOTE look into more variables in the future
+        train = np.array([df['acc.xyz_2'].to_numpy() for df in gm_split]) # NOTE look into more variables in the future
         return train, KPIs # train data, labels
 
     def calculateWindowIndices(self, df):
