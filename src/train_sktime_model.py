@@ -9,6 +9,7 @@ from tqdm import tqdm
 from torch import nn
 import numpy as np
 from torch.utils.data import DataLoader
+from sktime.regression.base import BaseRegressor
 from sktime.regression.dummy import DummyRegressor
 from sktime.regression.kernel_based import RocketRegressor
 from sktime.utils import mlflow_sktime
@@ -16,7 +17,35 @@ from sktime.utils import mlflow_sktime
 from src.util.utils import set_all_seeds
 from src.data.dataloader import Platoon
 
-def train(model: DummyRegressor, train_loader: DataLoader, val_loader: DataLoader, args: argparse.Namespace) -> None:
+import warnings
+from sklearn.exceptions import DataConversionWarning
+# Ignore specific warning
+warnings.filterwarnings(action='ignore', category=UserWarning, module='sktime.base._base_panel')
+
+def create_batches(data, targets, batch_size):
+    num_batches = len(data) // batch_size
+
+    for i in range(num_batches):
+        start_idx = i * batch_size
+        end_idx = start_idx + batch_size
+        yield data[start_idx:end_idx], targets[start_idx:end_idx]
+
+    if len(data) % batch_size != 0:
+        start_idx = num_batches * batch_size
+        yield data[start_idx:], targets[start_idx:]
+
+def visualise_inhomo_array_object(data):
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            print(f"Row {i+1}, Column {j+1}: Length = {len(data[i, j])}")
+
+def mse_score(model: BaseRegressor, data: np.ndarray, target: np.ndarray):
+    from sklearn.metrics import mean_squared_error
+    target_pred = model.predict(data)
+    return -mean_squared_error(target, target_pred, sample_weight=None)
+
+
+def train(model: BaseRegressor, train_loader: DataLoader, val_loader: DataLoader, args: argparse.Namespace, batch_size: int = 1) -> None:
 
     iterator = tqdm(range(args.num_epochs), unit="epoch", position=0)
     best_model_loss = torch.inf
@@ -24,19 +53,46 @@ def train(model: DummyRegressor, train_loader: DataLoader, val_loader: DataLoade
     for epoch in iterator:
         train_loss = []
         for data_segment, target_segment in train_loader:
+            """ Batching and repeating """
+            # for data, target in create_batches(data_segment, target_segment, batch_size):
+            #     data_repeated = np.repeat(data[:, np.newaxis], target.shape[1], axis=1)
+            #     model.fit(data_repeated, target)
+            #     loss = model.score(data_repeated, target)
+            #     train_loss.append(loss.item())
+
             for data, target in zip(data_segment, target_segment):
-                data_repeated = np.repeat(data[np.newaxis, :], len(target), axis=0)
-                model.fit(data_repeated, target)
-                loss = model.score(data_repeated, target)
-                train_loss.append(loss.item())
+                # data_repeated = np.repeat(data[np.newaxis, :], len(target), axis=0)
+                data = data[None, None, :]
+                target = np.array([target])
+
+                model.fit(data, target)
+                # loss = model.score(data, target) # NOTE: R^2 does not work for single value target
+                loss = mse_score(model, data, target)
+                if isinstance(loss, float):
+                    train_loss.append(loss)
+                else:
+                    train_loss.append(loss.item())
 
         val_loss = []
         for data_segment, target_segment in val_loader:
+            """ Batching and repeating """
+            # for data, target in create_batches(data_segment, target_segment, batch_size):
+            #     data_repeated = np.repeat(data[:, np.newaxis], target.shape[1], axis=1)
+            #     loss = model.score(data_repeated, target)
+            #     val_loss.append(loss.item())
+            
             for data, target in zip(data_segment, target_segment):
-                data_repeated = np.repeat(data[np.newaxis, :], len(target), axis=0)
-                loss = model.score(data_repeated, target)
-                val_loss.append(loss.item())
-        
+                data = data[None, :]
+                target = target[None, :]
+
+                model.fit(data, target)
+                # loss = model.score(data, target) # NOTE: R^2 does not work for single value target
+                loss = mse_score(model, data, target)
+                if isinstance(loss, float):
+                    val_loss.append(loss)
+                else:
+                    val_loss.append(loss.item())
+
         train_loss = sum(train_loss) / len(train_loss)
         val_loss = sum(val_loss) / len(val_loss)
 
@@ -66,9 +122,10 @@ if __name__ == "__main__":
     parser.add_argument("--project_name", type=str, default="Version 0.1")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num_epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=None)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--window_size", type=int, default=10, help="Window size for data in meters")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
+    parser.add_argument("--only_iri", type=bool, default=True, help="Only use IRI data")
 
     args = parser.parse_args()
     print(args) if args.verbose else None
@@ -86,19 +143,21 @@ if __name__ == "__main__":
 
     # Load the data
     print("### Loading the data ###") if args.verbose else None
-    trainset = Platoon(data_type='train', window_size=args.window_size)
-    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=1)
-    valset = Platoon(data_type='val', window_size=args.window_size)
-    val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=False, num_workers=1)
+    trainset = Platoon(data_type='train', window_size=args.window_size, only_iri=args.only_iri)
+    train_loader = DataLoader(trainset, batch_size=None, shuffle=True, num_workers=1)
+    valset = Platoon(data_type='val', window_size=args.window_size, only_iri=args.only_iri)
+    val_loader = DataLoader(valset, batch_size=None, shuffle=False, num_workers=1)
     print("### Loading the data completed ###") if args.verbose else None
-
+        
     # Define the model
     if args.model_name == "dummy_regressor":
         model = DummyRegressor(strategy="mean")
+    elif args.model_name == "rocket_regressor":
+        model = RocketRegressor(rocket_transform="multirocket")
 
     # Train the model
     print("### Training the model ###") if args.verbose else None
-    train(model=model, train_loader=train_loader, val_loader=val_loader, args=args)
+    train(model=model, train_loader=train_loader, val_loader=val_loader, args=args, batch_size=args.batch_size)
     print("### Training the model completed ###") if args.verbose else None
 
     run.finish()

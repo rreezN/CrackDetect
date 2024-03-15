@@ -8,9 +8,10 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', data_type='train', window_size=10, rut='straight-edge', random_state=42,  transform=None):
+    def __init__(self, data_path='data/processed', data_type='train', window_size=10, rut='straight-edge', random_state=42, transform=None, only_iri=False):
         self.windowsize = window_size # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
         self.rut = rut
+        self.only_iri = only_iri
         self.aran_paths = sorted(glob.glob(data_path + '/aran/*.csv'))
         self.gm_paths  = sorted(glob.glob(data_path + '/gm/*.csv'))
         # self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
@@ -58,7 +59,7 @@ class Platoon(torch.utils.data.Dataset):
              Eller skal den måske regnes manuelt ud fra p79 data?
         """ 
         # Calculate KPIs for each window
-        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
+        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut, only_iri=self.only_iri) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
         
         # Split other data correspondingly
         # p79_split = [p79[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
@@ -76,7 +77,7 @@ class Platoon(torch.utils.data.Dataset):
                 count += 1
         return indices
 
-    def calculateKPIs(self, df, rut='straight-edge'):
+    def calculateKPIs(self, df, rut='straight-edge', only_iri=False):
         # damage index
         KPI_DI = self.damageIndex(df)
         # rutting index
@@ -85,6 +86,10 @@ class Platoon(torch.utils.data.Dataset):
         PI = self.patchingSum(df)
         # IRI
         IRI = self.iriMean(df)
+
+        if only_iri:
+            return np.array([IRI])
+        
         return np.array([KPI_DI, KPI_RUT, PI, IRI])
 
     def damageIndex(self, df):
