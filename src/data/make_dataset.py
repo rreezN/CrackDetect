@@ -421,6 +421,7 @@ def match_data():
                 if max(start_diff, end_diff) > 1:
                     continue
                 
+                # TODO when i=2 gopor_segment is empty..?
                 gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
 
             save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
@@ -434,22 +435,36 @@ def resample():
     Path('data/processed/p79').mkdir(parents=True, exist_ok=True)
     Path('data/processed/gopro').mkdir(parents=True, exist_ok=True)
 
+    for folder in ["aran", "p79", "gopro", "gm"]:
+        segment_path = Path(f'data/processed/{folder}/segments.hdf5')
+        if segment_path.exists():
+            segment_path.unlink()
+        
     with h5py.File(gm_segment_file, 'r') as f:
         segment_files = [f[str(i)] for i in range(len(f))]
         pbar = tqdm(segment_files)
         with h5py.File('data/interim/gopro/segments.hdf5', 'r') as f2:
-            for i, segment in enumerate(pbar):
-                pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
+            with h5py.File('data/processed/gopro/segments.hdf5', 'a') as f3:
+                for i, segment in enumerate(pbar):
+                    pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
+                    segment_gopro_subgroup = f3.create_group(str(i))
 
-                # Resample the GM data
-                resampled_gm_segment = resample_gm(segment)
-                resampled_distances = resampled_gm_segment["measurements"]["distance"]
-                
-                # TODO Resample the GoPro data
-                if str(i) in f2.keys():
-                    gopro_segment = f2[str(i)]
-                    resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
-
+                    # Resample the GM data
+                    resampled_gm_segment = resample_gm(segment)
+                    resampled_distances = resampled_gm_segment["measurements"]["distance"]
+                    
+                    # TODO Resample the GoPro data
+                    if str(i) in f2.keys():       
+                        gopro_segment = f2[str(i)]
+                        resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
+                        # save the resampled gopro data in groups of 250 in a hdf5 file
+                        for j in range(250, len(resampled_gopro_segment["distance"]), 250):
+                            time_subgroup = segment_gopro_subgroup.create_group(str(int(j/250)))
+                            for key, value in resampled_gopro_segment.items():
+                                    values = value[j-250:j]
+                                    time_subgroup.create_dataset(key, data=values)
+        
+        debug = 1
                 
                 # Split GM, GoPro, P79 and ARAN data into 1 second segments
 
