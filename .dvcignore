@@ -4,6 +4,4 @@
 
 data/interim
 data/processed
-data/raw/gm
-data/raw/gopro_data/16*
 data/.DS_Store
