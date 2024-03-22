@@ -46,32 +46,32 @@ class Platoon(torch.utils.data.Dataset):
              Eller skal den måske regnes manuelt ud fra p79 data?
         """
         data = self.segments[str(self.indices[idx])]
+        print(len(data))
         keys = sorted([int(x) for x in list(data.keys())])[self.windowsize:-self.windowsize]
 
         # Calculate KPIs for each window
         # KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut, only_iri=self.only_iri) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
         KPIs = []
+        gm_data = []
         for index in keys:
-            # aran_data = data[str(index)]['aran']
             aran_data_ws = []
-            gm_data_ws = []
             for i in range(index-self.windowsize, index+self.windowsize+1):
                 aran_data_ws.append(data[str(i)]['aran'])
-                gm_data_ws.append(data[str(i)]['gm'])
+            gm_data.append(data[str(index)]['gm']['measurements'])
             KPIs += [self.calculateKPIs(aran_data_ws, only_iri=self.only_iri)]
         KPIs = torch.stack(KPIs)
-
-        train = self.extractData(gm_data_ws, cols=self.gm_cols)
-
+        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), -1)
         return train, KPIs # train data, labels
 
     def extractData(self, df, cols):
         values = torch.tensor([])
+        long = []
         for data in df:
             for col in cols:
+                long+= [len(data[col][()])]
                 values = torch.cat((values, torch.tensor(data[col][()])))
         # reshape to (n, len(cols))
-        return values.reshape(-1, len(cols))
+        return values.view(-1, len(cols))
 
     def calculateWindowIndices(self, df):
         indices = [0]
@@ -169,7 +169,16 @@ class Platoon(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    data = Platoon(data_type='train')
+    import time
+    from torch.utils.data import DataLoader
 
-    for i in range(len(data)):
-        print(data[i])
+    trainset = Platoon(data_type='train', pm_windowsize=2)
+    train_loader = DataLoader(trainset, batch_size=None, shuffle=True, num_workers=0)
+
+    start = time.time()
+    i = 0
+    for data_segment, target_segment in train_loader:
+        end = time.time()
+        print(f'Index: {i}, Time: {end-start}')
+        start = time.time()
+        i+= 1
