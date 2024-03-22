@@ -3,6 +3,9 @@
 
 docs/site/
 
+# Hydra
+__pycache__/
+
 # Wandb
 wandb/
 
