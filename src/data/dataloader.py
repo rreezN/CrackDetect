@@ -1,13 +1,7 @@
 import torch
-import glob
-import os
-import csv
-import pandas as pd
-from tqdm import tqdm
 import numpy as np
-from sklearn.model_selection import train_test_split
 import h5py
-from voluptuous import extra
+from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
     def __init__(self, data_path='data/processed/segments.hdf5', data_type='train', gm_cols=['acc.xyz_1', 'acc.xyz_2'],
@@ -45,7 +39,7 @@ class Platoon(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         """
-        TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregne korrekt
+        TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregnet korrekt
 
         TODO Husk at rette IRI udregningerne til at være baseret på p79 data - hvis det er det vi gerne vil
              
@@ -56,9 +50,8 @@ class Platoon(torch.utils.data.Dataset):
         """
         # Define variable to contain the current segment data
         data = self.segments[str(self.indices[idx])]
-        # Get all the keys, corresponding to seconds in the segment (it is sorted in ascending order for good reason ;))
+        # Get all the keys, corresponding to seconds in the segment (it is sorted in ascending order for good reason ;)) NOTE we take the int as the keys are strings, and sorts them character-wise
         keys = sorted([int(x) for x in list(data.keys())])[self.windowsize:-self.windowsize] # Remove the first and last windows to avoid edge cases
-        
         # Calculate KPIs for each second
         KPIs = []
         gm_data = []
@@ -78,17 +71,17 @@ class Platoon(torch.utils.data.Dataset):
         train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), len(self.gm_cols), -1)
         return train, KPIs # train data, labels
 
-    def extractData(self, df, cols):
+    def extractData(self, df_list, cols):
         values = []
-        idx = tuple(df[0].attrs[col] for col in cols)
-        for data in df:
-            d = data[()][:, idx]
+        idx = tuple(df_list[0].attrs[col] for col in cols)
+        for df in df_list:
+            d = df[()][:, idx]
             values.append(torch.tensor(d))
         values = torch.vstack(values)
         return values
 
-    def calculateKPIs(self, df, only_iri=False):
-        df = self.extractData(df, cols=list(self.column_dict.keys()))
+    def calculateKPIs(self, df_list, only_iri=False):
+        df = self.extractData(df_list, cols=list(self.column_dict.keys()))
         # damage index
         KPI_DI = self.damageIndex(df)
         # rutting index
