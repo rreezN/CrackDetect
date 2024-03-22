@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 import h5py
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed/segments.hdf5', data_type='train', gm_cols=['acc.xyz_2'],
+    def __init__(self, data_path='data/processed/segments.hdf5', data_type='train', gm_cols=['acc.xyz_1', 'acc.xyz_2'],
                  pm_windowsize=1, rut='straight-edge', random_state=42, transform=None, only_iri=False):
         self.windowsize = pm_windowsize # NOTE This is a +- window_size in seconds (since each segment is divided into 1 second windows)
         self.rut = rut
@@ -60,15 +60,13 @@ class Platoon(torch.utils.data.Dataset):
             gm_data.append(data[str(index)]['gm']['measurements'])
             KPIs += [self.calculateKPIs(aran_data_ws, only_iri=self.only_iri)]
         KPIs = torch.stack(KPIs)
-        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), -1)
+        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), len(self.gm_cols), -1)    
         return train, KPIs # train data, labels
 
     def extractData(self, df, cols):
         values = torch.tensor([])
-        long = []
         for data in df:
             for col in cols:
-                long+= [len(data[col][()])]
                 values = torch.cat((values, torch.tensor(data[col][()])))
         # reshape to (n, len(cols))
         return values.view(-1, len(cols))
