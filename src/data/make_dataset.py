@@ -259,31 +259,6 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray):
     return new_section
 
 
-# def resample_p79(section: h5py.Group, resampled_distances: np.ndarray):
-#     distance_array = section["Distance [m]"][()]
-#     distance = distance_array - distance_array.min()
-#     new_section = {
-#         "distance": resampled_distances,
-#     }
-#     for key, measurement in section.items():
-#         new_section[key] = interpolate(distance, measurement[()], resampled_distances)
-#     return new_section
-
-
-# def resample_aran(section: pd.DataFrame, resampled_distances: np.ndarray):
-#     distance = np.abs(section["BeginChainage"].values - section["BeginChainage"].values[0])
-#     new_section = {
-#         "distance": resampled_distances,
-#     }
-#     for key in section.columns:
-#         if section[key].values.dtype == 'O':
-#             # Skip object columns
-#             continue
-#         new_section[key] = interpolate(distance, section[key].fillna(0).values, resampled_distances)
-#     new_section = pd.DataFrame(new_section)
-#     return new_section
-
-
 def csv_files_together(car_trip, go_pro_names, car_number):
     # Load all the gopro data 
     for measurement in ['accl', 'gps5', 'gyro']:
@@ -508,6 +483,7 @@ def resample():
                             else:
                                 gm_group.create_dataset(key, data=value)
                         save_hdf5_(gm_group, time_subgroup)
+                        save_hdf5_({"measurements": gm_measurements}, gm_group)
 
                         if gopro_data_exists:
                             # save the resampled gopro data in groups of 'frequency' length
@@ -529,16 +505,7 @@ def resample():
                         p79_bit = cut_dataframe_by_indeces(p79_segment, *p79_match_bit).to_dict('series')
                         save_hdf5_(p79_bit, p79_group)
                         p79_counts.append(len(p79_bit["Distance [m]"]))
-                
-                # Resample the P79
-                # with h5py.File('data/interim/p79/segments.hdf5', 'r') as f:
-                #     p79_segment = f[str(i)]
-                #     resampled_p79_segment = resample_p79(p79_segment, resampled_distances)
-                
-                # Resample the ARAN
-                # with h5py.File('data/interim/aran/segments.hdf5', 'r') as f:
-                #     aran_segment = f[str(i)]
-                #     resampled_aran_segment = resample_aran(aran_segment, resampled_distances)
+    
     
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     axes[0].hist(aran_counts, bins=20)
