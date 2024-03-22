@@ -202,14 +202,10 @@ def resample_gm(section: h5py.Group, frequency: int = 250):
 
     # Create a new section pd dataframe
     new_section = {
-        "trip_name": section["trip_name"],
-        "pass_name": section["pass_name"],
-        "direction": section["direction"],
-        "measurements": {}
     }
 
-    new_section["measurements"]["time"] = resampled_time
-    new_section["measurements"]["distance"] = resampled_distance
+    new_section["time"] = resampled_time
+    new_section["distance"] = resampled_distance
 
     for key, measurement in section['measurements'].items():
         measurement = measurement[()]
@@ -221,9 +217,9 @@ def resample_gm(section: h5py.Group, frequency: int = 250):
         if measurement_value.shape[1] > 1:
             # If the measurement is not 1D, add a column for each dimension
             for i in range(measurement_value.shape[1]):
-                new_section["measurements"][f"{key}_{i}"] = interpolate(measurement_distance, measurement_value[:, i], resampled_distance)
+                new_section[f"{key}_{i}"] = interpolate(measurement_distance, measurement_value[:, i], resampled_distance)
         else:
-            new_section["measurements"][key] = interpolate(measurement_distance, measurement_value.flatten(), resampled_distance)
+            new_section[key] = interpolate(measurement_distance, measurement_value.flatten(), resampled_distance)
 
     return new_section
 
@@ -421,13 +417,13 @@ def resample():
     # Load raw reference data
         # Load reference and GoPro data
     aran = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
+        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0).select_dtypes(include=np.number),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0).select_dtypes(include=np.number)
     }
 
     p79 = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape').select_dtypes(include=np.number),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape').select_dtypes(include=np.number)
     }
 
     with h5py.File(gm_segment_file, 'r') as f:
@@ -439,6 +435,11 @@ def resample():
                     pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
                     segment_subgroup = f3.create_group(str(i))
 
+                    # Add direction, trip name and pass name as attr to segment subgroup
+                    segment_subgroup.attrs['direction'] = segment['direction'][()].decode("utf-8")
+                    segment_subgroup.attrs['trip_name'] = segment["trip_name"][()].decode('utf-8')
+                    segment_subgroup.attrs['pass_name'] = segment["pass_name"][()].decode('utf-8')
+
                     # Get relevant reference data
                     direction = segment['direction'][()].decode("utf-8")
                     aran_dir = aran[direction]
@@ -446,11 +447,11 @@ def resample():
 
                     # Resample the GM data
                     resampled_gm_segment = resample_gm(segment, frequency=frequency)
-                    resampled_distances = resampled_gm_segment["measurements"]["distance"]
+                    resampled_distances = resampled_gm_segment["distance"]
 
                     # Cut the aran and p79 data by the lonlat of the segment
-                    bit_lon = resampled_gm_segment['measurements']['gps_1']
-                    bit_lat = resampled_gm_segment['measurements']['gps_0']
+                    bit_lon = resampled_gm_segment['gps_1']
+                    bit_lat = resampled_gm_segment['gps_0']
                     bit_lonlat = np.column_stack((bit_lon, bit_lat))
                     aran_segment_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, bit_lonlat)
                     aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_segment_match)
@@ -471,40 +472,47 @@ def resample():
                         start = j*frequency*seconds_per_step
                         end = (j+1)*frequency*seconds_per_step
                         time_subgroup = segment_subgroup.create_group(str(j))
-
+                        
+                        # concatenate the measurements for each 1 second bit
+                        gm_measurements = []
+                        gm_attributes = {}
+                        for i, (measurement_key, measurement_value) in enumerate(resampled_gm_segment.items()):
+                            gm_attributes[measurement_key] = i
+                            gm_measurements.append(measurement_value[start: end])
+                        gm_measurements = np.column_stack(gm_measurements)
                         # Save the resampled GM data in groups of 'frequency' length
-                        gm_group = time_subgroup.create_group("gm")
-                        gm_measurements = {}
-                        for key, value in resampled_gm_segment.items():
-                            if key == "measurements":
-                                for measurement_key, measurement_value in value.items():
-                                    values = measurement_value[start: end]
-                                    gm_measurements[measurement_key] = values
-                            else:
-                                gm_group.create_dataset(key, data=value)
-                        save_hdf5_(gm_group, time_subgroup)
-                        save_hdf5_({"measurements": gm_measurements}, gm_group)
+                        gm_dataset = time_subgroup.create_dataset("gm", data=gm_measurements)
+                        gm_dataset.attrs.update(gm_attributes)
 
                         if gopro_data_exists:
                             # save the resampled gopro data in groups of 'frequency' length
-                            gopro_group = time_subgroup.create_group("gopro")
-                            for key, value in resampled_gopro_segment.items():
+                            gopro_measurements = []
+                            gopro_attributes = {}
+                            for i, (key, value) in enumerate(resampled_gopro_segment.items()):
                                 values = value[start: end]
-                                gopro_group.create_dataset(key, data=values)
+                                gopro_attributes[key] = i
+                                gopro_measurements.append(values)
+                            gopro_measurements = np.column_stack(gopro_measurements)
+                            gopro_dataset = time_subgroup.create_dataset("gopro", data=gopro_measurements)
+                            gopro_dataset.attrs.update(gopro_attributes)
             
                         # Find the corresponding ARAN and P79 data for each 1 second bit using closest lonlat points
-                        aran_group = time_subgroup.create_group("aran")
                         bit_lonlat_time = bit_lonlat[start: end]
                         aran_match_bit = find_best_start_and_end_indeces_by_lonlat(aran_segment[["Lon", "Lat"]].values, bit_lonlat_time)
-                        aran_bit = cut_dataframe_by_indeces(aran_segment, *aran_match_bit).to_dict('series')
-                        save_hdf5_(aran_bit, aran_group)
-                        aran_counts.append(len(aran_bit["BeginChainage"]))
+                        aran_bit = cut_dataframe_by_indeces(aran_segment, *aran_match_bit).values
+                        aran_columns = aran_segment.columns
+                        aran_dataset = time_subgroup.create_dataset("aran", data=aran_bit)
+                        for i, column in enumerate(aran_columns):
+                            aran_dataset.attrs[column] = i
+                        aran_counts.append(len(aran_bit))
 
-                        p79_group = time_subgroup.create_group("p79")
                         p79_match_bit = find_best_start_and_end_indeces_by_lonlat(p79_segment[["Lon", "Lat"]].values, bit_lonlat_time)
-                        p79_bit = cut_dataframe_by_indeces(p79_segment, *p79_match_bit).to_dict('series')
-                        save_hdf5_(p79_bit, p79_group)
-                        p79_counts.append(len(p79_bit["Distance [m]"]))
+                        p79_bit = cut_dataframe_by_indeces(p79_segment, *p79_match_bit).values
+                        p79_columns = p79_segment.columns
+                        p79_dataset = time_subgroup.create_dataset("p79", data=p79_bit)
+                        for i, column in enumerate(p79_columns):
+                            p79_dataset.attrs[column] = i
+                        p79_counts.append(len(p79_bit))
     
     
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
