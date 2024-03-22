@@ -7,6 +7,7 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import train_test_split
 import h5py
+from voluptuous import extra
 
 class Platoon(torch.utils.data.Dataset):
     def __init__(self, data_path='data/processed/segments.hdf5', data_type='train', gm_cols=['acc.xyz_1', 'acc.xyz_2'],
@@ -16,7 +17,15 @@ class Platoon(torch.utils.data.Dataset):
         self.only_iri = only_iri
         self.segments = h5py.File(data_path, 'r')
         self.gm_cols = gm_cols
-
+        # NOTE DO NOT CHANGE THE ORDER OF THE KEYS IN THE COLUMN_DICT
+        self.column_dict = {'Revner På Langs Små (m)': 0, 'Revner På Langs Middelstore (m)': 1, 'Revner På Langs Store (m)': 2, # crackingsum
+                            'Transverse Low (m)': 3, 'Transverse Medium (m)': 4, 'Transverse High (m)': 5, 
+                            'Krakeleringer Små (m²)': 6, 'Krakeleringer Middelstore (m²)': 7, 'Krakeleringer Store (m²)': 8, # alligatorsum
+                            'Slaghuller Max Depth Low (mm)': 9, 'Slaghuller Max Depth Medium (mm)': 10, 'Slaghuller Max Depth High (mm)': 11, 'Slaghuller Max Depth Delamination (mm)': 12,  # potholesum
+                            'LRUT Straight Edge (mm)': 13, 'RRUT Straight Edge (mm)': 14, 'LRUT Wire (mm)': 15, 'RRUT Wire (mm)': 16, # ruttingmean
+                            'Venstre IRI (m/km)': 17, 'Højre IRI (m/km)': 18, # irimean
+                            'Revner På Langs Sealed (m)': 19, 'Transverse Sealed (m)': 20} # patchingsum
+        
         # Create indices for train, test and validation
         keys = sorted([int(i) for i in list(self.segments.keys())])
         train_indices, test_indices, _, _ = train_test_split(keys, keys, test_size=0.2, random_state=random_state)
@@ -62,7 +71,7 @@ class Platoon(torch.utils.data.Dataset):
             # Calculate KPIs for the current second
             KPIs += [self.calculateKPIs(aran_data_ws, only_iri=self.only_iri)]
             # Save the corresponding GM data for the current second
-            gm_data.append(data[str(index)]['gm']['measurements'])
+            gm_data.append(data[str(index)]['gm'])
         # Stack the KPIs to a tensor
         KPIs = torch.stack(KPIs)
         # Extract the GM data
@@ -70,21 +79,16 @@ class Platoon(torch.utils.data.Dataset):
         return train, KPIs # train data, labels
 
     def extractData(self, df, cols):
-        values = torch.tensor([])
-        """
-        TODO Refactor code here.
+        values = []
+        idx = tuple(df[0].attrs[col] for col in cols)
         for data in df:
-            idx = [data.attrs(col) for col in cols]
-            d = data[idx]
-            values = torch.stack((values, torch.tensor(d[()])))
-        """
-        for data in df:
-            for col in cols:
-                values = torch.cat((values, torch.tensor(data[col][()])))
-        # reshape to (n, len(cols))
-        return values.view(-1, len(cols))
+            d = data[()][:, idx]
+            values.append(torch.tensor(d))
+        values = torch.vstack(values)
+        return values
 
     def calculateKPIs(self, df, only_iri=False):
+        df = self.extractData(df, cols=list(self.column_dict.keys()))
         # damage index
         KPI_DI = self.damageIndex(df)
         # rutting index
@@ -110,63 +114,48 @@ class Platoon(torch.utils.data.Dataset):
         """
         Conventional/longitudinal and transverse cracks are reported as length. 
         """
-        cols = ['Revner På Langs Små (m)', 'Revner På Langs Middelstore (m)', 'Revner På Langs Store (m)',
-                'Transverse Low (m)', 'Transverse Medium (m)', 'Transverse High (m)']
-        df = self.extractData(df, cols=cols)
-        LCS = df[:, 0]
-        LCM = df[:, 1]
-        LCL = df[:, 2]
-        TCS = df[:, 3]
-        TCM = df[:, 4]
-        TCL = df[:, 5]
+        LCS = df[:, self.column_dict['Revner På Langs Små (m)']]
+        LCM = df[:, self.column_dict['Revner På Langs Middelstore (m)']]
+        LCL = df[:, self.column_dict['Revner På Langs Store (m)']]
+        TCS = df[:, self.column_dict['Transverse Low (m)']]
+        TCM = df[:, self.column_dict['Transverse Medium (m)']]
+        TCL = df[:, self.column_dict['Transverse High (m)']]
         return ((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)).mean()
     
     def alligatorSum(self, df):
         """
         alligator cracks are computed as area of the pavement affected by the damage
         """
-        cols = ['Krakeleringer Små (m²)', 'Krakeleringer Middelstore (m²)', 'Krakeleringer Store (m²)']
-        df = self.extractData(df, cols=cols)
-        ACS = df[:, 0]
-        ACM = df[:, 1]
-        ACL = df[:, 2]
+        ACS = df[:, self.column_dict['Krakeleringer Små (m²)']]
+        ACM = df[:, self.column_dict['Krakeleringer Middelstore (m²)']]
+        ACL = df[:, self.column_dict['Krakeleringer Store (m²)']]
         return ((3*ACS + 4*ACM + 5*ACL)**(0.3)).mean()
     
     def potholeSum(self, df):
-        cols = ['Slaghuller Max Depth Low (mm)', 'Slaghuller Max Depth Medium (mm)', 
-                'Slaghuller Max Depth High (mm)', 'Slaghuller Max Depth Delamination (mm)']
-        df = self.extractData(df, cols=cols)
-        PAS = df[:, 0]
-        PAM = df[:, 1]
-        PAL = df[:, 2]
-        PAD = df[:, 3]
+        PAS = df[:, self.column_dict['Slaghuller Max Depth Low (mm)']]
+        PAM = df[:, self.column_dict['Slaghuller Max Depth Medium (mm)']]
+        PAL = df[:, self.column_dict['Slaghuller Max Depth High (mm)']]
+        PAD = df[:, self.column_dict['Slaghuller Max Depth Delamination (mm)']]
         return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
 
     def ruttingMean(self, df):
         if self.rut == 'straight-edge':
-            cols = ['LRUT Straight Edge (mm)', 'RRUT Straight Edge (mm)']
-            df = self.extractData(df, cols=cols)
-            RDL = df[:, 0]
-            RDR = df[:, 1]
+            RDL = df[:, self.column_dict['LRUT Straight Edge (mm)']]
+            RDR = df[:, self.column_dict['RRUT Straight Edge (mm)']]
         elif self.rut == 'wire':
-            cols = ['LRUT Wire (mm)', 'RRUT Wire (mm)']
-            df = self.extractData(df, cols=cols)
-            RDL = df[:, 0]
-            RDR = df[:, 1]
+            RDL = df[:, self.column_dict['LRUT Wire (mm)']]
+            RDR = df[:, self.column_dict['RRUT Wire (mm)']]
         return (((RDL +RDR)/2)**(0.5)).mean()
 
     def iriMean(self, df):
-        cols = ['Venstre IRI (m_km)', 'Højre IRI (m_km)']
-        df = self.extractData(df, cols=cols)
-        IRL = df[:, 0]
-        IRR = df[:, 1]
+        cols = ['Venstre IRI (m/km)', 'Højre IRI (m/km)']
+        IRL = df[:, self.column_dict['Venstre IRI (m/km)']]
+        IRR = df[:, self.column_dict['Højre IRI (m/km)']]
         return (((IRL + IRR)/2)**(0.2)).mean()
        
     def patchingSum(self, df):
-        cols = ['Revner På Langs Sealed (m)', 'Transverse Sealed (m)']
-        df = self.extractData(df, cols=cols)
-        LCSe = df[:, 0]
-        TCSe = df[:, 1]
+        LCSe = df[:, self.column_dict['Revner På Langs Sealed (m)']]
+        TCSe = df[:, self.column_dict['Transverse Sealed (m)']]
         return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
 
 
@@ -179,8 +168,19 @@ if __name__ == '__main__':
 
     start = time.time()
     i = 0
+    durations = []
     for data_segment, target_segment in train_loader:
         end = time.time()
-        print(f'Index: {i}, Time: {end-start}')
-        start = time.time()
+        # asses the shape of the data and target
+        assert data_segment.shape[0] == target_segment.shape[0]
+        # ensure last dim in data is 250
+        assert data_segment.shape[2] == 250
+        duration = end-start
+        durations += [duration]
+        print(f'Index: {i}, Time: {duration}.')
         i+= 1
+        start = time.time()
+    print(f'Mean duration: {np.mean(durations)}')
+    # Print example statistics of the last batch
+    print(f'Last data shape: {data_segment.shape}')
+    print(f'Last target shape: {target_segment.shape}')
