@@ -45,40 +45,44 @@ class Platoon(torch.utils.data.Dataset):
 
              Eller skal den måske regnes manuelt ud fra p79 data?
         """
+        # Define variable to contain the current segment data
         data = self.segments[str(self.indices[idx])]
-        print(len(data))
-        keys = sorted([int(x) for x in list(data.keys())])[self.windowsize:-self.windowsize]
-
-        # Calculate KPIs for each window
-        # KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut, only_iri=self.only_iri) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
+        # Get all the keys, corresponding to seconds in the segment (it is sorted in ascending order for good reason ;))
+        keys = sorted([int(x) for x in list(data.keys())])[self.windowsize:-self.windowsize] # Remove the first and last windows to avoid edge cases
+        
+        # Calculate KPIs for each second
         KPIs = []
         gm_data = []
+        # Loop through each second in the segment
         for index in keys:
+            # variable to contain the ARAN window from which the label will be extracted
             aran_data_ws = []
             for i in range(index-self.windowsize, index+self.windowsize+1):
                 aran_data_ws.append(data[str(i)]['aran'])
-            gm_data.append(data[str(index)]['gm']['measurements'])
+            # Calculate KPIs for the current second
             KPIs += [self.calculateKPIs(aran_data_ws, only_iri=self.only_iri)]
+            # Save the corresponding GM data for the current second
+            gm_data.append(data[str(index)]['gm']['measurements'])
+        # Stack the KPIs to a tensor
         KPIs = torch.stack(KPIs)
-        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), len(self.gm_cols), -1)    
+        # Extract the GM data
+        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), len(self.gm_cols), -1)
         return train, KPIs # train data, labels
 
     def extractData(self, df, cols):
         values = torch.tensor([])
+        """
+        TODO Refactor code here.
+        for data in df:
+            idx = [data.attrs(col) for col in cols]
+            d = data[idx]
+            values = torch.stack((values, torch.tensor(d[()])))
+        """
         for data in df:
             for col in cols:
                 values = torch.cat((values, torch.tensor(data[col][()])))
         # reshape to (n, len(cols))
         return values.view(-1, len(cols))
-
-    def calculateWindowIndices(self, df):
-        indices = [0]
-        count = 1
-        for i, cur_distance in enumerate(df):
-            if cur_distance >= self.windowsize*count: # NOTE windowsize is in meters
-                indices.append(i)
-                count += 1
-        return indices
 
     def calculateKPIs(self, df, only_iri=False):
         # damage index
