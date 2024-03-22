@@ -6,48 +6,35 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import train_test_split
+import h5py
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed', data_type='train', window_size=10, rut='straight-edge', random_state=42, transform=None, only_iri=False):
-        self.windowsize = window_size # TODO when data has been resampled and shiz, we need to ensure that the window size corresponds to the number of meters in the data
+    def __init__(self, data_path='data/processed/segments.hdf5', data_type='train', gm_cols=['acc.xyz_2'],
+                 pm_windowsize=1, rut='straight-edge', random_state=42, transform=None, only_iri=False):
+        self.windowsize = pm_windowsize # NOTE This is a +- window_size in seconds (since each segment is divided into 1 second windows)
         self.rut = rut
         self.only_iri = only_iri
-        self.aran_paths = sorted(glob.glob(data_path + '/aran/*.csv'))
-        self.gm_paths  = sorted(glob.glob(data_path + '/gm/*.csv'))
-        # self.gopro = sorted(glob.glob(data_path + '/gopro/*.csv'))
-        # self.p79 = sorted(glob.glob(data_path + '/p79/*.csv'))
+        self.segments = h5py.File(data_path, 'r')
+        self.gm_cols = gm_cols
 
         # Create indices for train, test and validation
-        X = np.arange(len(self.aran_paths))
-        # split into train, test and validation
-        train_indices, test_indices, _, _ = train_test_split(X, X, test_size=0.2, random_state=random_state)
+        keys = sorted([int(i) for i in list(self.segments.keys())])
+        train_indices, test_indices, _, _ = train_test_split(keys, keys, test_size=0.2, random_state=random_state)
         train_indices, val_indices, _, _ = train_test_split(train_indices, train_indices, test_size=0.1, random_state=random_state)
         
         if data_type == 'train':
-            self.aran_paths = [self.aran_paths[i] for i in train_indices]
-            self.gm_paths = [self.gm_paths[i] for i in train_indices]
+            self.indices = train_indices
         elif data_type == 'test':
-            self.aran_paths = [self.aran_paths[i] for i in test_indices]
-            self.gm_paths = [self.gm_paths[i] for i in test_indices]
+            self.indices = test_indices
         elif data_type == 'val':
-            self.aran_paths = [self.aran_paths[i] for i in val_indices]
-            self.gm_paths = [self.gm_paths[i] for i in val_indices]
+            self.indices = val_indices
         else:
             raise ValueError('data_type must be either "train", "test" or "val"')
 
     def __len__(self):
-        return len(self.aran_paths)
+        return len(self.indices)
     
     def __getitem__(self, idx):
-        # Read data
-        aran = pd.read_csv(self.aran_paths[idx], sep=';', encoding='utf8', engine='pyarrow').fillna(0)
-        gm = pd.read_csv(self.gm_paths[idx], sep=';', encoding='utf8', engine='pyarrow')
-        # gopro = pd.read_csv(self.gopro[idx], sep=';', encoding='unicode_escape', engine='pyarrow')
-        # p79 = pd.read_csv(self.p79[idx], sep=';', encoding='utf8', engine='pyarrow')
-
-        # Get row idx where difference between distance is either the exact window size or just over
-        indices = self.calculateWindowIndices(aran['distance'])
-
         """
         TODO CHECK IT. Vi skal sørge for at KPI'erne bliver udregne korrekt
 
@@ -57,18 +44,34 @@ class Platoon(torch.utils.data.Dataset):
              med en spatial-resolution på 10m.
 
              Eller skal den måske regnes manuelt ud fra p79 data?
-        """ 
-        # Calculate KPIs for each window
-        KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut, only_iri=self.only_iri) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
-        
-        # Split other data correspondingly
-        # p79_split = [p79[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
-        gm_split = [gm[indices[i-1]:val] for (i, val) in list(enumerate(indices))[1:]]
-        # Cut each entry in gm_split to length 10
-        gm_split = [df[:11] for df in gm_split]
+        """
+        data = self.segments[str(self.indices[idx])]
+        keys = sorted([int(x) for x in list(data.keys())])[self.windowsize:-self.windowsize]
 
-        train = np.array([df['acc.xyz_2'].to_numpy() for df in gm_split]) # NOTE look into more variables in the future
+        # Calculate KPIs for each window
+        # KPIs = np.array([self.calculateKPIs(aran[indices[i-1]:val], rut=self.rut, only_iri=self.only_iri) for (i, val) in list(enumerate(indices))[1:]], dtype=object)
+        KPIs = []
+        for index in keys:
+            # aran_data = data[str(index)]['aran']
+            aran_data_ws = []
+            gm_data_ws = []
+            for i in range(index-self.windowsize, index+self.windowsize+1):
+                aran_data_ws.append(data[str(i)]['aran'])
+                gm_data_ws.append(data[str(i)]['gm'])
+            KPIs += [self.calculateKPIs(aran_data_ws, only_iri=self.only_iri)]
+        KPIs = torch.stack(KPIs)
+
+        train = self.extractData(gm_data_ws, cols=self.gm_cols)
+
         return train, KPIs # train data, labels
+
+    def extractData(self, df, cols):
+        values = torch.tensor([])
+        for data in df:
+            for col in cols:
+                values = torch.cat((values, torch.tensor(data[col][()])))
+        # reshape to (n, len(cols))
+        return values.reshape(-1, len(cols))
 
     def calculateWindowIndices(self, df):
         indices = [0]
@@ -79,20 +82,20 @@ class Platoon(torch.utils.data.Dataset):
                 count += 1
         return indices
 
-    def calculateKPIs(self, df, rut='straight-edge', only_iri=False):
+    def calculateKPIs(self, df, only_iri=False):
         # damage index
         KPI_DI = self.damageIndex(df)
         # rutting index
-        KPI_RUT = self.ruttingMean(df, rut)
+        KPI_RUT = self.ruttingMean(df)
         # patching index
         PI = self.patchingSum(df)
         # IRI
         IRI = self.iriMean(df)
 
         if only_iri:
-            return np.array([IRI])
+            return IRI
         
-        return np.array([KPI_DI, KPI_RUT, PI, IRI])
+        return torch.tensor((KPI_DI, KPI_RUT, PI, IRI))
 
     def damageIndex(self, df):
         crackingsum = self.crackingSum(df)
@@ -101,58 +104,68 @@ class Platoon(torch.utils.data.Dataset):
         DI = crackingsum + alligatorsum + potholessum
         return DI
 
-    @staticmethod
-    def crackingSum(df):
+    def crackingSum(self, df):
         """
         Conventional/longitudinal and transverse cracks are reported as length. 
         """
-        LCS = df['Revner På Langs Små (m)']
-        LCM = df['Revner På Langs Middelstore (m)']
-        LCL = df['Revner På Langs Store (m)']
-        TCS = df['Transverse Low (m)']
-        TCM = df['Transverse Medium (m)']
-        TCL = df['Transverse High (m)']
-        return np.mean((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1))
+        cols = ['Revner På Langs Små (m)', 'Revner På Langs Middelstore (m)', 'Revner På Langs Store (m)',
+                'Transverse Low (m)', 'Transverse Medium (m)', 'Transverse High (m)']
+        df = self.extractData(df, cols=cols)
+        LCS = df[:, 0]
+        LCM = df[:, 1]
+        LCL = df[:, 2]
+        TCS = df[:, 3]
+        TCM = df[:, 4]
+        TCL = df[:, 5]
+        return ((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)).mean()
     
-    @staticmethod
-    def alligatorSum(df):
+    def alligatorSum(self, df):
         """
         alligator cracks are computed as area of the pavement affected by the damage
         """
-        ACS = df['Krakeleringer Små (m²)']
-        ACM = df['Krakeleringer Middelstore (m²)']
-        ACL = df['Krakeleringer Store (m²)']
-        return np.mean((3*ACS + 4*ACM + 5*ACL)**(0.3))
+        cols = ['Krakeleringer Små (m²)', 'Krakeleringer Middelstore (m²)', 'Krakeleringer Store (m²)']
+        df = self.extractData(df, cols=cols)
+        ACS = df[:, 0]
+        ACM = df[:, 1]
+        ACL = df[:, 2]
+        return ((3*ACS + 4*ACM + 5*ACL)**(0.3)).mean()
     
-    @staticmethod
-    def potholeSum(df):
-        PAS = df['Slaghuller Max Depth Low (mm)']
-        PAM = df['Slaghuller Max Depth Medium (mm)']
-        PAL = df['Slaghuller Max Depth High (mm)']
-        PAD = df['Slaghuller Max Depth Delamination (mm)']
-        return np.mean((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1))
+    def potholeSum(self, df):
+        cols = ['Slaghuller Max Depth Low (mm)', 'Slaghuller Max Depth Medium (mm)', 
+                'Slaghuller Max Depth High (mm)', 'Slaghuller Max Depth Delamination (mm)']
+        df = self.extractData(df, cols=cols)
+        PAS = df[:, 0]
+        PAM = df[:, 1]
+        PAL = df[:, 2]
+        PAD = df[:, 3]
+        return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
 
-    @staticmethod
-    def ruttingMean(df, rut):
-        if rut == 'straight-edge':
-            RDL = df['LRUT Straight Edge (mm)']
-            RDR = df['RRUT Straight Edge (mm)']
-        elif rut == 'wire':
-            RDL = df['LRUT Wire (mm)']
-            RDR = df['RRUT Wire (mm)']
-        return np.mean(((RDL +RDR)/2)**(0.5))
+    def ruttingMean(self, df):
+        if self.rut == 'straight-edge':
+            cols = ['LRUT Straight Edge (mm)', 'RRUT Straight Edge (mm)']
+            df = self.extractData(df, cols=cols)
+            RDL = df[:, 0]
+            RDR = df[:, 1]
+        elif self.rut == 'wire':
+            cols = ['LRUT Wire (mm)', 'RRUT Wire (mm)']
+            df = self.extractData(df, cols=cols)
+            RDL = df[:, 0]
+            RDR = df[:, 1]
+        return (((RDL +RDR)/2)**(0.5)).mean()
 
-    @staticmethod
-    def iriMean(df):
-        IRL = df['Venstre IRI (m/km)']
-        IRR = df['Højre IRI (m/km)']
-        return np.mean(((IRL + IRR)/2)**(0.2))
-
-    @staticmethod   
-    def patchingSum(df):
-        LCSe = df['Revner På Langs Sealed (m)']
-        TCSe = df['Transverse Sealed (m)']
-        return np.mean((LCSe**2 + 2*TCSe)**(0.1))
+    def iriMean(self, df):
+        cols = ['Venstre IRI (m_km)', 'Højre IRI (m_km)']
+        df = self.extractData(df, cols=cols)
+        IRL = df[:, 0]
+        IRR = df[:, 1]
+        return (((IRL + IRR)/2)**(0.2)).mean()
+       
+    def patchingSum(self, df):
+        cols = ['Revner På Langs Sealed (m)', 'Transverse Sealed (m)']
+        df = self.extractData(df, cols=cols)
+        LCSe = df[:, 0]
+        TCSe = df[:, 1]
+        return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
 
 
 if __name__ == '__main__':
