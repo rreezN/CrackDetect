@@ -13,7 +13,7 @@ wandb/
 fleetenv/
 
 # models
-models/
+/models/
 
 # test cache
 manual_test/

@@ -33,6 +33,7 @@ class HydraMultivariate(nn.Module):
         self._g = _g
 
         self.W = [self.normalize(torch.randn(divisor, k * _g, 1, 9)) for _ in range(self.num_dilations)]
+        
 
         # combine num_channels // 2 channels (2 < n < max_num_channels)
         num_channels_per = np.clip(num_channels // 2, 2, max_num_channels)
