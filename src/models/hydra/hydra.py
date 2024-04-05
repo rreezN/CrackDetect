@@ -53,6 +53,7 @@ class Hydra(nn.Module):
 
         Z = []
 
+        # TODO: k = 1, breakpoint, step igenemmem
         for dilation_index in range(self.num_dilations):
 
             d = self.dilations[dilation_index].item()

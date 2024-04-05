@@ -66,9 +66,9 @@ class Platoon(torch.utils.data.Dataset):
             # Save the corresponding GM data for the current second
             gm_data.append(data[str(index)]['gm'])
         # Stack the KPIs to a tensor
-        KPIs = torch.stack(KPIs).T
+        KPIs = torch.stack(KPIs)
         # Extract the GM data
-        train = self.extractData(gm_data, cols=self.gm_cols).view(len(self.gm_cols), -1)
+        train = self.extractData(gm_data, cols=self.gm_cols).view(len(keys), len(self.gm_cols), -1)
         return train, KPIs # train data, labels
 
     def extractData(self, df_list, cols):
@@ -150,22 +150,11 @@ class Platoon(torch.utils.data.Dataset):
         TCSe = df[:, self.column_dict['Transverse Sealed (m)']]
         return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
 
-def create_batches(data, targets, batch_size):
-    num_batches = len(data) // batch_size
-
-    for i in range(num_batches):
-        start_idx = i * batch_size
-        end_idx = start_idx + batch_size
-        yield data[start_idx:end_idx], targets[start_idx:end_idx]
-
-    if len(data) % batch_size != 0:
-        start_idx = num_batches * batch_size
-        yield data[start_idx:], targets[start_idx:]
 
 if __name__ == '__main__':
     import time
     from torch.utils.data import DataLoader
-    batch_size = 10
+
     trainset = Platoon(data_type='train', pm_windowsize=2)
     train_loader = DataLoader(trainset, batch_size=None, shuffle=True, num_workers=0)
 
@@ -173,19 +162,16 @@ if __name__ == '__main__':
     i = 0
     durations = []
     for data_segment, target_segment in train_loader:
-        print(data_segment.shape)
-        for data, target in create_batches(data_segment, target_segment, batch_size):
-            end = time.time()
-            print(data.shape)
-            # asses the shape of the data and target
-            # assert data_segment.shape[0] == target_segment.shape[0]
-            # ensure last dim in data is 250
-            # assert data_segment.shape[2] == 250
-            duration = end-start
-            # durations += [duration]
-            print(f'Index: {i}, Time: {duration}.')
-            i+= 1
-            # start = time.time()
+        end = time.time()
+        # asses the shape of the data and target
+        assert data_segment.shape[0] == target_segment.shape[0]
+        # ensure last dim in data is 250
+        assert data_segment.shape[2] == 250
+        duration = end-start
+        durations += [duration]
+        print(f'Index: {i}, Time: {duration}.')
+        i+= 1
+        start = time.time()
     print(f'Mean duration: {np.mean(durations)}')
     # Print example statistics of the last batch
     print(f'Last data shape: {data_segment.shape}')

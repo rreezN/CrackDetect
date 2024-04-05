@@ -12,7 +12,7 @@ import torch.nn as nn
 from numba import prange
 
 
-class MultiRocketHydra(nn.Module):
+class MultiRocket(nn.Module):
     def __init__(
         self,
         num_features: int = 50000,
