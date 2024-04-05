@@ -141,7 +141,6 @@ class Platoon(torch.utils.data.Dataset):
         return (((RDL +RDR)/2)**(0.5)).mean()
 
     def iriMean(self, df):
-        cols = ['Venstre IRI (m/km)', 'Højre IRI (m/km)']
         IRL = df[:, self.column_dict['Venstre IRI (m/km)']]
         IRR = df[:, self.column_dict['Højre IRI (m/km)']]
         return (((IRL + IRR)/2)**(0.2)).mean()
