@@ -66,7 +66,7 @@ class Platoon(torch.utils.data.Dataset):
             # Save the corresponding GM data for the current second
             gm_data.append(data[str(index)]['gm'])
         # Stack the KPIs to a tensor
-        KPIs = torch.stack(KPIs)
+        KPIs = torch.stack(KPIs).T
         # Extract the GM data
         train = self.extractData(gm_data, cols=self.gm_cols).view(len(self.gm_cols), -1)
         return train, KPIs # train data, labels
