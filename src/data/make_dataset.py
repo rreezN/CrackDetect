@@ -757,6 +757,6 @@ if __name__ == '__main__':
         print('    ---### Resampling data ###---')
         resample(args.verbose)
     
-    if args.mode == 'kpi':
+    if args.mode in ['kpi', 'all']:
         print('    ---### Calculating KPIs ###---')
         compute_kpis()

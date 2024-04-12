@@ -1,15 +1,16 @@
 # To Do
 
-## Model and Training
+## Model, Training and Feature Extraction
+- [ ] Create Feature Data Loader
 - [ ] Implement new data loader
-- [ ] Feature extraction script
-  - [ ] Save features to file
-    - [ ] MultiRocket Features
-    - [ ] Hydra Features
-    - [ ] Save Max and Min targets
-    - [ ] Calculate and save statistics on features (mean, std)
-      - [ ] Hydra Statistics
-      - [ ] MultiRocket Statistics
+- [x] Feature extraction script
+  - [x] Save features to file
+    - [x] MultiRocket Features
+    - [x] Hydra Features
+    - [x] Save Max and Min targets
+    - [x] Calculate and save statistics on features (mean, std)
+      - [x] Hydra Statistics
+      - [x] MultiRocket Statistics
 - [ ] Targets need to be in same range ([0, 1]?)
   - [ ] Load Max and Min
   - [ ] ```new_target = ((target - Min) / (Max - Min))```
