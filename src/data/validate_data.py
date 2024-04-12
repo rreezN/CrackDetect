@@ -1,3 +1,4 @@
+from typing import DefaultDict
 import h5py
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -6,7 +7,8 @@ import torch
 from tqdm import tqdm
 from dataloader import Platoon
 from torch.utils.data import DataLoader
-
+from collections import defaultdict 
+from scipy.stats import gaussian_kde
 
 def plot_kpi_vs_avg_speed(train_loader: DataLoader):
     # Make plot with seaborn
@@ -133,14 +135,61 @@ def broadcasting_based_lng_lat_elementwise(data1, data2):
     d = np.sin(diff_lat/2)**2 + np.cos(lat1)*np.cos(lat2) * np.sin(diff_lng/2)**2
     return 2 * 6371 * np.arcsin(np.sqrt(d))
 
+
+def distributions_of_sensors_in_gm(segments, cols=['time', 'acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2']):
+    plt.rcParams['patch.linewidth'] = 0
+    plt.rcParams['patch.edgecolor'] = 'none'
+    # gm_cols_indices = list(segments['0']['2']['gm'].attrs[v] for v in list(segments['0']['2']['gm'].attrs.keys()))
+    # gm_cols = list(segments['0']['2']['gm'].attrs.keys())
+    # gm_cols = ['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2', 'acc_long', 'acc_trans', 'acc_yaw', 'alt', 'asr_trq_req_dyn', 'asr_trq_req_st', 'brk_trq_elec', 'brk_trq_req_dvr', 'brk_trq_req_elec', 'distance', 'f_dist', 'gps_0', 'gps_1', 'msr_trq_req', 'odo', 'rpm', 'rpm_elec', 'rpm_fl', 'rpm_fr', 'rpm_rl', 'rpm_rr', 'sb_rem_fl', 'spd', 'spd_veh', 'strg_acc', 'strg_pos', 'time', 'trac_cons', 'trip_cons', 'trip_dist', 'trip_spd_avg', 'trq_eff', 'trq_req', 'whl_prs_fl', 'whl_prs_fr', 'whl_prs_rl', 'whl_prs_rr', 'whl_trq_est', 'whl_trq_pot_ri']
+    gm_cols = cols
+    gm_cols_indices = list(segments['0']['2']['gm'].attrs[v] for v in gm_cols)
+    segment_dict = defaultdict(lambda: [])
+    for segment in tqdm(segments.values()):
+        for seconds in segment.values():
+            gm = seconds['gm']
+            segment_dict[segment.attrs['trip_name']].append(gm[()])
+    
+    # Based on length of cols, find appropriate number of rows and columns for the subplots making it as square as possible
+    r = int(np.ceil(len(gm_cols) ** 0.5))
+    c = int(np.ceil(len(gm_cols) / r))
+    
+    fig, axes = plt.subplots(r, c, figsize=(10, 10))
+    for car, value in segment_dict.items():
+        value = np.vstack(value)
+        # Now plot the distributions of each column in the GM data of shape (n, 42)    
+        for i, ax in tqdm(enumerate(axes.flat), total=r*c):
+            val = value[:, gm_cols_indices[i]]
+            # sns.histplot(val, ax=ax, label=car, bins=30, alpha=0.2)
+            # Calculate KDE of val
+            eval_points = np.linspace(val.min(), val.max(), 100)
+            density = gaussian_kde(val)
+            y_sp = density.pdf(eval_points)
+            # plot the kde
+            ax.plot(eval_points, y_sp, label=car)
+            # sns.displot(value[:, i], ax=ax, kde=True, label=car)
+            if car == '16006':
+                ax.set_title(gm_cols[i])
+    fig.suptitle(f"Distributions of GM data for all cars")
+    # insert legend below all plots in figure and remove duplicates
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=5, bbox_to_anchor=(0.5,-0.01))
+    # move the legend down
+
+    plt.tight_layout()
+    plt.show()
+    plt.rcParams['patch.linewidth'] = 1
+    plt.rcParams['patch.edgecolor'] = 'black'
+
 if __name__=='__main__':
 
-    trainset = Platoon(data_type='train', pm_windowsize=2, gm_cols=['spd_veh'])
-    train_loader = DataLoader(trainset, batch_size=None, shuffle=True, num_workers=0)
+    # trainset = Platoon(data_type='train', pm_windowsize=2)
+    # train_loader = DataLoader(trainset, batch_size=32, shuffle=True, num_workers=0)
 
     # plot_kpi_vs_avg_speed(train_loader)
-    
-    with h5py.File('data/processed/segments.hdf5', 'r') as segments:
-        plot_number_of_reference_points_vs_avg_speed(segments)
-        plot_number_of_reference_points_vs_normalised_second_idx(segments)
-        plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
+    with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as segments:
+        distributions_of_sensors_in_gm(segments)
+    # with h5py.File('data/processed/segments.hdf5', 'r') as segments:
+    #     plot_number_of_reference_points_vs_avg_speed(segments)
+    #     plot_number_of_reference_points_vs_normalised_second_idx(segments)
+    #     plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
