@@ -18,7 +18,7 @@ class HydraMR(nn.Module):
         super().__init__()
 
         # Args = num_features (default=50000)
-        self.multi_rocket_transformer = MultiRocket(50000, device)
+        self.multi_rocket_transformer = MultiRocket(num_features, device)
         # Args = input_length=250 (window size), num_channels=2 (signals), k = 8, g = 64, max_num_channels = 8
         self.hydra_transformer = HydraMultivariate(250, num_channels=2)
         

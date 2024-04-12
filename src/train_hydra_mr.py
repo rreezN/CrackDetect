@@ -94,7 +94,7 @@ if __name__ == '__main__':
     trainset = Platoon(data_type='train', pm_windowsize=1)
     train_loader = DataLoader(trainset, batch_size=None, shuffle=True, num_workers=0)
     
-    testset = Platoon(data_type='test', pm_windowsize=1)
+    testset = Platoon(data_type='val', pm_windowsize=1)
     test_loader = DataLoader(testset, batch_size=None, shuffle=True, num_workers=0)
     
     # Create model

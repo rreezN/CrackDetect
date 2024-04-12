@@ -9,6 +9,7 @@ torch
 opencv-python
 h5py
 matplotlib
+seaborn
 numpy
 pandas
 numba
