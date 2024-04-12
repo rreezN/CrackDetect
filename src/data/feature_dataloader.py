@@ -23,8 +23,8 @@ class Features(torch.utils.data.Dataset):
         self.feature_means = []
         self.feature_stds = []
         for i in range(len(feature_extractors)):
-            self.feature_means.append(self.data['train']['statistics'][feature_extractors[i]]['mean'][()])
-            self.feature_stds.append(self.data['train']['statistics'][feature_extractors[i]]['std'][()])
+            self.feature_means.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['mean'][()]))
+            self.feature_stds.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['std'][()]))
         
         self.kpi_mins = self.data['train']['statistics']['kpis'][str(kpi_window)]['min'][()]
         self.kpi_maxs = self.data['train']['statistics']['kpis'][str(kpi_window)]['max'][()]
@@ -59,10 +59,25 @@ class Features(torch.utils.data.Dataset):
         
         data = self.data[self.data_type]['segments'][segment_index][second_index]
         features = torch.tensor([])
-        for feature_extractor in self.feature_extractors:
-            features = torch.cat((features, torch.tensor(data[feature_extractor][()])))
+        for i, feature_extractor in enumerate(self.feature_extractors):
+            feats = torch.tensor(data[feature_extractor][()])
+            # TODO: Figure out what we want to do with these stds
+            # Current solution causes features to explode (many times where std = 0)...
+            # stds = torch.max(self.feature_stds[i], 1e-12*torch.ones_like(self.feature_stds[i]))
+            # New solution: take mean of statistics...
+            feats = (feats - torch.mean(self.feature_means[i]))/torch.mean(self.feature_stds[i])
+            features = torch.cat((features, feats))
+            
         targets = data['kpis'][self.kpi_window_size][()]
         
+        # Transform targets to be in the range [0, 1]
+        targets = (targets - self.kpi_mins)/(self.kpi_maxs - self.kpi_mins)
+        
+        # This is a bit ugly
+        features = features.type(torch.FloatTensor)
+        targets = torch.tensor(targets).type(torch.FloatTensor)
+
+        # TODO: Implement actual torch transforms
         if self.feature_transform:
             features = self.feature_transform(features)
         if self.kpi_transform:
