@@ -80,6 +80,22 @@ def save_hdf5_(data, group):
     
 
 def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0):
+    """
+    Segment the GM data into sections where the vehicle is moving
+    
+    Parameters
+    ----------
+    autopi : dict
+        The AutoPi data dictionary
+    direction : str
+        The direction of the trip, either 'hh' or 'vh'
+    speed_threshold : int
+        The speed in km/h below which the vehicle is considered to be stopped
+    time_threshold : int
+        The minimum time in seconds for a section to be considered valid
+    segment_index : int
+        The index to start the segment numbering from
+    """
     # direction is either 'hh' or 'vh'
     pbar = tqdm(autopi.items())
     for trip_name, trip in pbar:
@@ -97,6 +113,24 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
 
 
 def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10):
+    """
+    Segment a single GM trip into sections where the vehicle is moving
+    
+    Parameters
+    ----------
+    measurements : dict
+        The AutoPi data dictionary
+    trip_name : str
+        The name of the trip
+    pass_name : str
+        The name of the pass
+    direction : str
+        The direction of the trip, either 'hh' or 'vh'
+    speed_threshold : int
+        The speed in km/h below which the vehicle is considered to be stopped
+    time_threshold : int
+        The minimum time in seconds for a section to be considered valid
+    """
     # threshold is the speed in km/h below which the vehicle is considered to be stopped
     measurements["spd_veh"][:, 1] = measurements["spd_veh"][:, 1]
 
@@ -141,7 +175,7 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
     start_index = np.argmin(np.linalg.norm(np.column_stack((lon_a, lat_a)) - np.array([lon_b[0], lat_b[0]]), axis=1))
     end_index = np.argmin(np.linalg.norm(np.column_stack((lon_a, lat_a)) - np.array([lon_b[-1], lat_b[-1]]), axis=1))
 
-    return start_index, end_index
+    return start_index, end_index+1
 
 
 def find_best_start_and_end_indeces_by_time(current_segment, gopro_time):
@@ -308,7 +342,7 @@ def convert():
         csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
         
 
-def segment():
+def segment(speed_threshold: int = 5, time_threshold: int = 10):
     # Load data
     autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5', convert=False)
     autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5', convert=False)
@@ -319,8 +353,8 @@ def segment():
         segment_path.unlink()
 
     # Segment data
-    segment_index = segment_gm(autopi_hh['GM'], 'hh')
-    segment_gm(autopi_vh['GM'], 'vh', segment_index=segment_index)
+    segment_index = segment_gm(autopi_hh['GM'], direction='hh', speed_threshold=speed_threshold, time_threshold=time_threshold)
+    segment_gm(autopi_vh['GM'], direction='vh', speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
 
 
 def match_data():
@@ -382,7 +416,7 @@ def match_data():
             p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
             save_hdf5(p79_segment, 'data/interim/p79/segments.hdf5', segment_id=i)
                 
-            # gopro is a little different..
+            # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
             if trip_name not in ["16006", "16009", "16011"]:
                 continue
             
@@ -398,7 +432,7 @@ def match_data():
             if gopro_segment != {}:
                 save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
 
-def resample():
+def resample(verbose: bool = False):
     # Resample the gm data to a fixed frequency
     frequency = 250
     seconds_per_step = 1
@@ -408,14 +442,13 @@ def resample():
 
     gm_segment_file = 'data/interim/gm/segments.hdf5'
     
-    Path('data/processed').mkdir(parents=True, exist_ok=True)
+    Path('data/processed/wo_kpis').mkdir(parents=True, exist_ok=True)
 
-    segment_path = Path(f'data/processed/segments.hdf5')
+    segment_path = Path(f'data/processed/wo_kpis/segments.hdf5')
     if segment_path.exists():
         segment_path.unlink()
     
     # Load raw reference data
-        # Load reference and GoPro data
     aran = {
         'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0).select_dtypes(include=np.number),
         'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0).select_dtypes(include=np.number)
@@ -426,11 +459,14 @@ def resample():
         'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape').select_dtypes(include=np.number)
     }
 
+    # Resample the data
     with h5py.File(gm_segment_file, 'r') as f:
         segment_files = [f[str(i)] for i in range(len(f))]
         pbar = tqdm(segment_files)
+        # Load gopro data
         with h5py.File('data/interim/gopro/segments.hdf5', 'r') as f2:
-            with h5py.File('data/processed/segments.hdf5', 'a') as f3:
+            # Open final processed segments file
+            with h5py.File('data/processed/wo_kpis/segments.hdf5', 'a') as f3:
                 for i, segment in enumerate(pbar):
                     pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
                     segment_subgroup = f3.create_group(str(i))
@@ -513,7 +549,10 @@ def resample():
                         for i, column in enumerate(p79_columns):
                             p79_dataset.attrs[column] = i
                         p79_counts.append(len(p79_bit))
-    
+
+                        # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
+                        if verbose and (aran_match_bit[1] - aran_match_bit[0] < 3 or p79_match_bit[1] - p79_match_bit[0] < 3):
+                            verbose_resample_plot(bit_lonlat_time, aran_segment, aran_match_bit, p79_segment, p79_match_bit)
     
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     axes[0].hist(aran_counts, bins=20)
@@ -526,12 +565,179 @@ def resample():
     axes[1].set_ylabel("Frequency")
     plt.tight_layout()
     plt.show()
+
+def verbose_resample_plot(bit_lonlat_time, aran_segment, aran_match_bit, p79_segment, p79_match_bit):
+    fig, ax = plt.subplots()
+    ax.plot(bit_lonlat_time[:, 0], bit_lonlat_time[:, 1], label='GM', c='k')
+    # Extract ARAN and P79 with n extra points on each side for better visualization
+    n = 3
+    aran_match_before = max(0, aran_match_bit[0] - n)
+    aran_match_after = min(len(aran_segment), aran_match_bit[1] + n)
+    wider_aran_bit = aran_segment[["Lon", "Lat"]].values[aran_match_before: aran_match_after]
+    shallow_aran_bit = aran_segment[["Lon", "Lat"]].values[aran_match_bit[0]: aran_match_bit[1]]
+    p79_match_before = max(0, p79_match_bit[0] - n)
+    p79_match_after = min(len(p79_segment), p79_match_bit[1] + n)
+    wider_p79_bit = p79_segment[["Lon", "Lat"]].values[p79_match_before: p79_match_after]
+    shallow_p79_bit = p79_segment[["Lon", "Lat"]].values[p79_match_bit[0]: p79_match_bit[1]]
+    ax.plot(wider_aran_bit[:, 0], wider_aran_bit[:, 1], label='ARAN', linestyle='--', alpha=0.5)
+    ax.scatter(shallow_aran_bit[:, 0], shallow_aran_bit[:, 1], alpha=0.5, marker='x')
+    if aran_match_before < aran_match_bit[0]:
+        ax.scatter(aran_segment[["Lon", "Lat"]].values[aran_match_before: aran_match_bit[0], 0], aran_segment[["Lon", "Lat"]].values[aran_match_before: aran_match_bit[0], 1], alpha=0.5, marker='x', c='r')
+    if aran_match_after > aran_match_bit[1]:
+        ax.scatter(aran_segment[["Lon", "Lat"]].values[aran_match_bit[1]: aran_match_after, 0], aran_segment[["Lon", "Lat"]].values[aran_match_bit[1]: aran_match_after, 1], alpha=0.5, marker='x', c='r')
+    ax.plot(wider_p79_bit[:, 0], wider_p79_bit[:, 1], label='P79', linestyle='--', alpha=0.5)
+    ax.scatter(shallow_p79_bit[:, 0], shallow_p79_bit[:, 1], alpha=0.5, marker='x')
+    if p79_match_before < p79_match_bit[0]:
+        ax.scatter(p79_segment[["Lon", "Lat"]].values[p79_match_before: p79_match_bit[0], 0], p79_segment[["Lon", "Lat"]].values[p79_match_before: p79_match_bit[0], 1], alpha=0.5, marker='x', c='r')
+    if p79_match_after > p79_match_bit[1]:
+        ax.scatter(p79_segment[["Lon", "Lat"]].values[p79_match_bit[1]: p79_match_after, 0], p79_segment[["Lon", "Lat"]].values[p79_match_bit[1]: p79_match_after, 1], alpha=0.5, marker='x', c='r')
+    # Place legend outside of plot
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.set_aspect('equal', adjustable='box')
+    plt.tight_layout()
+    plt.show()
+
+
+def compute_kpis():
+    WINDOW_SIZES = [1, 2]
+
+    # Create folders for saving
+    Path('data/processed/w_kpis').mkdir(parents=True, exist_ok=True)
+
+    # Remove old segment files if they exist
+    segment_path = Path(f'data/processed/w_kpis/segments.hdf5')
+    if segment_path.exists():
+        segment_path.unlink()
     
-        
-            
+    # Load processed data
+    with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as f:
+        # Open final processed segments file
+        with h5py.File('data/processed/w_kpis/segments.hdf5', 'a') as f2:
+            for i, segment in (pbar := tqdm(f.items())):
+                pbar.set_description(f"Computing KPIs for segment {i}")
+                segment_subgroup = f2.create_group(str(i))
+
+                # Add direction, trip name and pass name as attr to segment subgroup
+                segment_subgroup.attrs['direction'] = segment.attrs['direction']
+                segment_subgroup.attrs['trip_name'] = segment.attrs['trip_name']
+                segment_subgroup.attrs['pass_name'] = segment.attrs['pass_name']
+
+                num_seconds_in_segment = len(segment)
+
+                for j, second in segment.items():
+                    j = int(j)
+                    # Skip the first and last seconds which can not be computed with a window size of max(WINDOW_SIZES)
+                    if j < max(WINDOW_SIZES) or j >= num_seconds_in_segment - max(WINDOW_SIZES):
+                        continue
+
+                    second_subgroup = segment_subgroup.create_group(str(j))
+
+                    for key, value in second.items():
+                        second_subgroup.create_dataset(key, data=value[()])
+                        second_subgroup[key].attrs.update(second[key].attrs)
+                    
+                    # Compute KPIs
+                    kpi_subgroup = second_subgroup.create_group('kpis')
+                    kpi_subgroup.attrs['window_sizes'] = WINDOW_SIZES
+                    for window_size in WINDOW_SIZES:
+                        kpis = compute_kpis_for_second(segment, j, window_size)
+                        kpi_data = kpi_subgroup.create_dataset(str(window_size), data=kpis)
+                        for i, kpi_name in enumerate(['DI', 'RUT', 'PI', 'IRI']):
+                            kpi_data.attrs[kpi_name] = i
+
+
+def compute_kpis_for_second(segment, second_index, window_size):
+    # Extract ARAN data for all seconds within the window
+    windowed_aran_data = []
+    for i in range(second_index - window_size, second_index + window_size + 1):
+        windowed_aran_data.append(segment[str(i)]['aran'][()])
+    
+    # Define aran attributes for KPI-functions
+    aran_attrs = segment[str(second_index)]['aran'].attrs
+
+    # Stack the ARAN data
+    windowed_aran_data = np.vstack(windowed_aran_data)
+
+    # Compute KPIs
+    # damage index
+    KPI_DI = damage_index(windowed_aran_data, aran_attrs)
+    # rutting index
+    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs)
+    # patching index
+    PI = patching_sum(windowed_aran_data, aran_attrs)
+    # IRI
+    IRI = iri_mean(windowed_aran_data, aran_attrs)
+    
+    return np.asarray([KPI_DI, KPI_RUT, PI, IRI])
+
+
+def damage_index(windowed_aran_data, aran_attrs):
+    crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
+    alligatorsum = alligator_sum(windowed_aran_data, aran_attrs)
+    potholessum = pothole_sum(windowed_aran_data, aran_attrs)
+    DI = crackingsum + alligatorsum + potholessum
+    return DI
+
+
+def cracking_sum(windowed_aran_data, aran_attrs):
+    """
+    Conventional/longitudinal and transverse cracks are reported as length. 
+    """
+    LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
+    LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
+    LCL = windowed_aran_data[:, aran_attrs['Revner På Langs Store (m)']]
+    TCS = windowed_aran_data[:, aran_attrs['Transverse Low (m)']]
+    TCM = windowed_aran_data[:, aran_attrs['Transverse Medium (m)']]
+    TCL = windowed_aran_data[:, aran_attrs['Transverse High (m)']]
+    return ((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)).mean()
+
+
+def alligator_sum(windowed_aran_data, aran_attrs):
+    """
+    alligator cracks are computed as area of the pavement affected by the damage
+    """
+    ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
+    ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
+    ACL = windowed_aran_data[:, aran_attrs['Krakeleringer Store (m²)']]
+    return ((3*ACS + 4*ACM + 5*ACL)**(0.3)).mean()
+
+
+def pothole_sum(windowed_aran_data, aran_attrs):
+    PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
+    PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
+    PAL = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth High (mm)']]
+    PAD = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Delamination (mm)']]
+    return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
+
+
+def rutting_mean(windowed_aran_data, aran_attrs, rut='straight-edge'):
+    # TODO: FIGURE OUT WHICH ONE TO USE
+    if rut == 'straight-edge':
+        RDL = windowed_aran_data[:, aran_attrs['LRUT Straight Edge (mm)']]
+        RDR = windowed_aran_data[:, aran_attrs['RRUT Straight Edge (mm)']]
+    elif rut == 'wire':
+        RDL = windowed_aran_data[:, aran_attrs['LRUT Wire (mm)']]
+        RDR = windowed_aran_data[:, aran_attrs['RRUT Wire (mm)']]
+    return (((RDL +RDR)/2)**(0.5)).mean()
+
+
+def iri_mean(windowed_aran_data, aran_attrs):
+    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m/km)']]
+    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m/km)']]
+    return (((IRL + IRR)/2)**(0.2)).mean()
+    
+def patching_sum(windowed_aran_data, aran_attrs):
+    LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
+    TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]
+    return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
+
+
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'segment', 'match', 'resample', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
+    parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
+    parser.add_argument('--verbose', action='store_true', help='Print verbose output')
 
     args = parser.parse_args()
 
@@ -541,7 +747,7 @@ if __name__ == '__main__':
 
     if args.mode in ['segment', 'all']:
         print('    ---### Segmenting data ###---')
-        segment()
+        segment(args.speed_threshold, args.time_threshold)
 
     if args.mode in ['match', 'all']:
         print('    ---###  Matching data  ###---')
@@ -549,4 +755,8 @@ if __name__ == '__main__':
     
     if args.mode in ['resample', 'all']:
         print('    ---### Resampling data ###---')
-        resample()
+        resample(args.verbose)
+    
+    if args.mode == 'kpi':
+        print('    ---### Calculating KPIs ###---')
+        compute_kpis()
