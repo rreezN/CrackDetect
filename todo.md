@@ -6,8 +6,8 @@
   - [ ] Save features to file
     - [ ] MultiRocket Features
     - [ ] Hydra Features
-    - [ ] Save Max and Min targets
-    - [ ] Calculate and save statistics on features (mean, std)
+    - [ ] Save `Max` and `Min` targets
+    - [ ] Calculate and save statistics on features (`mean`, `std`)
       - [ ] Hydra Statistics
       - [ ] MultiRocket Statistics
 - [ ] Targets need to be in same range ([0, 1]?)
