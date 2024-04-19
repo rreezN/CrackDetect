@@ -5,12 +5,11 @@ from argparse import ArgumentParser
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
-from models.hydramr import HydraMR
-from models.regressor import Regressor
-from data.dataloader import Platoon
+from models.hydramr import HydraMRRegressor
+from data.feature_dataloader import Features
 from torch.utils.data import DataLoader
 
-def predict(model: torch.nn.Module, feature_extractpr: torch.nn.Module, testloader: torch.utils.data.DataLoader):
+def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     """Run prediction for a given model and dataloader.
     
     Args:
@@ -23,50 +22,39 @@ def predict(model: torch.nn.Module, feature_extractpr: torch.nn.Module, testload
     """
     model.eval()
     
-    predictions = torch.tensor([])
-    targets = torch.tensor([])
+    all_predictions = torch.tensor([])
+    all_targets = torch.tensor([])
     test_losses = np.array([])
     
     test_iterator = tqdm(testloader, unit="batch", position=0, leave=False)
 
-    for data_segment, target_segment in test_iterator:
-        for batch_data, batch_target in create_batches(data_segment, target_segment, batch_size=args.batch_size):
-            batch_target = batch_target.to(torch.float32)
-            batch_features = feature_extractor(batch_data)
-            
-            batch_mean = torch.mean(batch_features, dim=1).unsqueeze(1)
-            batch_std = torch.std(batch_features, dim=1).unsqueeze(1)
-            batch_features_normalised = (batch_features - batch_mean)/batch_std
-            output = model(batch_features_normalised)
-            
-            loss_fn = nn.MSELoss()
-            predictions = torch.cat((predictions, output), dim=0)
-            targets = torch.cat((targets, batch_target), dim=0)
-            
-            test_loss = loss_fn(output, batch_target).item()
-            test_losses = np.append(test_losses, test_loss)
-            
-            test_iterator.set_description(f'Overall MSE: {test_losses.mean():.2f} Batch MSE: {test_loss:.2f}')
-            
-            if args.plot_during:
-                plot_predictions(predictions.detach().numpy(), targets.detach().numpy(), test_losses)
+    kpi_maxs = torch.tensor(testset.kpi_maxs)
+    kpi_mins = torch.tensor(testset.kpi_mins)
     
-    return predictions.detach().numpy(), targets.detach().numpy(), test_losses
+    for data, targets in test_iterator:
+        output = model(data)
+        
+        # Transform targets and predictions to original scale from [0, 1]
+        output = (((output - 0) * (kpi_maxs - kpi_mins)) / (1 - 0)) + kpi_mins
+        targets = (((targets - 0) * (kpi_maxs - kpi_mins)) / (1 - 0)) + kpi_mins
+        
+        loss_fn = nn.MSELoss()
+        all_predictions = torch.cat((all_predictions, output), dim=0)
+        all_targets = torch.cat((all_targets, targets), dim=0)
+        
+        test_loss = torch.sqrt(loss_fn(output, targets)).item()
+        test_losses = np.append(test_losses, test_loss)
+        
+        test_iterator.set_description(f'Overall RMSE: {test_losses.mean():.2f} Batch RMSE: {test_loss:.2f}')
+        
+        if args.plot_during:
+            plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), test_losses)
 
-def create_batches(data, targets, batch_size):
-    num_batches = len(data) // batch_size
-    for i in range(num_batches):
-        start_idx = i * batch_size
-        end_idx = start_idx + batch_size
-        yield data[start_idx:end_idx], targets[start_idx:end_idx]
-
-    """
-    NOTE - this is a generator, so the last batch will be smaller, but for certain models 
-    we have to have fixed batch size so we can't just yield the last batch (thus, at times we will lose some data)
-    """    
-    if len(data) % batch_size != 0:
-        start_idx = num_batches * batch_size
-        yield data[start_idx:], targets[start_idx:]
+    all_predictions = all_predictions.detach().numpy()
+    all_targets = all_targets.detach().numpy()
+    plot_predictions(all_predictions, all_targets, test_losses)
+        
+    return all_predictions, all_targets, test_losses
 
 
 def plot_predictions(predictions, targets, test_losses, show=False):
@@ -79,11 +67,11 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     axes = axes.flat
     
     # Set title
-    plt.suptitle(f'Predictions vs Targets, MSE: {np.mean(test_losses):.2f}', fontsize=24)
+    plt.suptitle(f'Predictions vs Targets, RMSE: {np.mean(test_losses):.2f}', fontsize=24)
     
-    # Plot each KPI
+    # Plot each KPIs
     for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, MSE: {(np.mean(np.abs(targets[:, i] - predictions[:, i]))**2):.2f}')
+        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {(np.sqrt(np.mean(np.abs(targets[:, i] - predictions[:, i]))**2)):.2f}')
         axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
         axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
         axes[i].legend()
@@ -92,29 +80,44 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     if show:
         plt.show()
     plt.close()
+    
+    # Plot zoomed in version of each KPI
+    fig, axes = plt.subplots(2, 2, figsize=(20,10))
+    axes = axes.flat
+    plt.suptitle(f'Zoomed Predictions vs Targets, RMSE: {np.mean(test_losses):.2f}', fontsize=24)
+    start = 50
+    end = 100
+    for i in range(len(axes)):
+        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {(np.sqrt(np.mean(np.abs(targets[start:end, i] - predictions[start:end, i]))**2)):.2f}')
+        axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
+        axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
+        axes[i].legend()
+        axes[i].set_xlim(start,end)
+    plt.tight_layout
+    plt.savefig('reports/figures/model_results/predictions_zoomed.pdf')
+    if show:
+        plt.show()
+    plt.close()
 
 def get_args():
     parser = ArgumentParser(description='Predict Model')
-    parser.add_argument('--model', type=str, default='models/regressor_single_layer.pt')
-    parser.add_argument('--data', type=str, default='data/processed/segments.hdf5".csv')
-    parser.add_argument('--num_features', type=int, default=50000)
+    parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt')
+    parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv')
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--plot_during', action='store_false')
+    parser.add_argument('--plot_during', action='store_true')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = get_args()
     
-    feature_extractor = HydraMR(batch_size=args.batch_size, num_features=args.num_features)
-    
-    model = Regressor()
+    model = HydraMRRegressor()
     model.load_state_dict(torch.load(args.model))
     
     # Load data
-    testset = Platoon(data_type='test', pm_windowsize=1)
-    test_loader = DataLoader(testset, batch_size=None, shuffle=False, num_workers=0)
+    testset = Features(data_type='test')
+    test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
-    predictions, targets, test_losses = predict(model, feature_extractor, test_loader)
+    predictions, targets, test_losses = predict(model, test_loader)
     
     plot_predictions(predictions, targets, test_losses)
     

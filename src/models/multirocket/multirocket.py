@@ -20,7 +20,7 @@ class MultiRocket(nn.Module):
     ):
         super().__init__()
         self.device = device
-        self.name = "MultiRocketHydra"
+        self.name = f"MultiRocket_{num_features}"
         
         self.base_parameters = None
         self.diff1_parameters = None

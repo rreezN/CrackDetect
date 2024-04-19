@@ -1,34 +1,36 @@
-from argparse import ArgumentParser
-import numpy as np
 import torch
 import torch.nn as nn
 
-from src.models.multirocket.multirocket import MultiRocket
-from src.models.hydra.hydra_multivariate import HydraMultivariate
 
 
-
-class HydraMR(nn.Module):
-    def __init__(
-        self,
-        num_features: int = 50000,
-        batch_size: int = 10,
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ):
-        super().__init__()
-
-        # Args = num_features (default=50000)
-        self.multi_rocket_transformer = MultiRocket(num_features, device)
-        # Args = input_length=250 (window size), num_channels=2 (signals), k = 8, g = 64, max_num_channels = 8
-        self.hydra_transformer = HydraMultivariate(250, num_channels=2)
+class HydraMRRegressor(torch.nn.Module):
+    """ Basic regressor network class. 
+    
+    Args:
+        in_features: number of input features
+        out_features: number of output features
+    
+    """
+    def __init__(self, in_features: int = 49728+5120, out_features: int = 4) -> None:
+        super(HydraMRRegressor, self).__init__()
+        
+        self.name = 'HydraMRRegressor'
+        
+        self.input_layer = torch.nn.Linear(in_features, 500)
+        self.r = torch.nn.ReLU()
+        self.linear = nn.Linear(500, out_features)
         
     
-    def forward(self, X):
-        X = X.type(torch.FloatTensor)
-        multi_rocket_features = self.multi_rocket_transformer(X.numpy())
-        hydra_features = self.hydra_transformer(X)
-        multi_rocket_features = torch.tensor(multi_rocket_features)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the model.
         
-        out_features = torch.hstack((multi_rocket_features, hydra_features))
+        Args:
+            x: input tensor expected to be of shape [N,in_features]
+
+        Returns:
+            Output tensor with shape [N,out_features]
+
+        """
         
-        return out_features
+        return self.linear(self.r(self.input_layer(x)))
+        # return self.linear(x)

@@ -5,17 +5,21 @@ from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
     def __init__(self, data_path='data/processed/w_kpis/segments.hdf5', data_type='train', gm_cols=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'],
-                 pm_windowsize=1, rut='straight-edge', random_state=42, data_transform=None, kpi_transform=None, kpi_names = ['DI', 'RUT', 'PI', 'IRI']):
+                 pm_windowsize=1, rut='straight-edge', random_state=42, data_transform=None, kpi_transform=None, kpi_names = ['DI', 'RUT', 'PI', 'IRI'], 
+                 feature_extraction=False):
         self.data_path = data_path
         
         # Specify transform functions
         self.data_transform = data_transform
         self.kpi_transform = kpi_transform    
-
+        
+        self.feature_extraction = feature_extraction
+        self.data_type = data_type
+        
         # Set variables for the data
         self.windowsize = pm_windowsize # NOTE (1 or 2)This is a +- window_size in seconds (since each segment is divided into 1 second windows)
         if self.windowsize > 2 or self.windowsize < 1:
-            raise ValueError('The window size must be 1 or 2 seconds')
+            raise ValueError('The kpi window size must be 1 or 2 seconds')
         self.rut = rut
         self.segments = h5py.File(self.data_path, 'r')
         self.gm_cols = gm_cols
@@ -84,7 +88,10 @@ class Platoon(torch.utils.data.Dataset):
         if self.kpi_transform:
             KPIs = self.kpi_transform(KPIs)
         # Return
-        return train.T, KPIs # train data, labels
+        if self.feature_extraction:
+            return train.T, segment_nr, second_nr
+        else:
+            return train.T, KPIs # train data, labels
 
     def print_arguments(self):
         print(f'Arguments: \n \
