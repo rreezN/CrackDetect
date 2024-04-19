@@ -4,7 +4,8 @@
 - [X] Create Feature Data Set
   - [x] Implement transforms
     - [x] Normalize each feature
-      - [ ] Problem: Some stds are 0 (current solution: pick max(stds, 1e-12), but causes features and loss to explode)
+      - [x] Rocket feature transformation
+      - [X] Problem: Some stds are 0 (current solution: pick max(stds, 1e-12), but causes features and loss to explode)
       - [x] New solution: Mean over feature_means and feature_stds instead
     - [x] Targets need to be in same range ([0, 1]?)
       - [x] Load Max and Min
@@ -29,3 +30,4 @@
 ## Predicting
 - [x] Modify predict script to follow train script
 - [x] Load features for prediction (avoid long predict inference time)
+- [ ] Figure out what is happening with correlations...
