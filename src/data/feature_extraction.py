@@ -24,9 +24,14 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 if len(all_features) == 0:
                     continue
                 # Save feature and target statistics for training only
+                # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+                if "hydra" in feature_extractor.name.lower():
+                    s = torch.mean((all_features==0).type(torch.FloatTensor), dim=0)**4 + 1e-8
+                else:
+                    s = 0
                 feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name)
                 feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
-                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0))
+                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s)
                 min, _ = torch.min(all_features, dim=0)
                 max, _ = torch.max(all_features, dim=0)
                 feature_extractor_subgroup.create_dataset("min", data=min)
@@ -86,6 +91,8 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
         
         features = feature_extractor(data)
         features = features.flatten()
+        # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+        features = torch.sqrt(torch.clamp(features, min=0))
         if type(features) != torch.Tensor:
             features = torch.tensor(features)
         second_subgroup.create_dataset(feature_extractor.name, data=features)

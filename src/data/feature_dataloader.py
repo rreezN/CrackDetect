@@ -61,11 +61,16 @@ class Features(torch.utils.data.Dataset):
         features = torch.tensor([])
         for i, feature_extractor in enumerate(self.feature_extractors):
             feats = torch.tensor(data[feature_extractor][()])
-            # TODO: Figure out what we want to do with these stds
-            # Current solution causes features to explode (many times where std = 0)...
-            # stds = torch.max(self.feature_stds[i], 1e-12*torch.ones_like(self.feature_stds[i]))
-            # New solution: take mean of statistics...
-            feats = (feats - torch.mean(self.feature_means[i]))/torch.mean(self.feature_stds[i])
+
+            # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+            if 'hydra' in feature_extractor.lower():
+                mask = feats != 0
+                feats = ((feats - self.feature_means[i])*mask)/self.feature_stds[i]
+            elif 'multirocket' in feature_extractor.lower():
+                feats = (feats - self.feature_means[i])/self.feature_stds[i]
+            else:
+                raise ValueError(f'Feature extractor "{feature_extractor}" not recognized')
+            
             features = torch.cat((features, feats))
             
         targets = data['kpis'][self.kpi_window_size][()]
