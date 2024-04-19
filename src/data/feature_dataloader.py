@@ -39,6 +39,7 @@ class Features(torch.utils.data.Dataset):
         self.indices = permutations
         
         self.print_arguments()
+        
     
     def __len__(self):
         return len(self.indices)
@@ -59,18 +60,24 @@ class Features(torch.utils.data.Dataset):
         
         data = self.data[self.data_type]['segments'][segment_index][second_index]
         features = torch.tensor([])
+        self.preivous_bad_feats = torch.tensor([])
         for i, feature_extractor in enumerate(self.feature_extractors):
             feats = torch.tensor(data[feature_extractor][()])
 
             # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
-            if 'hydra' in feature_extractor.lower():
-                mask = feats != 0
-                feats = ((feats - self.feature_means[i])*mask)/self.feature_stds[i]
-            elif 'multirocket' in feature_extractor.lower():
-                feats = (feats - self.feature_means[i])/self.feature_stds[i]
-            else:
-                raise ValueError(f'Feature extractor "{feature_extractor}" not recognized')
+            # if 'hydra' in feature_extractor.lower():
+            #     mask = feats != 0
+            #     feats = ((feats - self.feature_means[i])*mask)/self.feature_stds[i]
+            # elif 'multirocket' in feature_extractor.lower():
+            #     feats = (feats - self.feature_means[i])/self.feature_stds[i]
+            # else:
+            #     raise ValueError(f'Feature extractor "{feature_extractor}" not recognized')
             
+            # TODO: Change this back when new features are calculated (see above)
+            feats = (feats - torch.mean(self.feature_means[i]))/torch.mean(self.feature_stds[i])
+            
+            # If std = 0, set nan to 0 (no information in the feature)
+            # feats = torch.nan_to_num(feats)
             features = torch.cat((features, feats))
             
         targets = data['kpis'][self.kpi_window_size][()]

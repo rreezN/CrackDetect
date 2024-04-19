@@ -68,14 +68,18 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     
     # Set title
     rmse = np.mean(test_losses)
-    correlation = np.mean(np.corrcoef(targets, predictions, rowvar=True))
-    plt.suptitle(f'Predictions vs Targets, RMSE: {rmse:.2f}, correlation: {correlation:.2f}', fontsize=24)
     
+    correlations = []
+    r_squareds = []
     # Plot each KPIs
     for i in range(len(axes)):
         # TODO: Correct correlation calculation
         # calculate correlation between predictions and targets
         correlation = np.corrcoef(targets[:, i], predictions[:, i])[0, 1]
+        correlations.append(correlation)
+        
+        # calculate r_squared between predictions and targets
+        
         
         # calculate RMSE between predictions and targets
         rmse= np.sqrt(np.mean(np.abs(targets[:, i] - predictions[:, i])**2))
@@ -84,6 +88,8 @@ def plot_predictions(predictions, targets, test_losses, show=False):
         axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
         axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
         axes[i].legend()
+        
+    plt.suptitle(f'Predictions vs Targets, RMSE: {rmse:.2f}, correlation: {np.mean(correlations):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig('reports/figures/model_results/predictions.pdf')
     if show:

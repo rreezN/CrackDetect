@@ -1,6 +1,7 @@
 # To Do
 
 ## Model, Training and Feature Extraction
+- [ ] Do we need to normalize input signals before feature extracting ?
 - [X] Create Feature Data Set
   - [x] Implement transforms
     - [x] Normalize each feature
@@ -31,4 +32,4 @@
 ## Predicting
 - [x] Modify predict script to follow train script
 - [x] Load features for prediction (avoid long predict inference time)
-- [ ] Figure out what is happening with correlations...
+- [x] Figure out what is happening with correlations...
