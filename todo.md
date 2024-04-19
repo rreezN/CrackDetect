@@ -25,7 +25,8 @@
 - [x] Train script needs to batch over features
 - [x] Train script needs to run epochs over data
 - [x] Saving best model during training
-- [ ] Train script needs to follow Hydra/MR implementation
+- [x] Train script needs to follow Hydra/MR implementation
+- [ ] Figure out which signals to extract features from
   
 ## Predicting
 - [x] Modify predict script to follow train script
