@@ -16,16 +16,25 @@ from data.dataloader import Platoon
 
 
 def extract_all_features(feature_extractors:list, data_loaders:list, segment_file:h5py.File):
+    """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
+    
+    Args:
+        feature_extractors (list): List of feature extractors to use [multi_rocket, hydra]
+        data_loaders (list): List of data loaders to extract features from [train, test, val]
+        segment_file (h5py.File): File to store the extracted features and targets
+    """
+    
+    
     with h5py.File('data/processed/features.hdf5', 'a') as f:
         for data_loader in data_loaders:
             data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
             segments_subgroup = data_loader_subgroup.require_group("segments")
             statistics_subgroup = data_loader_subgroup.require_group("statistics")
             for feature_extractor in feature_extractors:
-                all_features, all_targets = extract_features_from_transformer(feature_extractor, data_loader, segments_subgroup, segment_file)
+                all_features, all_targets = extract_features_from_extractor(feature_extractor, data_loader, segments_subgroup, segment_file)
                 if len(all_features) == 0:
                     continue
-                # Save feature and target statistics for training only
+                # Save feature and target statistics from training data
                 # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
                 if "hydra" in feature_extractor.name.lower():
                     s = torch.mean((all_features==0).type(torch.FloatTensor), dim=0)**4 + 1e-8
@@ -64,7 +73,18 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 
  
 
-def extract_features_from_transformer(feature_extractor, data_loader, subgroup, segment_file):
+def extract_features_from_extractor(feature_extractor, data_loader, subgroup, segment_file):
+    """Extracts features from a data loader using a feature extractor, saves them to a hdf5 file and returns them.
+
+    Args:
+        feature_extractor (_type_): The feature extractor to use (e.g. MultiRocket, Hydra)
+        data_loader (_type_): The data loader to extract features from (e.g. train, test, val)
+        subgroup (_type_): The subgroup to save the extracted features to in the hdf5 file
+        segment_file (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     all_features = torch.tensor([])
     all_targets = np.array([])
     iterator = tqdm(data_loader, unit="batch", position=0, leave=False, total=args.subset if args.subset is not None else len(data_loader))
