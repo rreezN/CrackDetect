@@ -1468,7 +1468,7 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
-    parser.add_argument('--from_mode', action='store_true', help='Start from specified mode (inclusive)')
+    parser.add_argument('--begin_from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
     parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
@@ -1476,43 +1476,43 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    begun_from = False
+    begin_from = False
 
 
-    if begun_from or args.mode in ['convert', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['convert', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Converting data ###---')
         convert()
         # Convert GoPro data to align with the GM trips
         preprocess_gopro_data()
     
-    if begun_from or args.mode in ['validate', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['validate', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Validating data ###---')
         validate(threshold=args.validation_threshold, verbose=args.verbose)
 
-    if begun_from or args.mode in ['segment', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['segment', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Segmenting data ###---')
         segment(args.speed_threshold, args.time_threshold)
 
-    if begun_from or args.mode in ['match', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['match', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---###  Matching data  ###---')
         match_data()
     
-    if begun_from or args.mode in ['resample', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['resample', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Resampling data ###---')
         resample(args.verbose)
     
-    if begun_from or args.mode in ['kpi', 'all']:
-        if not begun_from and args.from_mode:
-            begun_from = True
+    if begin_from or args.mode in ['kpi', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Calculating KPIs ###---')
         compute_kpis()
