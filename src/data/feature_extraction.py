@@ -24,9 +24,15 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 if len(all_features) == 0:
                     continue
                 # Save feature and target statistics for training only
-                feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name)
+                # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+                if "hydra" in feature_extractor.name.lower():
+                    s = torch.mean((all_features==0).type(torch.FloatTensor), dim=0)**4 + 1e-8
+                else:
+                    s = 0
+                feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name + f"_{args.name_identfier}")
+                feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
                 feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
-                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0))
+                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s)
                 min, _ = torch.min(all_features, dim=0)
                 max, _ = torch.max(all_features, dim=0)
                 feature_extractor_subgroup.create_dataset("min", data=min)
@@ -86,8 +92,11 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
         
         features = feature_extractor(data)
         features = features.flatten()
+        
         if type(features) != torch.Tensor:
             features = torch.tensor(features)
+        # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+        features = torch.sqrt(torch.clamp(features, min=0))
         second_subgroup.create_dataset(feature_extractor.name, data=features)
         if data_loader.dataset.data_type == 'train':
             if len(all_features) == 0:
@@ -128,6 +137,7 @@ def get_args():
     parser.add_argument('--hydra_input_length', type=int, default=250)
     parser.add_argument('--hydra_num_channels', type=int, default=2)
     parser.add_argument('--subset', type=int, default=None)
+    parser.add_argument('--name_identifier', type=str)
     # parser.add_argument('--batch_size', type=int, default=32)
     
     return parser.parse_args()
@@ -135,6 +145,8 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
+    
+    assert args.name_identifier is not None, 'Please specify a name identifier to save the feature extraction under in the hdf5 file.'
     
     data_path = 'data/processed/w_kpis/segments.hdf5'
     

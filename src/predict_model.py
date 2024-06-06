@@ -67,14 +67,29 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     axes = axes.flat
     
     # Set title
-    plt.suptitle(f'Predictions vs Targets, RMSE: {np.mean(test_losses):.2f}', fontsize=24)
+    rmse = np.mean(test_losses)
     
+    correlations = []
+    r_squareds = []
     # Plot each KPIs
     for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {(np.sqrt(np.mean(np.abs(targets[:, i] - predictions[:, i]))**2)):.2f}')
+        # TODO: Correct correlation calculation
+        # calculate correlation between predictions and targets
+        correlation = np.corrcoef(targets[:, i], predictions[:, i])[0, 1]
+        correlations.append(correlation)
+        
+        # calculate r_squared between predictions and targets
+        
+        
+        # calculate RMSE between predictions and targets
+        rmse= np.sqrt(np.mean(np.abs(targets[:, i] - predictions[:, i])**2))
+        
+        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse:.2f}, correlation: {correlation:.2f}')
         axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
         axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
         axes[i].legend()
+        
+    plt.suptitle(f'Predictions vs Targets, RMSE: {rmse:.2f}, correlation: {np.mean(correlations):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig('reports/figures/model_results/predictions.pdf')
     if show:
@@ -84,15 +99,29 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     # Plot zoomed in version of each KPI
     fig, axes = plt.subplots(2, 2, figsize=(20,10))
     axes = axes.flat
-    plt.suptitle(f'Zoomed Predictions vs Targets, RMSE: {np.mean(test_losses):.2f}', fontsize=24)
     start = 50
     end = 100
+    
+    rmses = []
+    correlations = []
     for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {(np.sqrt(np.mean(np.abs(targets[start:end, i] - predictions[start:end, i]))**2)):.2f}')
+        # TODO: Correct correlation calculation
+        # calculate correlation between predictions and targets
+        correlation = np.corrcoef(targets[start:end, i], predictions[start:end, i])[0, 1]
+        
+        # calculate RMSE between predictions and targets
+        rmse= np.sqrt(np.mean(np.abs(targets[start:end, i] - predictions[start:end, i])**2))
+        
+        rmses.append(rmse)
+        correlations.append(correlation)
+        
+        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse:.2f}, correlation: {correlation:.2f}')
         axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
         axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
         axes[i].legend()
         axes[i].set_xlim(start,end)
+    
+    plt.suptitle(f'Zoomed Predictions vs Targets, RMSE: {np.mean(rmses):.2f}, correlation: {np.mean(correlations):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig('reports/figures/model_results/predictions_zoomed.pdf')
     if show:
