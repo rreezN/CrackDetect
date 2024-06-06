@@ -1116,6 +1116,24 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     """
     Compute KPIs for a given second in a segment, based on a window size.
 
+        Crackingsum = (LCS^2 + LCM^3 + LCL^4 + 3*TCS + 4*TCM + 5*TCL)^0.1
+        Alligatorsum = (3*ACS + 4*ACM + 5*ACL)^0.3
+        Potholessum = (5*PAS + 7*PAM + 10*PAL + 5*PAD)^0.1
+        
+        *KPI_DI* = Crackingsum + Alligatorsum + Potholessum
+    
+        *KPI_RUT* = ((RDL + RDR) / 2)^0.5
+
+        *KPI_PI* = (LCSe^2 + 2*TCSe)^0.1
+
+        *KPI_IRI* = ((IRL + IRR) / 2)^0.2
+
+    Names of the ARAN attributes are based on the ARAN manual,
+
+        Live Road Assessment based on modern car sensors (LiRA): Practical guide
+        by Asmus Skar et al. (2022)
+        
+
     Parameters
     ----------
     segment : h5py.Group
@@ -1140,7 +1158,7 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     # damage index
     KPI_DI = damage_index(windowed_aran_data, aran_attrs)
     # rutting index
-    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs)
+    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs) 
     # patching index
     PI = patching_sum(windowed_aran_data, aran_attrs)
     # IRI
@@ -1151,7 +1169,13 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
 
 def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    Calculates the damage index for a given window of ARAN data as specified in the ARAN manual. NOTE TODO
+    Calculates the damage index for a given window of ARAN data as specified in the paper. TODO add reference to paper
+
+    crackingsum = (LCS^2 + LCM^3 + LCL^4 + 3*TCS + 4*TCM + 5*TCL)^0.1
+    alligatorsum = (3*ACS + 4*ACM + 5*ACL)^0.3
+    potholessum = (5*PAS + 7*PAM + 10*PAL + 5*PAD)^0.1
+    DI = crackingsum + alligatorsum + potholessum
+
 
     Parameters
     ----------
@@ -1190,7 +1214,7 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 
 def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    alligator cracks are computed as area of the pavement affected by the damage
+    Alligator cracks are computed as area of the pavement affected by the damage
 
     Parameters
     ----------
@@ -1208,7 +1232,7 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
 
 def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-
+    Potholes are computed as the average weighted depth of the potholes based on the ARAN manual.
 
     Parameters
     ----------
@@ -1226,7 +1250,7 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
 
 def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager, rut: str ='straight-edge') -> float:
     """
-    
+    The rutting index is computed as the average of the square root of the rut depth for each wheel track.
 
     Parameters
     ----------
@@ -1248,6 +1272,7 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 
 def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
+    The IRI is computed as the average of the square root of the IRI for the left and right wheel tracks.
 
     Parameters
     ----------
@@ -1262,7 +1287,7 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     
 def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    
+    The patching index is computed based on the ARAN manual.    
 
     Parameters
     ----------
