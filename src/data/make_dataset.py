@@ -1304,8 +1304,8 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
     """
-    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m/km)']]
-    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m/km)']]
+    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
+    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
     return (((IRL + IRR)/2)**(0.2)).mean()
     
 def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:

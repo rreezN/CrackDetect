@@ -475,7 +475,11 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
     return features
 
+"""
+Slight adaptation from https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket_multivariate.py
 
+We use MultiRocketMultivariate only as a feature extractor and not a full model
+"""
 class MultiRocketMultivariate(nn.Module):
     def __init__(
             self,
