@@ -120,7 +120,7 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
             for pass_name in pass_lists[trip_name]:
                 pass_data[pass_name] = {
                     "distance_segment_second_1": [100, 0, 0],
-                    "distance_segment_second_2": [200, 0, 0]
+                    "distance_segment_second_2": [200, 0, 0] # these values are just placeholders
                 }
             trip_data[trip_name] = pass_data
         mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index] = trip_data
@@ -131,7 +131,7 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
             current_direction = segments[str(segment)].attrs["direction"]
             
             # Check that we are going in the right direction
-            if current_direction != direction: 
+            if current_direction != direction:
                 continue
             
             current_trip_name = segments[str(segment)].attrs["trip_name"]
@@ -149,20 +149,28 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
                 best_at_second = current_second_locations[closest_sample_arg]
                 distance = np.linalg.norm(np.array(best_at_second) - np.array(real_location))
                 
-                # TODO: there is there a "bug" where current_best_trip_1 == current_best_trip_2 for segment 0 and segment 1
-                # I dont get why it is there...
-                if distance < current_best_trip_1[0]:
-                    current_best_trip_2 = current_best_trip_1
-                    current_best_trip_1 = [distance, segment, second]
-                    mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_1'] = current_best_trip_1
-                    mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2'] = current_best_trip_2
-                    
-                elif distance < current_best_trip_2[0]:
-                    current_best_trip_2 = [distance, segment, second]
-                    mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2'] = current_best_trip_2
-                
-                else: 
-                    continue
+                # Threshold for distance is set to 1.e-04, such that we only consider locations that are close enough
+                threshold_distance = 1.e-04
+                if distance < threshold_distance:
+
+                    if distance < current_best_trip_1[0]:
+                        current_best_trip_2 = current_best_trip_1
+                        current_best_trip_1 = [distance, segment, second]
+                        mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_1'] = current_best_trip_1
+                        mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2'] = current_best_trip_2
+                        
+                    elif distance < current_best_trip_2[0]:
+                        current_best_trip_2 = [distance, segment, second]
+                        mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2'] = current_best_trip_2
+    
+
+    # Go through dictionary and delete all entries where the distance is still the placeholder value
+    for index, trips in mapping_to_the_two_best_seconds_for_each_pass_in_each_trip.items():
+        for trip_name, passes in trips.items():
+            for pass_name, segments in passes.items():
+                for segment_name, values in segments.items():
+                    if values[0] == 200:
+                        del mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][trip_name][pass_name][segment_name]
     
     return mapping_to_the_two_best_seconds_for_each_pass_in_each_trip
 
@@ -206,17 +214,12 @@ def main():
     p79 = [p79_hh, p79_vh]
     directions = ['hh', 'vh']
     for gm_data_, p79_, direction in zip(gm_data, p79, directions):
-        if direction == 'hh': #TODO remove this when we have the data for VH 
-            continue
         locations = get_locations(p79_, gm_data_)
         mapping = map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists, direction)
         save_to_csv(mapping, direction)
         
-        # TODO: save as HDF5 file
-        
-    # TODO: Go trough both files and clean them up such that only 
-    # Could be something like it has to be closer than 1.0000e-4 to be considered the same location
-    
+        # TODO: save as HDF5 file instead
+            
 
 if __name__ == "__main__":
     main()

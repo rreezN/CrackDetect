@@ -4,53 +4,62 @@ import pandas as pd
 import h5py
 import datetime as dt
 import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import os
+from numpy.typing import ArrayLike
+from typing import Optional, Iterable
 from pathlib import Path
 from argparse import ArgumentParser
 from tqdm import tqdm
 from glob import glob
+from scipy.interpolate import PchipInterpolator
 
-parameter_dict = {
-        'acc_long':     {'bstar': 198,      'rstar': 1,     'b': 198,   'r': 0.05   },
-        'acc_trans':    {'bstar': 32768,    'rstar': 1,     'b': 32768, 'r': 0.04   },
-        'acc_yaw':      {'bstar': 2047,     'rstar': 1,     'b': 2047,  'r': 0.1    },
-        'brk_trq_elec': {'bstar': 4096,     'rstar': -1,    'b': 4098,  'r': -1     },
-        'whl_trq_est':  {'bstar': 12800,    'rstar': 0.5,   'b': 12700, 'r': 1      },
-        'trac_cons':    {'bstar': 80,       'rstar': 1,     'b': 79,    'r': 1      },
-        'trip_cons':    {'bstar': 0,        'rstar': 0.1,   'b': 0,     'r': 1      }
-    }
+CONVERT_PARAMETER_DICT = {
+    'acc_long':     {'bstar': 198,      'rstar': 1,     'b': 198,   'r': 0.05   },
+    'acc_trans':    {'bstar': 32768,    'rstar': 1,     'b': 32768, 'r': 0.04   },
+    'acc_yaw':      {'bstar': 2047,     'rstar': 1,     'b': 2047,  'r': 0.1    },
+    'brk_trq_elec': {'bstar': 4096,     'rstar': -1,    'b': 4098,  'r': -1     },
+    'whl_trq_est':  {'bstar': 12800,    'rstar': 0.5,   'b': 12700, 'r': 1      },
+    'trac_cons':    {'bstar': 80,       'rstar': 1,     'b': 79,    'r': 1      },
+    'trip_cons':    {'bstar': 0,        'rstar': 0.1,   'b': 0,     'r': 1      }
+}
 
-def convertdata(data, parameter):
-    bstar = parameter['bstar']
-    rstar = parameter['rstar']
-    b = parameter['b']
-    r = parameter['r']
-    # We only convert data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
-    col0 = data[:,0]
-    col1 = ((data[:,1]-bstar*rstar)-b)*r
-    data = np.column_stack((col0, col1))
-    return data
+SMOOTH_PARAMETER_DICT = {
+    'acc.xyz':     {'kind': 'lowess', 'frac': 0.005},
+    'spd_veh':     {'kind': 'lowess', 'frac': 0.005},
+    'acc_long':     {'kind': 'lowess', 'frac': 0.005},
+    'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
+}
+
+"""
+TODO:
+- Better type hints
+- Add paper references / docstrings
+- Improve validation
+"""
 
 
-def unpack_hdf5(hdf5_file, convert: bool = False):
+# ========================================================================================================================
+#           hdf5 utility functions
+# ========================================================================================================================
+
+def unpack_hdf5(hdf5_file):
     with h5py.File(hdf5_file, 'r') as f:
-        data = unpack_hdf5_(f, convert)
+        data = unpack_hdf5_(f)
     return data
 
 
-def unpack_hdf5_(group, convert: bool = False):
+def unpack_hdf5_(group):
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
             data[key] = unpack_hdf5_(group[key], convert)
         else:
-            if convert and key in parameter_dict:
-                data[key] = convertdata(group[key][()], parameter_dict[key])
+            d = group[key][()]
+            if isinstance(d, bytes):
+                data[key] = d.decode('utf-8')
             else:
-                d = group[key][()]
-                if isinstance(d, bytes):
-                    data[key] = d.decode('utf-8')
-                else:
-                    data[key] = group[key][()]
+                data[key] = group[key][()]
     return data
 
 
@@ -77,7 +86,322 @@ def save_hdf5_(data, group):
                 group.create_dataset(key, data=value.values)
             elif isinstance(value, str):
                 group.create_dataset(key, data=value.encode('utf-8'))
+
+
+# ========================================================================================================================
+#           Convertion functions
+# ========================================================================================================================
+
+def convertdata(data, parameter):
+    """
+    "LiRA-CD: An open-source dataset for road condition modelling and research" by
+    Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari
+    https://doi.org/10.1016/j.dib.2023.109426
+
+        - CONVERT_PARAMETER_DICT corresponds to Table 2 
+        - col1 is computed using the equation for s specificed on page 6.
+    """
+    bstar = parameter['bstar']
+    rstar = parameter['rstar']
+    b = parameter['b']
+    r = parameter['r']
+    # We only convert data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
+    col0 = data[:,0]
+    col1 = ((data[:,1]-bstar*rstar)-b)*r
+    data = np.column_stack((col0, col1))
+    return data
+
+def smoothdata(data, parameter):
+    # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
+    x = data[:,0]
+    kind = parameter["kind"]
+    frac = parameter["frac"]
+    for i in range(1, data.shape[1]):
+        if kind == "lowess":
+            data[:,i] = sm.nonparametric.lowess(data[:,i], x, frac=frac, is_sorted=True, return_sorted=False)
+        else:
+            raise NotImplementedError(f"Smoothing method {kind} not implemented")
+    return data
+
+def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, verbose: bool = False, pbar: Optional[tqdm] = None) -> None:
+    # Convert the data in the original AutoPi CAN file to the converted file
+
+    if verbose:
+        iterator = tqdm(original_file.keys())
+        pbar = iterator
+    else:
+        iterator = original_file.keys()
+
+    for key in iterator:
+        if pbar is not None:
+            pbar.set_description(f"Converting {original_file.name}/{key}")
+
+        # Traverse the hdf5 tree
+        if isinstance(original_file[key], h5py.Group):
+            subgroup = converted_file.create_group(key)
+            convert_autopi_can(original_file[key], subgroup, pbar=pbar)
+
+        # Convert the data
+        else:
+            data = original_file[key][()]
+            if key in CONVERT_PARAMETER_DICT:
+                data = convertdata(data, CONVERT_PARAMETER_DICT[key])
+            if key in SMOOTH_PARAMETER_DICT:
+                data = smoothdata(data, SMOOTH_PARAMETER_DICT[key])
+            
+            # Save the data to the converted file
+            converted_file.create_dataset(key, data=data)
+
+def convert():
+    hh = Path('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5')
+    vh = Path('data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5')
+
+    interim_gm = Path('data/interim/gm')
+    interim_gm.mkdir(parents=True, exist_ok=True)
+
+
+    for file in [hh, vh]:
+        with h5py.File(file, 'r') as f:
+            with h5py.File(interim_gm / f"converted_{file.name}", 'w') as converted_file:
+                convert_autopi_can(f, converted_file, verbose=True)
+
+
+# ========================================================================================================================
+#           Hardcoded GoPro functions
+# ========================================================================================================================
+
+def csv_files_together(car_trip, go_pro_names, car_number):
+    # Load all the gopro data 
+    for measurement in ['accl', 'gps5', 'gyro']:
+        gopro_data = None
+        for trip_id in go_pro_names:
+            trip_folder = f"data/raw/gopro_data/{car_number}/{trip_id}"
+            new_data = pd.read_csv(f'{trip_folder}/{trip_id}_HERO8 Black-{measurement.upper()}.csv')
+            new_data['date'] = pd.to_datetime(new_data['date']).map(dt.datetime.timestamp)
+            
+            # Drop all non-float columns
+            new_data = new_data.select_dtypes(include=['float64', 'float32'])
+        
+            if gopro_data is not None:
+                gopro_data = pd.concat([gopro_data, new_data])
+            else:
+                gopro_data = new_data
+            
+        # save gopro_data[measurement
+        new_folder = f"data/interim/gopro/{car_trip}"
+        Path(new_folder).mkdir(parents=True, exist_ok=True)
+        
+        gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
+
+def preprocess_gopro_data():
+    """
+    Preprocess the GoPro data by combining the data from the three GoPro cameras into one csv file for each trip
+
+    NOTE: This function is hardcoded for the three trips in the CPH1 dataset
+    """
+
+    # Create gopro data for the three trips
+    car_trips = ["16011", "16009", "16006"]
+    car_gopro = {
+        "16011": ["GH012200", "GH022200", "GH032200", "GH042200", "GH052200", "GH062200"],
+        "16009": ["GH010053", "GH030053", "GH040053", "GH050053", "GH060053"],
+        "16006": ["GH020056", "GH040053"]
+    }
+    car_numbers = {
+        "16011": "car1",
+        "16009": "car3",
+        "16006": "car3"
+    }
     
+    pbar = tqdm(car_trips)
+    for car_trip in pbar:
+        pbar.set_description(f"Converting {car_trip}")
+        csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
+
+
+# ========================================================================================================================
+#           Validation functions
+# ========================================================================================================================
+
+def distance_gps(gps):
+    lat = gps[:, 0]
+    lon = gps[:, 1]
+
+    dx = np.zeros(len(lat))
+    R = 6378.137 * 1e3  # Radius of Earth in m
+
+    for i in range(len(dx)-1):
+        dLat = np.radians(lat[i+1] - lat[i])
+        dLon = np.radians(lon[i+1] - lon[i])
+        a = np.sin(dLat/2)**2 + np.cos(np.radians(lat[i])) * np.cos(np.radians(lat[i+1])) * np.sin(dLon/2)**2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+        dx[i+1] = dx[i] + R * c
+
+    return dx
+
+def clean_int(tick, response, tick_int):
+    # Add offset to multiple data (in interpolant)
+    ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
+    ve += np.cumsum(np.ones_like(tick)) * (tick == 0) * np.finfo(float).eps  # Add Scaled Offset For Zero Elements
+    vi = tick + ve  # Interpolation Vector
+    tick2 = vi
+
+    # Create a PCHIP interpolator and interpolate
+    pchip_interpolator = PchipInterpolator(tick2, response)
+    data_int = pchip_interpolator(tick_int)
+
+    return data_int
+
+def validate(threshold: float, verbose: bool = False):
+    """
+    Validate the data by comparing the AutoPi data and the CAN data (car sensors)
+
+    Parameters
+    ----------
+    threshold : float (default 0.9)
+        The threshold for the correlation between the AutoPi and CAN data
+    verbose : bool (default False)
+        Whether to plot the data for visual inspection
+    """
+    # Save gm data with converted values
+    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
+    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
+
+    iterator = tqdm([autopi_hh, autopi_vh])
+
+    # Validate the trips
+    for file in iterator:
+        for trip_name, trip in file['GM'].items():
+            for pass_name, pass_ in trip.items():
+                iterator.set_description(f"Validating {trip_name}/{pass_name}")
+                validate_pass(pass_, threshold, verbose)
+
+def plot_sensors(time: ArrayLike, sensors: Iterable[ArrayLike], labels: Iterable[str], styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    for sensor, label, style in zip(sensors, labels, styles):
+        ax.plot(time, sensor, style, label=label)
+
+    ax.legend()
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    if title is not None:
+        ax.set_title(title)
+    plt.tight_layout()
+    plt.show()
+
+def validate_pass(car: dict, threshold: float, verbose: bool = False):
+    # PYTHON TRANSLATION OF MATLAB CODE FROM PLATOON_SENSOR_VAL.m BY ASMUS
+    fs = 10
+    # Speed distance
+    tspd = car['spd_veh'][:, 0]
+    dspd = np.cumsum(car['spd_veh'][1:, 1]*np.diff(car['spd_veh'][:, 0]))/3.6
+    dspd = np.insert(dspd, 0, 0)
+
+    # GPS data
+    tgps = car['gps'][:, 0]
+    lat  = car['gps'][:, 1]
+    lon  = car['gps'][:, 2]
+
+    # Odometer
+    todo = car['odo'][:, 0]
+    odo = car['odo'][:, 1] * 1e3 + np.cumsum(car['f_dist'][:, 1]) * 1e-2
+
+    # Normalize accelerations
+    taccrpi = car['acc.xyz'][:, 0]
+    xaccrpi = car['acc.xyz'][:, 1] - np.mean(car['acc.xyz'][:, 1])
+    yaccrpi = car['acc.xyz'][:, 2] - np.mean(car['acc.xyz'][:, 2])
+    zaccrpi = car['acc.xyz'][:, 3] - np.mean(car['acc.xyz'][:, 3])
+
+    tatra = car['acc_trans'][:, 0]
+    atra = car['acc_trans'][:, 1] - np.mean(car['acc_trans'][:, 1])
+    talon = car['acc_long'][:, 0]
+    alon = car['acc_long'][:, 1] - np.mean(car['acc_long'][:, 1])
+
+    # Resample to 100Hz
+    time_start_max = np.max([taccrpi[0], tatra[0], talon[0], tgps[0], tspd[0], todo[0]])
+    time_end_min = np.min([taccrpi[-1], tatra[-1], talon[-1], tgps[-1], tspd[-1], todo[-1]])
+    tend = time_end_min - time_start_max
+    time = np.arange(0, tend, 1/fs)
+
+    # Interpolate
+    axrpi_100hz = clean_int(taccrpi-time_start_max, xaccrpi, time)
+    ayrpi_100hz = clean_int(taccrpi-time_start_max, yaccrpi, time)
+    azrpi_100hz = clean_int(taccrpi-time_start_max, zaccrpi, time)
+    aycan_100hz = clean_int(tatra-time_start_max, atra, time)
+    axcan_100hz = clean_int(talon-time_start_max, alon, time)
+    dis_100hz   = clean_int(tspd-time_start_max, dspd, time)
+    lon_100hz   = clean_int(tgps-time_start_max, lon, time)
+    lat_100hz   = clean_int(tgps-time_start_max, lat, time)
+    odo_100hz   = clean_int(todo-time_start_max, odo, time)
+
+    # Reorient accelerations
+    alon = axcan_100hz.copy()
+    atrans = aycan_100hz.copy()
+    axpn = axrpi_100hz * 9.81
+    aypn = ayrpi_100hz * 9.81
+    azpn = azrpi_100hz * 9.81
+
+    # Calculate correlation with CAN accelerations
+    pcxl = np.corrcoef(axpn, alon)[0, 1]
+    pcyl = np.corrcoef(aypn, alon)[0, 1]
+
+    pcxt = np.corrcoef(axpn, atrans)[0, 1]
+    pcyt = np.corrcoef(aypn, atrans)[0, 1]
+    
+    if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
+        if pcxt < 0:
+            axrpi_100hz = aypn
+            ayrpi_100hz = -axpn
+        else:
+            axrpi_100hz = aypn
+            ayrpi_100hz = axpn
+    else:
+        if pcyt < 0:
+            axrpi_100hz = axpn
+            ayrpi_100hz = -aypn
+        else:
+            axrpi_100hz = axpn
+            ayrpi_100hz = aypn
+
+    axcan_100hz = alon
+    aycan_100hz = atrans
+    azrpi_100hz = azpn
+
+    # Compute correlation between the two acceleration sensors
+    pcx = np.corrcoef(axrpi_100hz, axcan_100hz)[0, 1]
+    if pcx < threshold:
+        print(f"Correlation between Autopi and CAN x-acceleration sensors is below threshold: {pcx}")
+        if verbose:
+            plot_sensors(time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
+
+
+    pcy = np.corrcoef(ayrpi_100hz, aycan_100hz)[0, 1]
+
+    if pcy < threshold:
+        print(f"Correlation between Autopi and CAN y-acceleration sensors is below threshold: {pcy}")
+        if verbose:
+            plot_sensors(time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
+    
+    pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
+
+
+    # Compute correlation between the two distance measures
+    odo_dist = odo_100hz - odo_100hz[0]
+    gps_dist = distance_gps(np.column_stack((lat_100hz, lon_100hz)))
+
+    pcgps = np.corrcoef(dis_100hz, gps_dist)[0, 1]
+    pcodo = np.corrcoef(dis_100hz, odo_dist)[0, 1]
+    if pcodo < threshold or pcgps < threshold:
+        print(f"Correlation between Autopi and CAN odo sensors or GPS distance is below threshold: {pcodo}, {pcgps}")
+        if verbose:
+            plot_sensors(time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
+        
+
+# ========================================================================================================================
+#           Segmentation functions
+# ========================================================================================================================
 
 def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0):
     """
@@ -166,6 +490,104 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     
     return sections
 
+def segment(speed_threshold: int = 5, time_threshold: int = 10):
+    # Load data
+    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
+    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
+
+    # Remove old segment file if it exists
+    segment_path = Path('data/interim/gm/segments.hdf5')
+    if segment_path.exists():
+        segment_path.unlink()
+
+    # Segment data
+    segment_index = segment_gm(autopi_hh['GM'], direction='hh', speed_threshold=speed_threshold, time_threshold=time_threshold)
+    segment_gm(autopi_vh['GM'], direction='vh', speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
+
+
+# ========================================================================================================================
+#           Matching functions
+# ========================================================================================================================
+
+def match_data():
+    # Define path to segment files
+    segment_file = 'data/interim/gm/segments.hdf5'
+
+    # Load reference and GoPro data
+    aran = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
+    }
+
+    p79 = {
+        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
+        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+    }
+    
+    gopro_data = {}
+    car_trips = ["16011", "16009", "16006"]
+    for trip_id in car_trips:
+        gopro_data[trip_id] = {}
+        for measurement in ['gps5', 'accl', 'gyro']:
+            gopro_data[trip_id][measurement] = pd.read_csv(f'data/interim/gopro/{trip_id}/{measurement}.csv')
+
+    # Create folders for saving
+    Path('data/interim/aran').mkdir(parents=True, exist_ok=True)
+    Path('data/interim/p79').mkdir(parents=True, exist_ok=True)
+    Path('data/interim/gopro').mkdir(parents=True, exist_ok=True)
+
+    # Remove old segment files if they exist
+    for folder in ['aran', 'p79', 'gopro']:
+        segment_path = Path(f'data/interim/{folder}/segments.hdf5')
+        if segment_path.exists():
+            segment_path.unlink()
+
+    # Match data
+    with h5py.File(segment_file, 'r') as f:
+        segment_files = [f[str(i)] for i in range(len(f))]
+        pbar = tqdm(segment_files)
+        for i, segment in enumerate(pbar):
+            pbar.set_description(f"Matching segment {i+1:03d}/{len(segment_files)}")
+
+            direction = segment['direction'][()].decode("utf-8")
+            trip_name = segment["trip_name"][()].decode('utf-8')
+            pass_name = segment["pass_name"][()].decode('utf-8')
+
+            segment_lonlat = segment['measurements']['gps'][()][:, 2:0:-1]
+
+            aran_dir = aran[direction]
+            p79_dir = p79[direction]
+
+            # Match to ARAN data
+            aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
+            aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
+            save_hdf5(aran_segment, 'data/interim/aran/segments.hdf5', segment_id=i)
+
+            # Match to P79 data
+            p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
+            p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
+            save_hdf5(p79_segment, 'data/interim/p79/segments.hdf5', segment_id=i)
+                
+            # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
+            if trip_name not in ["16006", "16009", "16011"]:
+                continue
+            
+            gopro_segment = {}
+            for measurement in ['gps5', 'accl', 'gyro']:
+                start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(segment, gopro_data[trip_name][measurement]["date"])
+
+                if max(start_diff, end_diff) > 1:
+                    continue
+                
+                gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
+
+            if gopro_segment != {}:
+                save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
+
+
+# ========================================================================================================================
+#           Resampling functions
+# ========================================================================================================================
 
 def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray):
     # Find the start and end indeces of the section data that are closest to the trip data
@@ -287,150 +709,6 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray):
                 continue
             new_section[key] = interpolate(measurement_distances[name], value[()], resampled_distances)
     return new_section
-
-
-def csv_files_together(car_trip, go_pro_names, car_number):
-    # Load all the gopro data 
-    for measurement in ['accl', 'gps5', 'gyro']:
-        gopro_data = None
-        for trip_id in go_pro_names:
-            trip_folder = f"data/raw/gopro_data/{car_number}/{trip_id}"
-            new_data = pd.read_csv(f'{trip_folder}/{trip_id}_HERO8 Black-{measurement.upper()}.csv')
-            new_data['date'] = pd.to_datetime(new_data['date']).map(dt.datetime.timestamp)
-            
-            # Drop all non-float columns
-            new_data = new_data.select_dtypes(include=['float64', 'float32'])
-        
-            if gopro_data is not None:
-                gopro_data = pd.concat([gopro_data, new_data])
-            else:
-                gopro_data = new_data
-            
-        # save gopro_data[measurement
-        new_folder = f"data/interim/gopro/{car_trip}"
-        Path(new_folder).mkdir(parents=True, exist_ok=True)
-        
-        gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
-
-
-def convert():
-    # TODO: Rotate coordinates 
-    # Save gm data with converted values
-    autopi_hh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', convert=True)
-    autopi_vh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5', convert=True)
-
-    Path('data/interim/gm').mkdir(parents=True, exist_ok=True)
-    save_hdf5(autopi_hh, 'data/interim/gm/converted_platoon_CPH1_HH.hdf5')
-    save_hdf5(autopi_vh, 'data/interim/gm/converted_platoon_CPH1_VH.hdf5')
-    
-    # Create gopro data for the three trips
-    car_trips = ["16011", "16009", "16006"]
-    car_gopro = {
-        "16011": ["GH012200", "GH022200", "GH032200", "GH042200", "GH052200", "GH062200"],
-        "16009": ["GH010053", "GH030053", "GH040053", "GH050053", "GH060053"],
-        "16006": ["GH020056", "GH040053"]
-    }
-    car_numbers = {
-        "16011": "car1",
-        "16009": "car3",
-        "16006": "car3"
-    }
-    
-    pbar = tqdm(car_trips)
-    for car_trip in pbar:
-        pbar.set_description(f"Converting {car_trip}")
-        csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
-        
-
-def segment(speed_threshold: int = 5, time_threshold: int = 10):
-    # Load data
-    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5', convert=False)
-    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5', convert=False)
-
-    # Remove old segment file if it exists
-    segment_path = Path('data/interim/gm/segments.hdf5')
-    if segment_path.exists():
-        segment_path.unlink()
-
-    # Segment data
-    segment_index = segment_gm(autopi_hh['GM'], direction='hh', speed_threshold=speed_threshold, time_threshold=time_threshold)
-    segment_gm(autopi_vh['GM'], direction='vh', speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
-
-
-def match_data():
-    # Define path to segment files
-    segment_file = 'data/interim/gm/segments.hdf5'
-
-    # Load reference and GoPro data
-    aran = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
-    }
-
-    p79 = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
-    }
-    
-    gopro_data = {}
-    car_trips = ["16011", "16009", "16006"]
-    for trip_id in car_trips:
-        gopro_data[trip_id] = {}
-        for measurement in ['gps5', 'accl', 'gyro']:
-            gopro_data[trip_id][measurement] = pd.read_csv(f'data/interim/gopro/{trip_id}/{measurement}.csv')
-
-    # Create folders for saving
-    Path('data/interim/aran').mkdir(parents=True, exist_ok=True)
-    Path('data/interim/p79').mkdir(parents=True, exist_ok=True)
-    Path('data/interim/gopro').mkdir(parents=True, exist_ok=True)
-
-    # Remove old segment files if they exist
-    for folder in ['aran', 'p79', 'gopro']:
-        segment_path = Path(f'data/interim/{folder}/segments.hdf5')
-        if segment_path.exists():
-            segment_path.unlink()
-
-    # Match data
-    with h5py.File(segment_file, 'r') as f:
-        segment_files = [f[str(i)] for i in range(len(f))]
-        pbar = tqdm(segment_files)
-        for i, segment in enumerate(pbar):
-            pbar.set_description(f"Matching segment {i+1:03d}/{len(segment_files)}")
-
-            direction = segment['direction'][()].decode("utf-8")
-            trip_name = segment["trip_name"][()].decode('utf-8')
-            pass_name = segment["pass_name"][()].decode('utf-8')
-
-            segment_lonlat = segment['measurements']['gps'][()][:, 2:0:-1]
-
-            aran_dir = aran[direction]
-            p79_dir = p79[direction]
-
-            # Match to ARAN data
-            aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
-            aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
-            save_hdf5(aran_segment, 'data/interim/aran/segments.hdf5', segment_id=i)
-
-            # Match to P79 data
-            p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
-            p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
-            save_hdf5(p79_segment, 'data/interim/p79/segments.hdf5', segment_id=i)
-                
-            # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
-            if trip_name not in ["16006", "16009", "16011"]:
-                continue
-            
-            gopro_segment = {}
-            for measurement in ['gps5', 'accl', 'gyro']:
-                start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(segment, gopro_data[trip_name][measurement]["date"])
-
-                if max(start_diff, end_diff) > 1:
-                    continue
-                
-                gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
-
-            if gopro_segment != {}:
-                save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
 
 def resample(verbose: bool = False):
     # Resample the gm data to a fixed frequency
@@ -734,9 +1012,10 @@ def patching_sum(windowed_aran_data, aran_attrs):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
+    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
 
     args = parser.parse_args()
@@ -744,6 +1023,13 @@ if __name__ == '__main__':
     if args.mode in ['convert', 'all']:
         print('    ---### Converting data ###---')
         convert()
+        
+        # Convert GoPro data to align with the GM trips
+        preprocess_gopro_data()
+    
+    if args.mode in ['validate', 'all']:
+        print('    ---### Validating data ###---')
+        validate(threshold=args.validation_threshold, verbose=args.verbose)
 
     if args.mode in ['segment', 'all']:
         print('    ---### Segmenting data ###---')
