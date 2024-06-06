@@ -3,7 +3,7 @@
 ## Model, Training and Feature Extraction
 - [ ] Extract new features, using more than acc only
   - [ ] Check if this fixes std = 0 issue
-- [ ] Normalize inputs before feature extraction
+- [X] Normalize inputs before feature extraction
 - [ ] Find out why some features have std = 0
   - [ ] Also find out if for different signals they always output the same, i.e. channel 13 is always 14.7 or whatever
   - [ ] If can't find out and fix, then remove features with std = 0 before training
@@ -44,8 +44,10 @@
 - [ ] Report baseline RMSE with predictions (average of targets (?))
 
 
+## Data loaders
+- [ ] Evaluate whether we want to keep the transform arguments - they are currently big time unused, could be confusing
+
 ## Aflevering
 - [ ] Comments, comments, comments... and more comments
 - [ ] NO MAGIC NUMBERS (TOMMY BLIVER KED AF DET)
 - [ ] Henvis til rapporten i koden (ligninger, osv.)
-- [ ] 
