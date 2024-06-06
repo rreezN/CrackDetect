@@ -32,9 +32,9 @@ SMOOTH_PARAMETER_DICT = {
 
 """
 TODO:
-- Better type hints
-- Add paper references / docstrings
+- complete todos
 - Improve validation
+- Add path-to-file as arguments?
 """
 
 
@@ -257,10 +257,9 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     Main function for converting the AutoPi CAN data to the converted data.
     It loads data from a specific path, converts the data, and saves it to a new path.
 
-    This function assumes the following:
-        - The data is stored in hdf5 format
-        - The data is stored, from the root at "data/raw/AutoPi_CAN/", which then allows 
-            for the converted data to be stored in "data/interim/gm"
+    This function assumes/does the following:
+        - The data is stored isn hdf5 format
+        - Saves the converted data in hdf5 format at 'data/interim/gm'
 
     Parameters
     ----------
