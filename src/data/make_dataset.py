@@ -1,16 +1,22 @@
-
+"""
+TODO:
+- complete todos
+- Improve validation
+- Add path-to-file as arguments?
+- Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?
+- Create jupyter notebook that explains the data processing steps and the validation process
+    - Explain each intermediate step and showcase what happens to data!
+"""
 import numpy as np
 import pandas as pd
 import h5py
 import datetime as dt
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
-import os
-from typing import Optional, Iterable, List
+from typing import Optional, Iterable
 from pathlib import Path
 from argparse import ArgumentParser
 from tqdm import tqdm
-from glob import glob
 from scipy.interpolate import PchipInterpolator
 
 CONVERT_PARAMETER_DICT = {
@@ -29,13 +35,6 @@ SMOOTH_PARAMETER_DICT = {
     'acc_long':     {'kind': 'lowess', 'frac': 0.005},
     'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
 }
-
-"""
-TODO:
-- complete todos
-- Improve validation
-- Add path-to-file as arguments?
-"""
 
 
 # ========================================================================================================================
