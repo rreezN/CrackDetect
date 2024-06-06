@@ -32,6 +32,8 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 else:
                     s = 0
                 name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier is not None else feature_extractor.name
+                if name in statistics_subgroup.keys():
+                    del statistics_subgroup[name]
                 feature_extractor_subgroup = statistics_subgroup.require_group(name)
                 feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
                 feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
@@ -41,7 +43,8 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 feature_extractor_subgroup.create_dataset("min", data=min)
                 feature_extractor_subgroup.create_dataset("max", data=max)
                 
-                if not "kpis" in statistics_subgroup.keys():
+                # NOTE: To get proper KPI statistics, feature extraction must be run on the entire dataset (NOT a subset)
+                if not "kpis" in statistics_subgroup.keys() and args.subset is not None:
                     kpi_stat_subgroup = statistics_subgroup.require_group("kpis")
                     target_1_subgroup = kpi_stat_subgroup.require_group("1")
                     target_1_subgroup.create_dataset("mean", data=torch.mean(torch.tensor(all_targets[::2, :]), dim=0))
@@ -59,7 +62,7 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                     target_2_subgroup.create_dataset("min", data=min)
                     target_2_subgroup.create_dataset("max", data=max)
                 
-                    
+ 
 
 def extract_features_from_transformer(feature_extractor, data_loader, subgroup, segment_file):
     all_features = torch.tensor([])
@@ -102,7 +105,12 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
             features = torch.tensor(features)
         # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
         features = torch.sqrt(torch.clamp(features, min=0))
-        second_subgroup.create_dataset(feature_extractor.name, data=features)
+        
+        if f'{feature_extractor.name}_{args.name_identifier}' in second_subgroup.keys():
+            del second_subgroup[f'{feature_extractor.name}_{args.name_identifier}']
+            
+        second_subgroup.create_dataset(f'{feature_extractor.name}_{args.name_identifier}', data=features)
+
         if data_loader.dataset.data_type == 'train':
             if len(all_features) == 0:
                 all_features = features
