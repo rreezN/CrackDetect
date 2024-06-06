@@ -64,6 +64,7 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
             data[key] = unpack_hdf5_(group[key])
+            data[key] = unpack_hdf5_(group[key])
         else:
             d = group[key][()]
             if isinstance(d, bytes):
@@ -321,7 +322,7 @@ def preprocess_gopro_data() -> None:
     
     pbar = tqdm(car_trips)
     for car_trip in pbar:
-        pbar.set_description(f"Converting {car_trip}")
+        pbar.set_description(f"Converting GoPro/{car_trip}")
         csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
 
 
@@ -395,7 +396,7 @@ def validate(threshold: float, verbose: bool = False):
                 iterator.set_description(f"Validating {trip_name}/{pass_name}")
                 validate_pass(pass_, threshold, verbose)
 
-def plot_sensors(time: ArrayLike, sensors: Iterable[ArrayLike], labels: Iterable[str], styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None):
+def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None):
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     for sensor, label, style in zip(sensors, labels, styles):
         ax.plot(time, sensor, style, label=label)
@@ -628,7 +629,7 @@ def segment(speed_threshold: int = 5, time_threshold: int = 10):
 #           Matching functions
 # ========================================================================================================================
 
-def match_data():
+def match_data() -> None:
     # Define path to segment files
     segment_file = 'data/interim/gm/segments.hdf5'
 
@@ -708,7 +709,7 @@ def match_data():
 #           Resampling functions
 # ========================================================================================================================
 
-def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray):
+def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> tuple[int, int]:
     # Find the start and end indeces of the section data that are closest to the trip data
     lon_a, lat_a = trip[:,0], trip[:,1]
     lon_b, lat_b = section[:,0], section[:,1]
@@ -719,7 +720,7 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
     return start_index, end_index+1
 
 
-def find_best_start_and_end_indeces_by_time(current_segment, gopro_time):
+def find_best_start_and_end_indeces_by_time(current_segment: h5py.Group, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
     # Find the start and end indeces of the section data based on time
     
     current_segment_start_time = current_segment["measurements"]["gps"][()][0, 0]
@@ -737,29 +738,29 @@ def find_best_start_and_end_indeces_by_time(current_segment, gopro_time):
     return start_index, end_index, start_diff, end_diff
 
 
-def cut_dataframe_by_indeces(df, start, end):
+def cut_dataframe_by_indeces(df: pd.DataFrame, start: int, end: int) -> pd.DataFrame:
     return df.iloc[start:end]
 
 
-def interpolate(x, y, x_new):
+def interpolate(x: np.ndarray, y: np.ndarray, x_new: np.ndarray) -> np.ndarray:
     # Interpolate y values for x_new using x and y
     return np.interp(x_new, x, y)
 
 
-def remove_duplicates(time, value):
+def remove_duplicates(time: np.ndarray, value: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     # Remove duplicate timestamps
     time_mask = np.concatenate((np.array([True]), np.diff(time) > 0))
     return time[time_mask], value[time_mask]
 
 
-def calculate_distance_from_time_and_speed(time, speed, conversion_factor=1):
+def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: int = 1) -> np.ndarray:
     # Calculate the distance from the time and speed measurements
     distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / conversion_factor)
     distance = np.insert(distance, 0, 0)
     return distance
 
 
-def resample_gm(section: h5py.Group, frequency: int = 250):
+def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarray]:
     # Resample the gm data to a fixed frequency by interpolating the measurements by distance
 
     # Calculate the distance between each point
@@ -799,7 +800,7 @@ def resample_gm(section: h5py.Group, frequency: int = 250):
     return new_section
 
 
-def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray):
+def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray) -> dict[str, np.ndarray]:
     gps5 = section["gps5"]
     gps5_time, gps5_speed = gps5["date"][()], gps5["GPS (3D speed) [m_s]"][()]
     accl = section["accl"]
@@ -829,7 +830,7 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray):
             new_section[key] = interpolate(measurement_distances[name], value[()], resampled_distances)
     return new_section
 
-def resample(verbose: bool = False):
+def resample(verbose: bool = False) -> None:
     # Resample the gm data to a fixed frequency
     frequency = 250
     seconds_per_step = 1

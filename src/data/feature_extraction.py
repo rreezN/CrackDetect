@@ -14,11 +14,11 @@ from data.dataloader import Platoon
 
 
 def extract_all_features(feature_extractors:list, data_loaders:list, segment_file:h5py.File):
-    with h5py.File('data/processed/features.hdf5', 'w') as f:
+    with h5py.File('data/processed/features.hdf5', 'a') as f:
         for data_loader in data_loaders:
-            data_loader_subgroup = f.create_group(data_loader.dataset.data_type)
-            segments_subgroup = data_loader_subgroup.create_group("segments")
-            statistics_subgroup = data_loader_subgroup.create_group("statistics")
+            data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
+            segments_subgroup = data_loader_subgroup.require_group("segments")
+            statistics_subgroup = data_loader_subgroup.require_group("statistics")
             for feature_extractor in feature_extractors:
                 all_features, all_targets = extract_features_from_transformer(feature_extractor, data_loader, segments_subgroup, segment_file)
                 if len(all_features) == 0:
@@ -29,7 +29,7 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                     s = torch.mean((all_features==0).type(torch.FloatTensor), dim=0)**4 + 1e-8
                 else:
                     s = 0
-                feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name + f"_{args.name_identfier}")
+                feature_extractor_subgroup = statistics_subgroup.require_group(feature_extractor.name + f"_{args.name_identifier}")
                 feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
                 feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
                 feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s) # add small value to avoid division by zero in hydra features
@@ -39,8 +39,8 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 feature_extractor_subgroup.create_dataset("max", data=max)
                 
                 if not "kpis" in statistics_subgroup.keys():
-                    kpi_stat_subgroup = statistics_subgroup.create_group("kpis")
-                    target_1_subgroup = kpi_stat_subgroup.create_group("1")
+                    kpi_stat_subgroup = statistics_subgroup.require_group("kpis")
+                    target_1_subgroup = kpi_stat_subgroup.require_group("1")
                     target_1_subgroup.create_dataset("mean", data=torch.mean(torch.tensor(all_targets[::2, :]), dim=0))
                     target_1_subgroup.create_dataset("std", data=torch.std(torch.tensor(all_targets[::2, :]), dim=0))
                     min, _ = torch.min(torch.tensor(all_targets[::2, :]), dim=0)
@@ -48,7 +48,7 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                     target_1_subgroup.create_dataset("min", data=min)
                     target_1_subgroup.create_dataset("max", data=max)
                     
-                    target_2_subgroup = kpi_stat_subgroup.create_group("2")
+                    target_2_subgroup = kpi_stat_subgroup.require_group("2")
                     target_2_subgroup.create_dataset("mean", data=torch.mean(torch.tensor(all_targets[1::2, :]), dim=0))
                     target_2_subgroup.create_dataset("std", data=torch.std(torch.tensor(all_targets[1::2, :]), dim=0))
                     min, _ = torch.min(torch.tensor(all_targets[1::2, :]), dim=0)
@@ -74,7 +74,7 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
         segment_nr = segment_nr[0]
         second_nr = second_nr[0]
         if not segment_nr in subgroup.keys():
-            subgroup.create_group(segment_nr)
+            subgroup.require_group(segment_nr)
         
         segment_subgroup = subgroup[segment_nr]
         
@@ -84,7 +84,7 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
         segment_subgroup.attrs['pass_name'] = segment_file[segment_nr].attrs['pass_name']
         
         if not second_nr in segment_subgroup.keys():
-            segment_subgroup.create_group(second_nr)
+            segment_subgroup.require_group(second_nr)
         
         second_subgroup = segment_subgroup[second_nr]
         if not "kpis" in second_subgroup.keys():
@@ -120,7 +120,7 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
 def copy_hdf5_(data, group):
     for key, value in data.items():
         if isinstance(value, h5py.Group):
-            subgroup = group.create_group(key)
+            subgroup = group.require_group(key)
             # Save attributes
             for k, v in value.attrs.items():
                 subgroup.attrs[k] = v
