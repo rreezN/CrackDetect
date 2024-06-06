@@ -55,7 +55,6 @@ def unpack_hdf5(hdf5_file: str) -> dict:
         data = unpack_hdf5_(f)
     return data
 
-
 def unpack_hdf5_(group: h5py.Group) -> dict:
     """
     Recursive function that unpacks the hdf5 file into a dictionary
@@ -72,7 +71,6 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
             else:
                 data[key] = group[key][()]
     return data
-
 
 def save_hdf5(data: dict, hdf5_file: str, segment_id: str = None) -> None:
     """
@@ -94,7 +92,6 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: str = None) -> None:
         with h5py.File(hdf5_file, 'a') as f:
             segment_group = f.create_group(str(segment_id))
             save_hdf5_(data, segment_group)
-
 
 def save_hdf5_(data: dict, group: h5py.Group) -> None:
     """
@@ -299,7 +296,6 @@ def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str) 
         
         gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
 
-
 def preprocess_gopro_data() -> None:
     """
     Preprocess the GoPro data by combining the data from the three GoPro cameras into one csv file for each trip
@@ -333,6 +329,7 @@ def preprocess_gopro_data() -> None:
 def distance_gps(gps: np.ndarray) -> np.ndarray:
     """
     Based on gps coordinates (lat, lon) calculate the distance in meters between each point, and returns the accumulated distance in meters.
+    NOTE: This function is a translation of the MATLAB code from DISTANCE_GPS.m by Asmus Skar.
 
     Parameters
     ----------
@@ -358,8 +355,21 @@ def distance_gps(gps: np.ndarray) -> np.ndarray:
 
     return dx
 
+def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> np.ndarray:
+    """
+    Using PCHIP interpolation, interpolate to the new tick_int values.
+    NOTE: This function is a translation of the MATLAB code from CLEAN_INT.m by Asmus Skar.
 
-def clean_int(tick, response, tick_int):
+    Parameters
+    ----------
+    tick : np.ndarray
+        The tick values
+    response : np.ndarray
+        The response values
+    tick_int : np.ndarray
+        The tick values to interpolate to
+
+    """
     # Add offset to multiple data (in interpolant)
     ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
     ve += np.cumsum(np.ones_like(tick)) * (tick == 0) * np.finfo(float).eps  # Add Scaled Offset For Zero Elements
@@ -372,7 +382,7 @@ def clean_int(tick, response, tick_int):
 
     return data_int
 
-def validate(threshold: float, verbose: bool = False):
+def validate(threshold: float, verbose: bool = False) -> None:
     """
     Validate the data by comparing the AutoPi data and the CAN data (car sensors)
 
@@ -396,7 +406,29 @@ def validate(threshold: float, verbose: bool = False):
                 iterator.set_description(f"Validating {trip_name}/{pass_name}")
                 validate_pass(pass_, threshold, verbose)
 
-def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None):
+def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
+                 styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
+    """
+    Plot function to visualise the sensor data and their correlation when validating the data and verbose is set to True.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        The time values
+    sensors : Iterable[np.ndarray]
+        The sensor data to plot
+    labels : Iterable[str]
+        The labels for the sensors
+    styles : Iterable[str]
+        The styles for the sensors
+    ylabel : str
+        The y-axis label
+    xlabel : str
+        The x-axis label
+    title : str
+        The title of the plot
+    """
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     for sensor, label, style in zip(sensors, labels, styles):
         ax.plot(time, sensor, style, label=label)
@@ -411,9 +443,23 @@ def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterab
     plt.tight_layout()
     plt.show()
 
-def validate_pass(car: dict, threshold: float, verbose: bool = False):
-    # PYTHON TRANSLATION OF MATLAB CODE FROM PLATOON_SENSOR_VAL.m BY ASMUS
-    fs = 10
+def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
+    """
+    Main validation function for validating the data by comparing the AutoPi data and the CAN data (car sensors).
+    NOTE: This function is a translation of the MATLAB code from PLATOON_SENSOR_VAL.m by Asmus Skar.
+
+    Parameters
+    ----------
+    car : dict
+        The car data to validate
+    threshold : float
+        The threshold for the correlation between the AutoPi and CAN data
+    verbose : bool
+        Whether to plot the data for visual inspection
+    """
+    
+    fs = 10 # Sampling frequency
+
     # Speed distance
     tspd = car['spd_veh'][:, 0]
     dspd = np.cumsum(car['spd_veh'][1:, 1]*np.diff(car['spd_veh'][:, 0]))/3.6
@@ -470,6 +516,7 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
     pcxt = np.corrcoef(axpn, atrans)[0, 1]
     pcyt = np.corrcoef(aypn, atrans)[0, 1]
     
+    # Determine the orientation of the sensors
     if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
         if pcxt < 0:
             axrpi_100hz = aypn
@@ -484,19 +531,21 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         else:
             axrpi_100hz = axpn
             ayrpi_100hz = aypn
-
+    
+    # Update the acceleration sensors with the reoriented values
     axcan_100hz = alon
     aycan_100hz = atrans
     azrpi_100hz = azpn
 
-    # Compute correlation between the two acceleration sensors
+    # ACCELERATION MEASURE
+    #   x-acceleration
     pcx = np.corrcoef(axrpi_100hz, axcan_100hz)[0, 1]
     if pcx < threshold:
         print(f"Correlation between Autopi and CAN x-acceleration sensors is below threshold: {pcx}")
         if verbose:
             plot_sensors(time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
 
-
+    #   y-acceleration
     pcy = np.corrcoef(ayrpi_100hz, aycan_100hz)[0, 1]
 
     if pcy < threshold:
@@ -504,13 +553,15 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         if verbose:
             plot_sensors(time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
     
-    pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
+    # #   z-acceleration
+    # pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
 
-
-    # Compute correlation between the two distance measures
+    # DISTANCE MEASURE
+    # Define distance as by the odometer and GPS
     odo_dist = odo_100hz - odo_100hz[0]
     gps_dist = distance_gps(np.column_stack((lat_100hz, lon_100hz)))
 
+    # Compute correlation between the two distance measures
     pcgps = np.corrcoef(dis_100hz, gps_dist)[0, 1]
     pcodo = np.corrcoef(dis_100hz, odo_dist)[0, 1]
     if pcodo < threshold or pcgps < threshold:
@@ -518,12 +569,11 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         if verbose:
             plot_sensors(time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
         
-
 # ========================================================================================================================
 #           Segmentation functions
 # ========================================================================================================================
 
-def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0):
+def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0) -> int:
     """
     Segment the GM data into sections where the vehicle is moving
     
@@ -575,6 +625,7 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
     """
+
     # threshold is the speed in km/h below which the vehicle is considered to be stopped
     measurements["spd_veh"][:, 1] = measurements["spd_veh"][:, 1]
 
@@ -610,7 +661,18 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     
     return sections
 
-def segment(speed_threshold: int = 5, time_threshold: int = 10):
+def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
+    """
+    Segment the GM data into sections where the vehicle is moving.
+
+    Parameters
+    ----------
+    speed_threshold : int
+        The speed in km/h below which the vehicle is considered to be stopped
+    time_threshold : int
+        The minimum time in seconds for a section to be considered valid
+    """
+    
     # Load data
     autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
     autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
@@ -1142,11 +1204,10 @@ if __name__ == '__main__':
 
     if args.mode in ['convert', 'all']:
         print('    ---### Converting data ###---')
+        convert()
+
         # Convert GoPro data to align with the GM trips
         preprocess_gopro_data()
-        convert()
-        
-
     
     if args.mode in ['validate', 'all']:
         print('    ---### Validating data ###---')
