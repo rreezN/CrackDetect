@@ -50,6 +50,11 @@ def unpack_hdf5(hdf5_file: str) -> dict:
     ----------
     hdf5_file : str
         The path to the hdf5 file
+
+    Returns
+    -------
+    dict
+        The unpacked data
     """
     with h5py.File(hdf5_file, 'r') as f:
         data = unpack_hdf5_(f)
@@ -58,6 +63,16 @@ def unpack_hdf5(hdf5_file: str) -> dict:
 def unpack_hdf5_(group: h5py.Group) -> dict:
     """
     Recursive function that unpacks the hdf5 file into a dictionary
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The hdf5 group to unpack
+    
+    Returns
+    -------
+    dict
+        The unpacked data
     """
     data = {}
     for key in group.keys():
@@ -145,6 +160,11 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
         The data to convert
     parameter : dict
         The parameters to use for the conversion.
+
+    Returns
+    -------
+    np.ndarray
+        The converted data
     """
     bstar = parameter['bstar']
     rstar = parameter['rstar']
@@ -169,6 +189,11 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
         The data to convert
     parameter : dict
         The parameters to use for the conversion.
+
+    Returns
+    -------
+    np.ndarray
+        The smoothed data
     """
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
@@ -197,7 +222,7 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     verbose : bool
         Whether to show a progress bar during conversion
     pbar : Optional[tqdm]
-        The progress bar to use    
+        The progress bar to use
     """
     # Specify iterator based on verbose
     if verbose:
@@ -335,6 +360,11 @@ def distance_gps(gps: np.ndarray) -> np.ndarray:
     ----------
     gps : np.ndarray
         The gps coordinates (lat, lon) in degrees
+
+    Returns
+    -------
+    np.ndarray
+        The accumulated distance in meters
     """
     # Extract lat and lon
     lat = gps[:, 0]
@@ -369,6 +399,10 @@ def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> n
     tick_int : np.ndarray
         The tick values to interpolate to
 
+    Returns
+    -------
+    np.ndarray
+        The interpolated response values
     """
     # Add offset to multiple data (in interpolant)
     ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
@@ -586,6 +620,11 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
         The minimum time in seconds for a section to be considered valid
     segment_index : int
         The index to start the segment numbering from
+
+    Returns
+    -------
+    int
+        The new segment index
     """
     # direction is either 'hh' or 'vh'
     pbar = tqdm(autopi.items())
@@ -603,7 +642,7 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
     return segment_index
 
 
-def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10):
+def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10) -> list[dict]:
     """
     Segment a single GM trip into sections where the vehicle is moving
     
@@ -621,6 +660,11 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
         The speed in km/h below which the vehicle is considered to be stopped
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
+
+    Returns
+    -------
+    list[dict]
+        A list of dictionaries, each containing the measurements for a section of the trip
     """
 
     # threshold is the speed in km/h below which the vehicle is considered to be stopped
@@ -1165,6 +1209,11 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
         The index of the second to compute KPIs for.
     window_size : int
         The window size to compute KPIs for.
+
+    Returns
+    -------
+    np.ndarray
+        The KPIs for the given second.
     """
     # Extract ARAN data for all seconds within the window
     windowed_aran_data = []
@@ -1206,6 +1255,11 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The damage index for the given window.
     """
 
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
@@ -1225,6 +1279,11 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The cracking sum for the given window.
     """
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
@@ -1246,6 +1305,10 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
     
+    Returns
+    -------
+    float
+        The alligator sum for the given window.
     """
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
@@ -1263,6 +1326,11 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The pothole sum for the given window.
     """
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
@@ -1281,6 +1349,11 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The rutting mean for the given window.
     """
 
     # TODO: FIGURE OUT WHICH ONE TO USE
@@ -1303,9 +1376,14 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The IRI mean for the given window.
     """
-    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m/km)']]
-    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m/km)']]
+    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
+    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
     return (((IRL + IRR)/2)**(0.2)).mean()
     
 def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
@@ -1318,6 +1396,11 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The patching sum for the given window.
     """
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]
