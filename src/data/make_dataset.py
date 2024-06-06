@@ -689,6 +689,10 @@ def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
 # ========================================================================================================================
 
 def match_data() -> None:
+    """
+    Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
+    """
+
     # Define path to segment files
     segment_file = 'data/interim/gm/segments.hdf5'
 
@@ -769,6 +773,17 @@ def match_data() -> None:
 # ========================================================================================================================
 
 def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> tuple[int, int]:
+    """
+    Find the start and end indeces of the section data that are closest to the trip data
+
+    Parameters
+    ----------
+    trip : np.ndarray
+        The longitudal and lattitudal coordinates of the trip data
+    section : np.ndarray
+        The longitudal and lattitudal coordinates of the section
+    """
+
     # Find the start and end indeces of the section data that are closest to the trip data
     lon_a, lat_a = trip[:,0], trip[:,1]
     lon_b, lat_b = section[:,0], section[:,1]
@@ -780,8 +795,18 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
 
 
 def find_best_start_and_end_indeces_by_time(current_segment: h5py.Group, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
+    """
+    Find the start and end indeces of the section data based on time
+
+    Parameters
+    ----------
+    current_segment : h5py.Group
+        The current segment data
+    gopro_time : np.ndarray
+        The time data from the GoPro
+    """
+
     # Find the start and end indeces of the section data based on time
-    
     current_segment_start_time = current_segment["measurements"]["gps"][()][0, 0]
     current_segment_end_time = current_segment["measurements"]["gps"][()][-1, 0]
     segment_time = [current_segment_start_time, current_segment_end_time]
@@ -997,7 +1022,7 @@ def resample(verbose: bool = False) -> None:
                                 p79_counts.append(p79_match_end - p79_match_start)
 
                                 # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
-                                if verbose (aran_counts[-1] < 3 or p79_counts[-1] < 3):
+                                if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
                                     verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
