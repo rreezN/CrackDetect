@@ -87,10 +87,10 @@ if __name__ == '__main__':
     args = get_args()
     
     # Load data
-    trainset = Features(data_type='train')
+    trainset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'])
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
-    valset = Features(data_type='val')
+    valset = Features(data_type='val', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'])
     val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
     # Create model
