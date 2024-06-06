@@ -11,7 +11,8 @@ class Hydra(nn.Module):
     def __init__(self, input_length, k = 8, g = 64, seed = None):
 
         super().__init__()
-
+        
+        self.name = f"Hydra_{k}_{g}"
         if seed is not None:
             torch.manual_seed(seed)
 

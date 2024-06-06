@@ -3,7 +3,7 @@ import h5py
 import numpy as np
 
 class Features(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed/features.hdf5', feature_extractors=['MultiRocket_50000', 'Hydra_2'], 
+    def __init__(self, data_path='data/processed/features.hdf5', feature_extractors=['MultiRocket_50000', 'Hydra_2'], name_identifier='', 
                  data_type='train', kpi_window=1, feature_transform=None, kpi_transform=None):
         
         assert kpi_window in [1, 2], 'The kpi window size must be 1 or 2 seconds'
@@ -23,8 +23,9 @@ class Features(torch.utils.data.Dataset):
         self.feature_means = []
         self.feature_stds = []
         for i in range(len(feature_extractors)):
-            self.feature_means.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['mean'][()]))
-            self.feature_stds.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['std'][()]))
+            name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+            self.feature_means.append(torch.tensor(self.data['train']['statistics'][name]['mean'][()]))
+            self.feature_stds.append(torch.tensor(self.data['train']['statistics'][name]['std'][()]))
         
         self.kpi_means = self.data['train']['statistics']['kpis'][str(kpi_window)]['mean'][()]
         self.kpi_stds = self.data['train']['statistics']['kpis'][str(kpi_window)]['std'][()]
@@ -67,16 +68,14 @@ class Features(torch.utils.data.Dataset):
             feats = torch.tensor(data[feature_extractor][()])
 
             # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
-            # if 'hydra' in feature_extractor.lower():
-            #     mask = feats != 0
-            #     feats = ((feats - self.feature_means[i])*mask)/self.feature_stds[i]
-            # elif 'multirocket' in feature_extractor.lower():
-            #     feats = (feats - self.feature_means[i])/self.feature_stds[i]
-            # else:
-            #     raise ValueError(f'Feature extractor "{feature_extractor}" not recognized')
+            if 'hydra' in feature_extractor.lower():
+                mask = feats != 0
+                feats = ((feats - self.feature_means[i])*mask)/self.feature_stds[i]
+            elif 'multirocket' in feature_extractor.lower():
+                feats = (feats - self.feature_means[i])/self.feature_stds[i]
+            else:
+                raise ValueError(f'Feature extractor "{feature_extractor}" not recognized')
             
-            # TODO: Change this back when new features are calculated (see above)
-            feats = (feats - torch.mean(self.feature_means[i]))/torch.mean(self.feature_stds[i])
             
             # If std = 0, set nan to 0 (no information in the feature)
             # feats = torch.nan_to_num(feats)
@@ -119,7 +118,7 @@ if __name__ == '__main__':
     from tqdm import tqdm
     from torch.utils.data import DataLoader
     
-    dataset = Features(data_type='train')
+    dataset = Features(data_type='train', feature_extractors=['MultiRocket_50000', 'Hydra_3_64'], name_identifier='subset100')
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
     
     start = time.time()
