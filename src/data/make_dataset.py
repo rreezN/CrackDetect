@@ -1025,17 +1025,18 @@ def resample(verbose: bool = False) -> None:
                                 if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
                                     verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].hist(aran_counts, bins=20)
-    axes[0].set_title("ARAN segment length distribution")
-    axes[0].set_xlabel("Number of points")
-    axes[0].set_ylabel("Frequency")
-    axes[1].hist(p79_counts, bins=20)
-    axes[1].set_title("P79 segment length distribution")
-    axes[1].set_xlabel("Number of points")
-    axes[1].set_ylabel("Frequency")
-    plt.tight_layout()
-    plt.show()
+    if verbose:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].hist(aran_counts, bins=20)
+        axes[0].set_title("ARAN segment length distribution")
+        axes[0].set_xlabel("Number of points")
+        axes[0].set_ylabel("Frequency")
+        axes[1].hist(p79_counts, bins=20)
+        axes[1].set_title("P79 segment length distribution")
+        axes[1].set_xlabel("Number of points")
+        axes[1].set_ylabel("Frequency")
+        plt.tight_layout()
+        plt.show()
 
 def verbose_resample_plot(bit_lonlat, aran_segment_lonlat, aran_match_bit, p79_segment_lonlat, p79_match_bit):
     fig, ax = plt.subplots()
