@@ -6,7 +6,7 @@ import datetime as dt
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 import os
-from typing import Optional, Iterable
+from typing import Optional, Iterable, List
 from pathlib import Path
 from argparse import ArgumentParser
 from tqdm import tqdm
@@ -42,16 +42,27 @@ TODO:
 #           hdf5 utility functions
 # ========================================================================================================================
 
-def unpack_hdf5(hdf5_file):
+def unpack_hdf5(hdf5_file: str) -> dict:
+    """
+    Wrapper function used to call the recursive unpack function for unpacking the hdf5 file
+
+    Parameters
+    ----------
+    hdf5_file : str
+        The path to the hdf5 file
+    """
     with h5py.File(hdf5_file, 'r') as f:
         data = unpack_hdf5_(f)
     return data
 
-
-def unpack_hdf5_(group):
+def unpack_hdf5_(group: h5py.Group) -> dict:
+    """
+    Recursive function that unpacks the hdf5 file into a dictionary
+    """
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
+            data[key] = unpack_hdf5_(group[key])
             data[key] = unpack_hdf5_(group[key])
         else:
             d = group[key][()]
@@ -61,8 +72,19 @@ def unpack_hdf5_(group):
                 data[key] = group[key][()]
     return data
 
+def save_hdf5(data: dict, hdf5_file: str, segment_id: str = None) -> None:
+    """
+    Wrapper function used to call the recursive save function for saving the data to an hdf5 file.
 
-def save_hdf5(data, hdf5_file, segment_id: str = None):
+    Parameters
+    ----------
+    data : dict
+        The data to save
+    hdf5_file : str
+        The path to the hdf5 file that we want to save the data to
+    segment_id : str
+        The segment id to save the data to. If None, the data is saved to the root of the hdf5 file
+    """
     if segment_id is None:
         with h5py.File(hdf5_file, 'w') as f:
             save_hdf5_(data, f)
@@ -71,8 +93,17 @@ def save_hdf5(data, hdf5_file, segment_id: str = None):
             segment_group = f.create_group(str(segment_id))
             save_hdf5_(data, segment_group)
 
+def save_hdf5_(data: dict, group: h5py.Group) -> None:
+    """
+    Recursive save function that saves the data to an hdf5 file
 
-def save_hdf5_(data, group):
+    Parameters
+    ----------
+    data : dict
+        The data to save
+    group : h5py.Group
+        The hdf5 group to save the data to
+    """
     for key, value in data.items():
         key = key.replace('/', '_')
         if isinstance(value, dict):
@@ -91,14 +122,29 @@ def save_hdf5_(data, group):
 #           Convertion functions
 # ========================================================================================================================
 
-def convertdata(data, parameter):
+def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     """
-    "LiRA-CD: An open-source dataset for road condition modelling and research" by
-    Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari
-    https://doi.org/10.1016/j.dib.2023.109426
+    Convert the data using the parameters specified in the parameter dictionary. 
+    The conversion is done according to the paper,
 
-        - CONVERT_PARAMETER_DICT corresponds to Table 2 
-        - col1 is computed using the equation for s specificed on page 6.
+        "LiRA-CD: An open-source dataset for road condition modelling and research" 
+            by Asmus Skar et al.
+        (https://doi.org/10.1016/j.dib.2023.109426)
+
+    Using the following formula,
+
+            s = (s_{LiRA-CD} - b^{*} * r^{*}) - b) * r
+    
+    - CONVERT_PARAMETER_DICT corresponds to Table 2, and contains all the parameters 
+        needed for the conversion.
+    - s is the converted value, and corresponds to col1 in the code.
+        
+    Parameters
+    ----------
+    data : np.ndarray
+        The data to convert
+    parameter : dict
+        The parameters to use for the conversion.
     """
     bstar = parameter['bstar']
     rstar = parameter['rstar']
@@ -110,7 +156,21 @@ def convertdata(data, parameter):
     data = np.column_stack((col0, col1))
     return data
 
-def smoothdata(data, parameter):
+def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
+    """
+    Smooth the data using the parameters specified in the parameter dictionary.
+    
+    To account for noisy inputs in the data, we smooth the data using the LOWESS method. 
+    The smoothing was done in super-vision by Asmus Skar.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        The data to convert
+    parameter : dict
+        The parameters to use for the conversion.
+    """
+
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
     kind = parameter["kind"]
@@ -123,14 +183,30 @@ def smoothdata(data, parameter):
     return data
 
 def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, verbose: bool = False, pbar: Optional[tqdm] = None) -> None:
-    # Convert the data in the original AutoPi CAN file to the converted file
-
+    """
+    Convert the data in the original data file containing the AutoPi and CAN data and save it into the converted file.
+    We create this extra step for easier handling of the data in the future, and faster troubleshooting by saving each 
+    step done on the data seperately.
+    
+    Parameters
+    ----------
+    original_file : h5py.Group
+        The original data file containing the AutoPi and CAN data
+    converted_file : h5py.Group
+        The converted data file where the converted data is saved
+    verbose : bool
+        Whether to show a progress bar during conversion
+    pbar : Optional[tqdm]
+        The progress bar to use    
+    """
+    # Specify iterator based on verbose
     if verbose:
         iterator = tqdm(original_file.keys())
         pbar = iterator
     else:
         iterator = original_file.keys()
 
+    # Convert the data in the original AutoPi CAN file to the converted file
     for key in iterator:
         if pbar is not None:
             pbar.set_description(f"Converting {original_file.name}/{key}")
@@ -151,9 +227,25 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
             # Save the data to the converted file
             converted_file.create_dataset(key, data=data)
 
-def convert():
-    hh = Path('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5')
-    vh = Path('data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5')
+def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5') -> None:
+    """
+    Main function for converting the AutoPi CAN data to the converted data.
+    It loads data from a specific path, converts the data, and saves it to a new path.
+
+    This function assumes the following:
+        - The data is stored in hdf5 format
+        - The data is stored, from the root at "data/raw/AutoPi_CAN/", which then allows 
+            for the converted data to be stored in "data/interim/gm"
+
+    Parameters
+    ----------
+    hh : str
+        The path to the AutoPi CAN data for the HH direction
+    vh : str
+        The path to the AutoPi CAN data for the VH direction
+    """
+    hh = Path(hh)
+    vh = Path(vh)
 
     interim_gm = Path('data/interim/gm')
     interim_gm.mkdir(parents=True, exist_ok=True)
@@ -169,7 +261,19 @@ def convert():
 #           Hardcoded GoPro functions
 # ========================================================================================================================
 
-def csv_files_together(car_trip, go_pro_names, car_number):
+def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str) -> None:
+    """
+    Saves the GoPro data to a csv file for each trip
+
+    Parameters
+    ----------
+    car_trip : str
+        The trip name
+    go_pro_names : list[str]
+        The names of the GoPro cameras
+    car_number : str
+        The car number
+    """
     # Load all the gopro data 
     for measurement in ['accl', 'gps5', 'gyro']:
         gopro_data = None
@@ -186,13 +290,13 @@ def csv_files_together(car_trip, go_pro_names, car_number):
             else:
                 gopro_data = new_data
             
-        # save gopro_data[measurement
+        # save gopro_data[measurement]
         new_folder = f"data/interim/gopro/{car_trip}"
         Path(new_folder).mkdir(parents=True, exist_ok=True)
         
         gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
 
-def preprocess_gopro_data():
+def preprocess_gopro_data() -> None:
     """
     Preprocess the GoPro data by combining the data from the three GoPro cameras into one csv file for each trip
 
@@ -222,13 +326,26 @@ def preprocess_gopro_data():
 #           Validation functions
 # ========================================================================================================================
 
-def distance_gps(gps):
+def distance_gps(gps: np.ndarray) -> np.ndarray:
+    """
+    Based on gps coordinates (lat, lon) calculate the distance in meters between each point, and returns the accumulated distance in meters.
+    NOTE: This function is a translation of the MATLAB code from DISTANCE_GPS.m by Asmus Skar.
+
+    Parameters
+    ----------
+    gps : np.ndarray
+        The gps coordinates (lat, lon) in degrees
+    """
+    # Extract lat and lon
     lat = gps[:, 0]
     lon = gps[:, 1]
 
+    # Create an array for the accumulated distance
     dx = np.zeros(len(lat))
+
     R = 6378.137 * 1e3  # Radius of Earth in m
 
+    # Loop through the gps coordinates and calculate the distance
     for i in range(len(dx)-1):
         dLat = np.radians(lat[i+1] - lat[i])
         dLon = np.radians(lon[i+1] - lon[i])
@@ -238,7 +355,21 @@ def distance_gps(gps):
 
     return dx
 
-def clean_int(tick, response, tick_int):
+def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> np.ndarray:
+    """
+    Using PCHIP interpolation, interpolate to the new tick_int values.
+    NOTE: This function is a translation of the MATLAB code from CLEAN_INT.m by Asmus Skar.
+
+    Parameters
+    ----------
+    tick : np.ndarray
+        The tick values
+    response : np.ndarray
+        The response values
+    tick_int : np.ndarray
+        The tick values to interpolate to
+
+    """
     # Add offset to multiple data (in interpolant)
     ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
     ve += np.cumsum(np.ones_like(tick)) * (tick == 0) * np.finfo(float).eps  # Add Scaled Offset For Zero Elements
@@ -251,7 +382,7 @@ def clean_int(tick, response, tick_int):
 
     return data_int
 
-def validate(threshold: float, verbose: bool = False):
+def validate(threshold: float, verbose: bool = False) -> None:
     """
     Validate the data by comparing the AutoPi data and the CAN data (car sensors)
 
@@ -275,7 +406,29 @@ def validate(threshold: float, verbose: bool = False):
                 iterator.set_description(f"Validating {trip_name}/{pass_name}")
                 validate_pass(pass_, threshold, verbose)
 
-def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None):
+def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
+                 styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
+    """
+    Plot function to visualise the sensor data and their correlation when validating the data and verbose is set to True.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        The time values
+    sensors : Iterable[np.ndarray]
+        The sensor data to plot
+    labels : Iterable[str]
+        The labels for the sensors
+    styles : Iterable[str]
+        The styles for the sensors
+    ylabel : str
+        The y-axis label
+    xlabel : str
+        The x-axis label
+    title : str
+        The title of the plot
+    """
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     for sensor, label, style in zip(sensors, labels, styles):
         ax.plot(time, sensor, style, label=label)
@@ -290,9 +443,23 @@ def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterab
     plt.tight_layout()
     plt.show()
 
-def validate_pass(car: dict, threshold: float, verbose: bool = False):
-    # PYTHON TRANSLATION OF MATLAB CODE FROM PLATOON_SENSOR_VAL.m BY ASMUS
-    fs = 10
+def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
+    """
+    Main validation function for validating the data by comparing the AutoPi data and the CAN data (car sensors).
+    NOTE: This function is a translation of the MATLAB code from PLATOON_SENSOR_VAL.m by Asmus Skar.
+
+    Parameters
+    ----------
+    car : dict
+        The car data to validate
+    threshold : float
+        The threshold for the correlation between the AutoPi and CAN data
+    verbose : bool
+        Whether to plot the data for visual inspection
+    """
+    
+    fs = 10 # Sampling frequency
+
     # Speed distance
     tspd = car['spd_veh'][:, 0]
     dspd = np.cumsum(car['spd_veh'][1:, 1]*np.diff(car['spd_veh'][:, 0]))/3.6
@@ -349,6 +516,7 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
     pcxt = np.corrcoef(axpn, atrans)[0, 1]
     pcyt = np.corrcoef(aypn, atrans)[0, 1]
     
+    # Determine the orientation of the sensors
     if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
         if pcxt < 0:
             axrpi_100hz = aypn
@@ -363,19 +531,21 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         else:
             axrpi_100hz = axpn
             ayrpi_100hz = aypn
-
+    
+    # Update the acceleration sensors with the reoriented values
     axcan_100hz = alon
     aycan_100hz = atrans
     azrpi_100hz = azpn
 
-    # Compute correlation between the two acceleration sensors
+    # ACCELERATION MEASURE
+    #   x-acceleration
     pcx = np.corrcoef(axrpi_100hz, axcan_100hz)[0, 1]
     if pcx < threshold:
         print(f"Correlation between Autopi and CAN x-acceleration sensors is below threshold: {pcx}")
         if verbose:
             plot_sensors(time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
 
-
+    #   y-acceleration
     pcy = np.corrcoef(ayrpi_100hz, aycan_100hz)[0, 1]
 
     if pcy < threshold:
@@ -383,13 +553,15 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         if verbose:
             plot_sensors(time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
     
-    pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
+    # #   z-acceleration
+    # pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
 
-
-    # Compute correlation between the two distance measures
+    # DISTANCE MEASURE
+    # Define distance as by the odometer and GPS
     odo_dist = odo_100hz - odo_100hz[0]
     gps_dist = distance_gps(np.column_stack((lat_100hz, lon_100hz)))
 
+    # Compute correlation between the two distance measures
     pcgps = np.corrcoef(dis_100hz, gps_dist)[0, 1]
     pcodo = np.corrcoef(dis_100hz, odo_dist)[0, 1]
     if pcodo < threshold or pcgps < threshold:
@@ -397,12 +569,11 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False):
         if verbose:
             plot_sensors(time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
         
-
 # ========================================================================================================================
 #           Segmentation functions
 # ========================================================================================================================
 
-def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0):
+def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0) -> int:
     """
     Segment the GM data into sections where the vehicle is moving
     
@@ -454,6 +625,7 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
     """
+
     # threshold is the speed in km/h below which the vehicle is considered to be stopped
     measurements["spd_veh"][:, 1] = measurements["spd_veh"][:, 1]
 
@@ -489,7 +661,18 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     
     return sections
 
-def segment(speed_threshold: int = 5, time_threshold: int = 10):
+def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
+    """
+    Segment the GM data into sections where the vehicle is moving.
+
+    Parameters
+    ----------
+    speed_threshold : int
+        The speed in km/h below which the vehicle is considered to be stopped
+    time_threshold : int
+        The minimum time in seconds for a section to be considered valid
+    """
+    
     # Load data
     autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
     autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
@@ -1012,7 +1195,7 @@ if __name__ == '__main__':
     if args.mode in ['convert', 'all']:
         print('    ---### Converting data ###---')
         convert()
-        
+
         # Convert GoPro data to align with the GM trips
         preprocess_gopro_data()
     

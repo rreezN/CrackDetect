@@ -1,14 +1,18 @@
 # To Do
 
 ## Model, Training and Feature Extraction
+- [ ] Figure out which signals to extract features from
 - [ ] Extract new features, using more than acc only
-  - [ ] Check if this fixes std = 0 issue
+  - [x] Check if this fixes std = 0 issue
+  - It does not
 - [X] Normalize inputs before feature extraction
 - [ ] Find out why some features have std = 0
-  - [ ] Also find out if for different signals they always output the same, i.e. channel 13 is always 14.7 or whatever
+  - [x] Also find out if for different signals they always output the same, i.e. channel 13 is always 14.7 or 
+  - They do not
   - [ ] If can't find out and fix, then remove features with std = 0 before training
 - [ ] Reduce step-size to avoid loss explosion (gradients exploding?)
   - [ ] If this doesn't work then we can do gradient clipping
+- [ ] Allow deleting features from file without having to completely delete the file
 - [X] Create Feature Data Set
   - [x] Implement transforms
     - [x] Normalize each feature
@@ -17,8 +21,8 @@
       - [x] New solution: Mean over feature_means and feature_stds instead
     - [x] Targets need to be in same range ([0, 1]?)
       - [x] Load Max and Min
-      - [x] ```new_target = ((target - Min) / (Max - Min))```
-      - [ ] Check that everything works
+      - [x] ```new_target = ((target - mean) / std)```
+      - [x] Check that everything works
 - [X] Implement new data loader
 - [x] Feature extraction script
   - [x] Save features to file
@@ -34,7 +38,7 @@
 - [x] Train script needs to run epochs over data
 - [x] Saving best model during training
 - [x] Train script needs to follow Hydra/MR implementation
-- [ ] Figure out which signals to extract features from
+
   
 ## Predicting
 - [x] Modify predict script to follow train script
@@ -49,5 +53,7 @@
 
 ## Aflevering
 - [ ] Comments, comments, comments... and more comments
+- [ ] Type hints
 - [ ] NO MAGIC NUMBERS (TOMMY BLIVER KED AF DET)
-- [ ] Henvis til rapporten i koden (ligninger, osv.)
+- [ ] Henvis til papers i koden (ligninger, osv.)
+- [ ] Notebooks
