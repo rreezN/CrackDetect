@@ -8,7 +8,7 @@ class Regressor(torch.nn.Module):
         out_features: number of output features
     
     """
-    def __init__(self, in_features: int, out_features: int = 4) -> None:
+    def __init__(self, in_features: int = 49728+5120, out_features: int = 4) -> None:
         super(Regressor, self).__init__()
         # self.l1 = torch.nn.Linear(in_features, 500)
         # self.l2 = torch.nn.Linear(500, out_features)

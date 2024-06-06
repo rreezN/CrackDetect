@@ -53,7 +53,7 @@ def unpack_hdf5_(group):
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
-            data[key] = unpack_hdf5_(group[key])
+            data[key] = unpack_hdf5_(group[key], convert)
         else:
             d = group[key][()]
             if isinstance(d, bytes):
@@ -1043,6 +1043,6 @@ if __name__ == '__main__':
         print('    ---### Resampling data ###---')
         resample(args.verbose)
     
-    if args.mode == 'kpi':
+    if args.mode in ['kpi', 'all']:
         print('    ---### Calculating KPIs ###---')
         compute_kpis()

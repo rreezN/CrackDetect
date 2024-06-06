@@ -17,6 +17,8 @@ class HydraMultivariate(nn.Module):
 
         super().__init__()
 
+        self.name = f"Hydra_{num_channels}"
+        
         self.k = k # num kernels per group
         self.g = g # num groups
 
