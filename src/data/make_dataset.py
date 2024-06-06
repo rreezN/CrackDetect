@@ -689,6 +689,10 @@ def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
 # ========================================================================================================================
 
 def match_data() -> None:
+    """
+    Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
+    """
+
     # Define path to segment files
     segment_file = 'data/interim/gm/segments.hdf5'
 
@@ -769,6 +773,17 @@ def match_data() -> None:
 # ========================================================================================================================
 
 def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> tuple[int, int]:
+    """
+    Find the start and end indeces of the section data that are closest to the trip data
+
+    Parameters
+    ----------
+    trip : np.ndarray
+        The longitudal and lattitudal coordinates of the trip data
+    section : np.ndarray
+        The longitudal and lattitudal coordinates of the section
+    """
+
     # Find the start and end indeces of the section data that are closest to the trip data
     lon_a, lat_a = trip[:,0], trip[:,1]
     lon_b, lat_b = section[:,0], section[:,1]
@@ -780,8 +795,18 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
 
 
 def find_best_start_and_end_indeces_by_time(current_segment: h5py.Group, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
+    """
+    Find the start and end indeces of the section data based on time
+
+    Parameters
+    ----------
+    current_segment : h5py.Group
+        The current segment data
+    gopro_time : np.ndarray
+        The time data from the GoPro
+    """
+
     # Find the start and end indeces of the section data based on time
-    
     current_segment_start_time = current_segment["measurements"]["gps"][()][0, 0]
     current_segment_end_time = current_segment["measurements"]["gps"][()][-1, 0]
     segment_time = [current_segment_start_time, current_segment_end_time]
@@ -1000,17 +1025,18 @@ def resample(verbose: bool = False) -> None:
                                 if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
                                     verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    axes[0].hist(aran_counts, bins=20)
-    axes[0].set_title("ARAN segment length distribution")
-    axes[0].set_xlabel("Number of points")
-    axes[0].set_ylabel("Frequency")
-    axes[1].hist(p79_counts, bins=20)
-    axes[1].set_title("P79 segment length distribution")
-    axes[1].set_xlabel("Number of points")
-    axes[1].set_ylabel("Frequency")
-    plt.tight_layout()
-    plt.show()
+    if verbose:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].hist(aran_counts, bins=20)
+        axes[0].set_title("ARAN segment length distribution")
+        axes[0].set_xlabel("Number of points")
+        axes[0].set_ylabel("Frequency")
+        axes[1].hist(p79_counts, bins=20)
+        axes[1].set_title("P79 segment length distribution")
+        axes[1].set_xlabel("Number of points")
+        axes[1].set_ylabel("Frequency")
+        plt.tight_layout()
+        plt.show()
 
 def verbose_resample_plot(bit_lonlat, aran_segment_lonlat, aran_match_bit, p79_segment_lonlat, p79_match_bit):
     fig, ax = plt.subplots()
@@ -1113,6 +1139,24 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     """
     Compute KPIs for a given second in a segment, based on a window size.
 
+        Crackingsum = (LCS^2 + LCM^3 + LCL^4 + 3*TCS + 4*TCM + 5*TCL)^0.1
+        Alligatorsum = (3*ACS + 4*ACM + 5*ACL)^0.3
+        Potholessum = (5*PAS + 7*PAM + 10*PAL + 5*PAD)^0.1
+        
+        *KPI_DI* = Crackingsum + Alligatorsum + Potholessum
+    
+        *KPI_RUT* = ((RDL + RDR) / 2)^0.5
+
+        *KPI_PI* = (LCSe^2 + 2*TCSe)^0.1
+
+        *KPI_IRI* = ((IRL + IRR) / 2)^0.2
+
+    Names of the ARAN attributes are based on the ARAN manual,
+
+        Live Road Assessment based on modern car sensors (LiRA): Practical guide
+        by Asmus Skar et al. (2022)
+        
+
     Parameters
     ----------
     segment : h5py.Group
@@ -1137,7 +1181,7 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     # damage index
     KPI_DI = damage_index(windowed_aran_data, aran_attrs)
     # rutting index
-    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs)
+    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs) 
     # patching index
     PI = patching_sum(windowed_aran_data, aran_attrs)
     # IRI
@@ -1148,7 +1192,13 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
 
 def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    Calculates the damage index for a given window of ARAN data as specified in the ARAN manual. NOTE TODO
+    Calculates the damage index for a given window of ARAN data as specified in the paper. TODO add reference to paper
+
+    crackingsum = (LCS^2 + LCM^3 + LCL^4 + 3*TCS + 4*TCM + 5*TCL)^0.1
+    alligatorsum = (3*ACS + 4*ACM + 5*ACL)^0.3
+    potholessum = (5*PAS + 7*PAM + 10*PAL + 5*PAD)^0.1
+    DI = crackingsum + alligatorsum + potholessum
+
 
     Parameters
     ----------
@@ -1187,7 +1237,7 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 
 def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    alligator cracks are computed as area of the pavement affected by the damage
+    Alligator cracks are computed as area of the pavement affected by the damage
 
     Parameters
     ----------
@@ -1205,7 +1255,7 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
 
 def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-
+    Potholes are computed as the average weighted depth of the potholes based on the ARAN manual.
 
     Parameters
     ----------
@@ -1223,7 +1273,7 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
 
 def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager, rut: str ='straight-edge') -> float:
     """
-    
+    The rutting index is computed as the average of the square root of the rut depth for each wheel track.
 
     Parameters
     ----------
@@ -1245,6 +1295,7 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 
 def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
+    The IRI is computed as the average of the square root of the IRI for the left and right wheel tracks.
 
     Parameters
     ----------
@@ -1259,7 +1310,7 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     
 def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    
+    The patching index is computed based on the ARAN manual.    
 
     Parameters
     ----------
