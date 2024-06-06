@@ -15,7 +15,7 @@ from src.models.multirocket.multirocket import MultiRocket
 from data.dataloader import Platoon
 
 
-def extract_all_features(feature_extractors:list, data_loaders:list, segment_file:h5py.File):
+def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
     with h5py.File('data/processed/features.hdf5', 'a') as f:
         for data_loader in data_loaders:
             data_loader_subgroup = f.require_group(data_loader.dataset.data_type)

@@ -997,7 +997,7 @@ def resample(verbose: bool = False) -> None:
                                 p79_counts.append(p79_match_end - p79_match_start)
 
                                 # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
-                                if verbose (aran_counts[-1] < 3 or p79_counts[-1] < 3):
+                                if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
                                     verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
