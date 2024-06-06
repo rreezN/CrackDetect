@@ -41,7 +41,7 @@ def unpack_hdf5_(group, convert: bool = False):
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
-            data[key] = unpack_hdf5_(group[key])
+            data[key] = unpack_hdf5_(group[key], convert)
         else:
             if convert and key in parameter_dict:
                 data[key] = convertdata(group[key][()], parameter_dict[key])

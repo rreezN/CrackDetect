@@ -47,6 +47,19 @@ class Platoon(torch.utils.data.Dataset):
         else:
             raise ValueError('data_type must be either "train", "test" or "val"')
         
+        # Store the mean and std of the training data for normalization
+        data_per_segment = len(self.segments['0']['2']['gm'])
+        train_data = np.zeros((data_per_segment * len(train_indices), len(self.gm_cols)))
+        for i, idx in enumerate(train_indices):
+            segment_nr = str(idx[0])
+            second_nr = str(idx[1])
+            data = self.segments[segment_nr][second_nr]
+            train = data['gm'][:,tuple(self.gm_cols_indices)]
+            train_data[i*data_per_segment:i*data_per_segment+data_per_segment] = train
+        
+        self.train_mean = np.mean(train_data, axis=0)
+        self.train_std = np.std(train_data, axis=0)
+        
         self.print_arguments()
 
     def __len__(self):
@@ -83,6 +96,9 @@ class Platoon(torch.utils.data.Dataset):
         KPIs = data['kpis'][str(self.windowsize)][self.kpi_names_indices]
 
         # Transform the data
+        # Standardize each input signal seperately
+        train = (train - self.train_mean) / self.train_std
+        
         if self.data_transform:
             train = self.data_transform(train)
         if self.kpi_transform:

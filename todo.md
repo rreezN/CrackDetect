@@ -1,7 +1,14 @@
 # To Do
 
 ## Model, Training and Feature Extraction
-- [ ] Do we need to normalize input signals before feature extracting ?
+- [ ] Extract new features, using more than acc only
+  - [ ] Check if this fixes std = 0 issue
+- [X] Normalize inputs before feature extraction
+- [ ] Find out why some features have std = 0
+  - [ ] Also find out if for different signals they always output the same, i.e. channel 13 is always 14.7 or whatever
+  - [ ] If can't find out and fix, then remove features with std = 0 before training
+- [ ] Reduce step-size to avoid loss explosion (gradients exploding?)
+  - [ ] If this doesn't work then we can do gradient clipping
 - [X] Create Feature Data Set
   - [x] Implement transforms
     - [x] Normalize each feature
@@ -33,3 +40,14 @@
 - [x] Modify predict script to follow train script
 - [x] Load features for prediction (avoid long predict inference time)
 - [x] Figure out what is happening with correlations...
+- [ ] Cross correlation between target and predictions for different lags - report the lowest
+- [ ] Report baseline RMSE with predictions (average of targets (?))
+
+
+## Data loaders
+- [ ] Evaluate whether we want to keep the transform arguments - they are currently big time unused, could be confusing
+
+## Aflevering
+- [ ] Comments, comments, comments... and more comments
+- [ ] NO MAGIC NUMBERS (TOMMY BLIVER KED AF DET)
+- [ ] Henvis til rapporten i koden (ligninger, osv.)

@@ -26,6 +26,8 @@ class Features(torch.utils.data.Dataset):
             self.feature_means.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['mean'][()]))
             self.feature_stds.append(torch.tensor(self.data['train']['statistics'][feature_extractors[i]]['std'][()]))
         
+        self.kpi_means = self.data['train']['statistics']['kpis'][str(kpi_window)]['mean'][()]
+        self.kpi_stds = self.data['train']['statistics']['kpis'][str(kpi_window)]['std'][()]
         self.kpi_mins = self.data['train']['statistics']['kpis'][str(kpi_window)]['min'][()]
         self.kpi_maxs = self.data['train']['statistics']['kpis'][str(kpi_window)]['max'][()]
         
@@ -83,13 +85,15 @@ class Features(torch.utils.data.Dataset):
         targets = data['kpis'][self.kpi_window_size][()]
         
         # Transform targets to be in the range [0, 1]
-        targets = (targets - self.kpi_mins)/(self.kpi_maxs - self.kpi_mins)
+        # Maybe we should use normal standardization instead of this
+        targets = (targets - self.kpi_means)/self.kpi_stds
         
         # This is a bit ugly
         features = features.type(torch.FloatTensor)
         targets = torch.tensor(targets).type(torch.FloatTensor)
 
         # TODO: Implement actual torch transforms
+        # Or maybe just delete these as they are unused
         if self.feature_transform:
             features = self.feature_transform(features)
         if self.kpi_transform:
