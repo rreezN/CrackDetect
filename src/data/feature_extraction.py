@@ -32,7 +32,7 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                 feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name + f"_{args.name_identfier}")
                 feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
                 feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
-                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s)
+                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s) # add small value to avoid division by zero in hydra features
                 min, _ = torch.min(all_features, dim=0)
                 max, _ = torch.max(all_features, dim=0)
                 feature_extractor_subgroup.create_dataset("min", data=min)

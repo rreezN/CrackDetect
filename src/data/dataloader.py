@@ -96,7 +96,7 @@ class Platoon(torch.utils.data.Dataset):
         KPIs = data['kpis'][str(self.windowsize)][self.kpi_names_indices]
 
         # Transform the data
-        # Normalize each input signal seperately
+        # Standardize each input signal seperately
         train = (train - self.train_mean) / self.train_std
         
         if self.data_transform:
