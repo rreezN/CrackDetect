@@ -16,7 +16,7 @@ from src.models.multirocket.multirocket import MultiRocket
 from data.dataloader import Platoon
 
 
-def extract_all_features(feature_extractors:list, data_loaders:list, segment_file:h5py.File):
+def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
     """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
     
     Parameters:

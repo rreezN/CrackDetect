@@ -1,16 +1,22 @@
-
+"""
+TODO:
+- complete todos
+- Improve validation
+- Add path-to-file as arguments?
+- Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?
+- Create jupyter notebook that explains the data processing steps and the validation process
+    - Explain each intermediate step and showcase what happens to data!
+"""
 import numpy as np
 import pandas as pd
 import h5py
 import datetime as dt
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
-import os
-from typing import Optional, Iterable, List
+from typing import Optional, Iterable
 from pathlib import Path
 from argparse import ArgumentParser
 from tqdm import tqdm
-from glob import glob
 from scipy.interpolate import PchipInterpolator
 
 CONVERT_PARAMETER_DICT = {
@@ -30,13 +36,6 @@ SMOOTH_PARAMETER_DICT = {
     'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
 }
 
-"""
-TODO:
-- Better type hints
-- Add paper references / docstrings
-- Improve validation
-"""
-
 
 # ========================================================================================================================
 #           hdf5 utility functions
@@ -50,6 +49,11 @@ def unpack_hdf5(hdf5_file: str) -> dict:
     ----------
     hdf5_file : str
         The path to the hdf5 file
+
+    Returns
+    -------
+    dict
+        The unpacked data
     """
     with h5py.File(hdf5_file, 'r') as f:
         data = unpack_hdf5_(f)
@@ -58,6 +62,16 @@ def unpack_hdf5(hdf5_file: str) -> dict:
 def unpack_hdf5_(group: h5py.Group) -> dict:
     """
     Recursive function that unpacks the hdf5 file into a dictionary
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The hdf5 group to unpack
+    
+    Returns
+    -------
+    dict
+        The unpacked data
     """
     data = {}
     for key in group.keys():
@@ -145,6 +159,11 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
         The data to convert
     parameter : dict
         The parameters to use for the conversion.
+
+    Returns
+    -------
+    np.ndarray
+        The converted data
     """
     bstar = parameter['bstar']
     rstar = parameter['rstar']
@@ -169,6 +188,11 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
         The data to convert
     parameter : dict
         The parameters to use for the conversion.
+
+    Returns
+    -------
+    np.ndarray
+        The smoothed data
     """
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
@@ -197,7 +221,7 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     verbose : bool
         Whether to show a progress bar during conversion
     pbar : Optional[tqdm]
-        The progress bar to use    
+        The progress bar to use
     """
     # Specify iterator based on verbose
     if verbose:
@@ -232,10 +256,9 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     Main function for converting the AutoPi CAN data to the converted data.
     It loads data from a specific path, converts the data, and saves it to a new path.
 
-    This function assumes the following:
-        - The data is stored in hdf5 format
-        - The data is stored, from the root at "data/raw/AutoPi_CAN/", which then allows 
-            for the converted data to be stored in "data/interim/gm"
+    This function assumes/does the following:
+        - The data is stored isn hdf5 format
+        - Saves the converted data in hdf5 format at 'data/interim/gm'
 
     Parameters
     ----------
@@ -335,6 +358,11 @@ def distance_gps(gps: np.ndarray) -> np.ndarray:
     ----------
     gps : np.ndarray
         The gps coordinates (lat, lon) in degrees
+
+    Returns
+    -------
+    np.ndarray
+        The accumulated distance in meters
     """
     # Extract lat and lon
     lat = gps[:, 0]
@@ -369,6 +397,10 @@ def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> n
     tick_int : np.ndarray
         The tick values to interpolate to
 
+    Returns
+    -------
+    np.ndarray
+        The interpolated response values
     """
     # Add offset to multiple data (in interpolant)
     ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
@@ -586,6 +618,11 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
         The minimum time in seconds for a section to be considered valid
     segment_index : int
         The index to start the segment numbering from
+
+    Returns
+    -------
+    int
+        The new segment index
     """
     # direction is either 'hh' or 'vh'
     pbar = tqdm(autopi.items())
@@ -603,7 +640,7 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
     return segment_index
 
 
-def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10):
+def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10) -> list[dict]:
     """
     Segment a single GM trip into sections where the vehicle is moving
     
@@ -621,6 +658,11 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
         The speed in km/h below which the vehicle is considered to be stopped
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
+
+    Returns
+    -------
+    list[dict]
+        A list of dictionaries, each containing the measurements for a section of the trip
     """
 
     # threshold is the speed in km/h below which the vehicle is considered to be stopped
@@ -845,7 +887,21 @@ def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, 
 
 
 def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarray]:
-    # Resample the gm data to a fixed frequency by interpolating the measurements by distance
+    """
+    Resample the gm data to a fixed frequency by interpolating the measurements by distance
+
+    Parameters
+    ----------
+    section : h5py.Group
+        The section data
+    frequency : int
+        The frequency to resample to
+    
+    Returns
+    -------
+    new_section : dict[str, np.ndarray]
+        The resampled section data
+    """
 
     # Calculate the distance between each point
     time, speed = remove_duplicates(
@@ -885,6 +941,22 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
 
 
 def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray) -> dict[str, np.ndarray]:
+    """
+    Resample the gopro data to a fixed frequency by interpolating the measurements by distance
+
+    Parameters
+    ----------
+    section : h5py.Group
+        The section data
+    resampled_distances : np.ndarray
+        The resampled distances
+
+    Returns
+    -------
+    new_section : dict[str, np.ndarray]
+        The resampled section data
+    """
+
     gps5 = section["gps5"]
     gps5_time, gps5_speed = gps5["date"][()], gps5["GPS (3D speed) [m_s]"][()]
     accl = section["accl"]
@@ -915,6 +987,23 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray) -> dict
     return new_section
 
 def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndarray, dict[str, int]]:
+    """
+    Extract a 1 second reference data bit (start to end) from the segment
+
+    Parameters
+    ----------
+    segment : h5py.Group
+        The segment data
+    start : int
+        The start index
+    end : int
+        The end index
+
+    Returns
+    -------
+    bit_data : np.ndarray
+        The 1 second bit data
+    """
     bit_data = np.zeros((end - start, len(segment.keys())))
     bit_attributes = {}
     for i, (key, value) in enumerate(segment.items()):
@@ -923,7 +1012,16 @@ def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndar
     return bit_data, bit_attributes
 
 def resample(verbose: bool = False) -> None:
-    # Resample the gm data to a fixed frequency
+    """
+    Resample the GM data to a fixed frequency and save the resampled data into a new file
+    Additionally resample the GoPro data if it exists
+
+    Parameters
+    ----------
+    verbose : bool
+        Whether to plot the resampled 1 second bits for visual inspection
+    """
+
     frequency = 250
     seconds_per_step = 1
 
@@ -1021,11 +1119,13 @@ def resample(verbose: bool = False) -> None:
                                 p79_dataset.attrs.update(p79_bit_attributes)
                                 p79_counts.append(p79_match_end - p79_match_start)
 
-                                # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
                                 if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
+                                    # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
                                     verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
+    
     if verbose:
+        # Plot the segment length distributions for ARAN and P79
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
         axes[0].hist(aran_counts, bins=20)
         axes[0].set_title("ARAN segment length distribution")
@@ -1038,7 +1138,9 @@ def resample(verbose: bool = False) -> None:
         plt.tight_layout()
         plt.show()
 
-def verbose_resample_plot(bit_lonlat, aran_segment_lonlat, aran_match_bit, p79_segment_lonlat, p79_match_bit):
+def verbose_resample_plot(bit_lonlat: np.ndarray, aran_segment_lonlat: np.ndarray, aran_match_bit: tuple[int, int], p79_segment_lonlat: np.ndarray, p79_match_bit: tuple[int, int]) -> None:
+    """ Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data """
+
     fig, ax = plt.subplots()
     ax.plot(bit_lonlat[:, 0], bit_lonlat[:, 1], label='GM', c='k')
     # Extract ARAN and P79 with n extra points on each side for better visualization
@@ -1074,8 +1176,6 @@ def verbose_resample_plot(bit_lonlat, aran_segment_lonlat, aran_match_bit, p79_s
 # ========================================================================================================================
 #           KPI functions
 # ========================================================================================================================
-
-
 
 def compute_kpis(WINDOW_SIZES: list[int] = [1, 2]) -> None:
     """
@@ -1165,6 +1265,11 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
         The index of the second to compute KPIs for.
     window_size : int
         The window size to compute KPIs for.
+
+    Returns
+    -------
+    np.ndarray
+        The KPIs for the given second.
     """
     # Extract ARAN data for all seconds within the window
     windowed_aran_data = []
@@ -1206,6 +1311,11 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The damage index for the given window.
     """
 
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
@@ -1225,6 +1335,11 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The cracking sum for the given window.
     """
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
@@ -1246,6 +1361,10 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
     
+    Returns
+    -------
+    float
+        The alligator sum for the given window.
     """
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
@@ -1263,6 +1382,11 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The pothole sum for the given window.
     """
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
@@ -1281,6 +1405,11 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The rutting mean for the given window.
     """
 
     # TODO: FIGURE OUT WHICH ONE TO USE
@@ -1303,6 +1432,11 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The IRI mean for the given window.
     """
     IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
     IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
@@ -1318,6 +1452,11 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
         The ARAN data for the window.
     aran_attrs : h5py._hl.attrs.AttributeManager
         The ARAN attributes for the data.
+
+    Returns
+    -------
+    float
+        The patching sum for the given window.
     """
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]
@@ -1327,6 +1466,7 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('--begin_from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
     parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
@@ -1334,29 +1474,43 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.mode in ['convert', 'all']:
+    begin_from = False
+
+
+    if begin_from or args.mode in ['convert', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Converting data ###---')
         convert()
-
         # Convert GoPro data to align with the GM trips
         preprocess_gopro_data()
     
-    if args.mode in ['validate', 'all']:
+    if begin_from or args.mode in ['validate', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Validating data ###---')
         validate(threshold=args.validation_threshold, verbose=args.verbose)
 
-    if args.mode in ['segment', 'all']:
+    if begin_from or args.mode in ['segment', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Segmenting data ###---')
         segment(args.speed_threshold, args.time_threshold)
 
-    if args.mode in ['match', 'all']:
+    if begin_from or args.mode in ['match', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---###  Matching data  ###---')
         match_data()
     
-    if args.mode in ['resample', 'all']:
+    if begin_from or args.mode in ['resample', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Resampling data ###---')
         resample(args.verbose)
     
-    if args.mode in ['kpi', 'all']:
+    if begin_from or args.mode in ['kpi', 'all']:
+        if not begin_from and args.begin_from:
+            begin_from = True
         print('    ---### Calculating KPIs ###---')
         compute_kpis()
