@@ -63,7 +63,7 @@ class Features(torch.utils.data.Dataset):
         
         data = self.data[self.data_type]['segments'][segment_index][second_index]
         features = torch.tensor([])
-        self.preivous_bad_feats = torch.tensor([])
+
         for i, feature_extractor in enumerate(self.feature_extractors):
             feats = torch.tensor(data[feature_extractor][()])
 
