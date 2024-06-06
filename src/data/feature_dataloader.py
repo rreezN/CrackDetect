@@ -78,7 +78,8 @@ class Features(torch.utils.data.Dataset):
             
             
             # If std = 0, set nan to 0 (no information in the feature)
-            # feats = torch.nan_to_num(feats)
+            feats = torch.nan_to_num(feats)
+            
             features = torch.cat((features, feats))
             
         targets = data['kpis'][self.kpi_window_size][()]

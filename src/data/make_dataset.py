@@ -553,9 +553,6 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
         if verbose:
             plot_sensors(time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
     
-    # #   z-acceleration
-    # pcz = np.corrcoef(azrpi_100hz, np.zeros_like(azrpi_100hz))[0, 1]
-
     # DISTANCE MEASURE
     # Define distance as by the odometer and GPS
     odo_dist = odo_100hz - odo_100hz[0]
