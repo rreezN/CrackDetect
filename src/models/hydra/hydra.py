@@ -2,6 +2,7 @@
 
 # HYDRA: Competing Convolutional Kernels for Fast and Accurate Time Series Classification
 # https://arxiv.org/abs/2203.13652
+# https://github.com/angus924/hydra/blob/main/code/hydra.py
 
 import numpy as np
 import torch, torch.nn as nn, torch.nn.functional as F

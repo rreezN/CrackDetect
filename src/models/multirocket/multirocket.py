@@ -2,6 +2,7 @@
 #
 # MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification
 # https://arxiv.org/abs/2102.00457
+# https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket.py
 
 
 import torch.nn as nn

@@ -2,6 +2,7 @@
 
 # HYDRA: Competing convolutional kernels for fast and accurate time series classification
 # https://arxiv.org/abs/2203.13652
+# https://github.com/angus924/hydra/blob/main/code/hydra_multivariate.py
 
 # ** EXPERIMENTAL **
 # This is an *untested*, *experimental* extension of Hydra to multivariate input.
