@@ -1045,8 +1045,24 @@ def verbose_resample_plot(bit_lonlat, aran_segment_lonlat, aran_match_bit, p79_s
     plt.show()
 
 
-def compute_kpis():
-    WINDOW_SIZES = [1, 2]
+# ========================================================================================================================
+#           KPI functions
+# ========================================================================================================================
+
+
+
+def compute_kpis(WINDOW_SIZES: list[int] = [1, 2]) -> None:
+    """
+    Alters the existing segments file by adding KPIs to each second in each segment, based on the window sizes provided.
+
+    Do account for the fact that the first and last seconds of each segment depend on the max(WINDOW_SIZES), such that the KPIs can be computed,
+    and compared across window-sizes.
+
+    Parameters
+    ----------
+    WINDOW_SIZES : list[int]
+        The window sizes to compute KPIs for. Default is [1, 2]. 
+    """
 
     # Create folders for saving
     Path('data/processed/w_kpis').mkdir(parents=True, exist_ok=True)
@@ -1093,7 +1109,19 @@ def compute_kpis():
                             kpi_data.attrs[kpi_name] = i
 
 
-def compute_kpis_for_second(segment, second_index, window_size):
+def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size: int) -> np.ndarray:
+    """
+    Compute KPIs for a given second in a segment, based on a window size.
+
+    Parameters
+    ----------
+    segment : h5py.Group
+        The segment to compute KPIs for.
+    second_index : int
+        The index of the second to compute KPIs for.
+    window_size : int
+        The window size to compute KPIs for.
+    """
     # Extract ARAN data for all seconds within the window
     windowed_aran_data = []
     for i in range(second_index - window_size, second_index + window_size + 1):
@@ -1118,7 +1146,18 @@ def compute_kpis_for_second(segment, second_index, window_size):
     return np.asarray([KPI_DI, KPI_RUT, PI, IRI])
 
 
-def damage_index(windowed_aran_data, aran_attrs):
+def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+    """
+    Calculates the damage index for a given window of ARAN data as specified in the ARAN manual. NOTE TODO
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    """
+
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
     alligatorsum = alligator_sum(windowed_aran_data, aran_attrs)
     potholessum = pothole_sum(windowed_aran_data, aran_attrs)
@@ -1126,9 +1165,16 @@ def damage_index(windowed_aran_data, aran_attrs):
     return DI
 
 
-def cracking_sum(windowed_aran_data, aran_attrs):
+def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
-    Conventional/longitudinal and transverse cracks are reported as length. 
+    Conventional/longitudinal and transverse cracks are reported as length.
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
     """
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
@@ -1139,9 +1185,17 @@ def cracking_sum(windowed_aran_data, aran_attrs):
     return ((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)).mean()
 
 
-def alligator_sum(windowed_aran_data, aran_attrs):
+def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
     """
     alligator cracks are computed as area of the pavement affected by the damage
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    
     """
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
@@ -1149,7 +1203,17 @@ def alligator_sum(windowed_aran_data, aran_attrs):
     return ((3*ACS + 4*ACM + 5*ACL)**(0.3)).mean()
 
 
-def pothole_sum(windowed_aran_data, aran_attrs):
+def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+    """
+
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    """
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
     PAL = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth High (mm)']]
@@ -1157,7 +1221,18 @@ def pothole_sum(windowed_aran_data, aran_attrs):
     return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
 
 
-def rutting_mean(windowed_aran_data, aran_attrs, rut='straight-edge'):
+def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager, rut: str ='straight-edge') -> float:
+    """
+    
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    """
+
     # TODO: FIGURE OUT WHICH ONE TO USE
     if rut == 'straight-edge':
         RDL = windowed_aran_data[:, aran_attrs['LRUT Straight Edge (mm)']]
@@ -1168,12 +1243,31 @@ def rutting_mean(windowed_aran_data, aran_attrs, rut='straight-edge'):
     return (((RDL +RDR)/2)**(0.5)).mean()
 
 
-def iri_mean(windowed_aran_data, aran_attrs):
+def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+    """
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    """
     IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m/km)']]
     IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m/km)']]
     return (((IRL + IRR)/2)**(0.2)).mean()
     
-def patching_sum(windowed_aran_data, aran_attrs):
+def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+    """
+    
+
+    Parameters
+    ----------
+    windowed_aran_data : np.ndarray
+        The ARAN data for the window.
+    aran_attrs : h5py._hl.attrs.AttributeManager
+        The ARAN attributes for the data.
+    """
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]
     return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
