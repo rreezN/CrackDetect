@@ -8,7 +8,7 @@ from .hdf5_utils import save_hdf5, unpack_hdf5
 #           Segmentation functions
 # ========================================================================================================================
 
-def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0) -> int:
+def segment_gm(autopi: dict, direction: str, prefix : str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0) -> int:
     """
     Segment the GM data into sections where the vehicle is moving
     
@@ -38,7 +38,7 @@ def segment_gm(autopi: dict, direction: str, speed_threshold: int = 5, time_thre
             segments = segment_gm_trip(pass_, trip_name, pass_name, direction, speed_threshold=speed_threshold, time_threshold=time_threshold)
             for segment in segments:
                 # Save the segment dictionary to a hdf5 file
-                segment_path = Path(f'data/interim/gm/segments.hdf5')
+                segment_path = Path(prefix + f'data/interim/gm/segments.hdf5')
                 save_hdf5(segment, segment_path, segment_id=segment_index)
 
                 # Increment the segment index
@@ -106,7 +106,7 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     
     return sections
 
-def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
+def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', speed_threshold: int = 5, time_threshold: int = 10) -> None:
     """
     Segment the GM data into sections where the vehicle is moving.
 
@@ -117,16 +117,17 @@ def segment(speed_threshold: int = 5, time_threshold: int = 10) -> None:
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
     """
-    
+    prefix = hh.split("data/")[0]
+
     # Load data
-    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
-    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
+    autopi_hh = unpack_hdf5(hh)
+    autopi_vh = unpack_hdf5(vh)
 
     # Remove old segment file if it exists
-    segment_path = Path('data/interim/gm/segments.hdf5')
+    segment_path = Path(prefix + 'data/interim/gm/segments.hdf5')
     if segment_path.exists():
         segment_path.unlink()
 
     # Segment data
-    segment_index = segment_gm(autopi_hh['GM'], direction='hh', speed_threshold=speed_threshold, time_threshold=time_threshold)
-    segment_gm(autopi_vh['GM'], direction='vh', speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
+    segment_index = segment_gm(autopi_hh['GM'], direction='hh', prefix=prefix, speed_threshold=speed_threshold, time_threshold=time_threshold)
+    segment_gm(autopi_vh['GM'], direction='vh', prefix = prefix, speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
