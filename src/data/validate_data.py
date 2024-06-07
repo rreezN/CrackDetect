@@ -136,7 +136,7 @@ def broadcasting_based_lng_lat_elementwise(data1, data2):
     return 2 * 6371 * np.arcsin(np.sqrt(d))
 
 
-def distributions_of_sensors_in_gm(segments, cols=['time', 'acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2']):
+def distributions_of_sensors_in_gm(segments, cols=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2', 'acc_long', 'acc_trans', 'acc_yaw', 'spd_veh', 'odo', 'rpm']):
     plt.rcParams['patch.linewidth'] = 0
     plt.rcParams['patch.edgecolor'] = 'none'
     # gm_cols_indices = list(segments['0']['2']['gm'].attrs[v] for v in list(segments['0']['2']['gm'].attrs.keys()))
@@ -152,27 +152,54 @@ def distributions_of_sensors_in_gm(segments, cols=['time', 'acc.xyz_0', 'acc.xyz
     
     # Based on length of cols, find appropriate number of rows and columns for the subplots making it as square as possible
     r = int(np.ceil(len(gm_cols) ** 0.5))
-    c = int(np.ceil(len(gm_cols) / r))
+    c = int(np.ceil(len(gm_cols) / r))*2
     
-    fig, axes = plt.subplots(r, c, figsize=(10, 10))
+    fig, axes = plt.subplots(r, c, figsize=(10*2, 10))
+
+    kdes = {gm_col: {} for gm_col in gm_cols}
+    eval_points_dict = {gm_col: {} for gm_col in gm_cols}
     for car, value in segment_dict.items():
         value = np.vstack(value)
-        # Now plot the distributions of each column in the GM data of shape (n, 42)    
-        for i, ax in tqdm(enumerate(axes.flat), total=r*c):
+        for gm_col in gm_cols:
+            kdes[gm_col][car] = {}
+            eval_points_dict[gm_col][car] = {}
+        # Now plot the distributions of each column in the GM data of shape (n, 42)
+        for i in tqdm(range(len(axes.flat)//2), total=r*c//2):
+            ax1 = axes.flat[2*i]
             val = value[:, gm_cols_indices[i]]
             # sns.histplot(val, ax=ax, label=car, bins=30, alpha=0.2)
             # Calculate KDE of val
             eval_points = np.linspace(val.min(), val.max(), 100)
             density = gaussian_kde(val)
+            kdes[gm_cols[i]][car] = density
+            eval_points_dict[gm_cols[i]][car] = (eval_points.min(), eval_points.max())
             y_sp = density.pdf(eval_points)
             # plot the kde
-            ax.plot(eval_points, y_sp, label=car)
+            ax1.plot(eval_points, y_sp, label=car)
             # sns.displot(value[:, i], ax=ax, kde=True, label=car)
             if car == '16006':
-                ax.set_title(gm_cols[i])
+                ax1.set_title(gm_cols[i])
+    
+    for i, gm_col in (pbar := tqdm(enumerate(gm_cols), total=len(gm_cols))):
+        ax2 = axes.flat[2*i+1]
+        # Compute pairwise kl divergence between the distributions of the current column
+        kl_divergences = np.nan * np.ones((len(segment_dict), len(segment_dict)))
+        for i, (car1, kde1) in enumerate(kdes[gm_col].items()):
+            car1_eval_points = eval_points_dict[gm_col][car1]
+            for j, (car2, kde2) in enumerate(kdes[gm_col].items()):
+                if i >= j:
+                    continue
+                pbar.set_description(f"KL Divergence for {gm_col}, {car1} vs {car2}")
+                car2_eval_points = eval_points_dict[gm_col][car2]
+                min_eval = max(car1_eval_points[0], car2_eval_points[0])
+                max_eval = min(car1_eval_points[1], car2_eval_points[1])
+                eval_points = np.linspace(min_eval, max_eval, 200)
+                kl_divergences[i, j] = np.sum(kde1.pdf(eval_points) * np.log((kde1.pdf(eval_points) + 1e-9) / (kde2.pdf(eval_points) + 1e-9)))
+        sns.heatmap(kl_divergences, ax=ax2, xticklabels=list(segment_dict.keys()), yticklabels=list(segment_dict.keys()), cmap='viridis')
+
     fig.suptitle(f"Distributions of GM data for all cars")
     # insert legend below all plots in figure and remove duplicates
-    handles, labels = ax.get_legend_handles_labels()
+    handles, labels = ax1.get_legend_handles_labels()
     fig.legend(handles, labels, loc='lower center', ncol=5, bbox_to_anchor=(0.5,-0.01))
     # move the legend down
 
@@ -189,7 +216,7 @@ if __name__=='__main__':
     # plot_kpi_vs_avg_speed(train_loader)
     with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as segments:
         distributions_of_sensors_in_gm(segments)
-    # with h5py.File('data/processed/segments.hdf5', 'r') as segments:
+    # with h5py.File('data/processed/w_kpis/segments.hdf5', 'r') as segments:
     #     plot_number_of_reference_points_vs_avg_speed(segments)
     #     plot_number_of_reference_points_vs_normalised_second_idx(segments)
     #     plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
