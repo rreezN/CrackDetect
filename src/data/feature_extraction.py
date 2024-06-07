@@ -220,11 +220,12 @@ def extract_features_from_extractor(feature_extractor: nn.Module, data_loader: D
         # Avoids going below 0
         features = torch.sqrt(torch.clamp(features, min=0))
         
-        if f'{feature_extractor.name}_{args.name_identifier}' in second_subgroup.keys():
-            del second_subgroup[f'{feature_extractor.name}_{args.name_identifier}']
+        name = f"{feature_extractor.name}_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
         
-        name = f"feature_extractor.name_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
-        second_subgroup.create_dataset(f'{name}', data=features)
+        if name in second_subgroup.keys():
+            del second_subgroup[name]
+        
+        second_subgroup.create_dataset(name, data=features)
 
         # In your existing code
         if data_loader.dataset.data_type == 'train':
@@ -318,12 +319,14 @@ if __name__ == '__main__':
     data_path = 'data/processed/w_kpis/segments.hdf5'
     
     # Load data
+    print(f"Loading data from {data_path}")
     train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=args.cols)
     val_data = Platoon(data_path=data_path, data_type='val', feature_extraction=True, gm_cols=args.cols)
     test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=args.cols)
     
     # Create dataloaders
     # NOTE: Must use batch_size=1, to avoid errors when extracting features
+    print("Creating dataloaders")
     train_loader = DataLoader(train_data, batch_size=1, shuffle=False, num_workers=0)
     val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
