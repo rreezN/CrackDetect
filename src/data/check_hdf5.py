@@ -90,17 +90,17 @@ def check_hdf5(file_path: str):
             print(f'\nStatistics:')
             for model in models:
                 print(f'  - {model}')
-                for key in f['train']['statistics'][model[:-1]].keys():
-                    data = f['train']['statistics'][model[:-1]][key][()]
+                for key in f['train']['statistics'][model].keys():
+                    data = f['train']['statistics'][model][key][()]
                     if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
                         data = np.round(np.array(data), 3)
-                    print(f'    - {key}: {data}')
+                    print(f'    - {key}: {data}, shape: {data.shape}')
             print(f'  - KPIs:')
             for key in f['train']['statistics']['kpis']['1'].keys():
                 data = f['train']['statistics']['kpis']['1'][key][()]
                 if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
                     data = np.round(np.array(data), 3)
-                print(f'    - {key}: {data}')
+                print(f'    - {key}: {data}, shape: {data.shape}')
             
             print()
         
