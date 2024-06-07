@@ -6,6 +6,8 @@ TODO:
 - Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?
 - Create jupyter notebook that explains the data processing steps and the validation process
     - Explain each intermediate step and showcase what happens to data!
+- Should we split the functions into separate files?
+    - This would also require us to account for the paths of the filed loaed in the functions
 """
 import numpy as np
 import pandas as pd
@@ -30,9 +32,9 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':     {'kind': 'lowess', 'frac': 0.005},
-    'spd_veh':     {'kind': 'lowess', 'frac': 0.005},
-    'acc_long':     {'kind': 'lowess', 'frac': 0.005},
+    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005},
+    'spd_veh':       {'kind': 'lowess', 'frac': 0.005},
+    'acc_long':      {'kind': 'lowess', 'frac': 0.005},
     'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
 }
 

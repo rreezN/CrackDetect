@@ -15,6 +15,45 @@ from src.models.multirocket.multirocket_multivariate import MultiRocketMultivari
 from src.models.multirocket.multirocket import MultiRocket
 from data.dataloader import Platoon
 
+"""
+Example of features.hdf5 file structure 
+
+|-- train
+|   |-- statistics
+|   |   |-- MultiRocketMV_50000
+|   |   |   |-- mean
+|   |   |   |-- std
+|   |   |-- kpis
+|   |       |-- mean
+|   |       |-- std
+|   |       |-- min
+|   |       |-- max
+|   |-- Segment XX
+|       |-- Second XX
+|           |-- kpis
+|           |   |-- window_size [1, 2]
+|           |       |-- data
+|           |-- MultiRocketMV_50000_name_identifier
+|           |   |-- data
+|-- val
+|   |-- Segment XX
+|       |-- Second XX
+|           |-- kpis
+|           |   |-- window_size 1
+|           |      |-- data
+|           |-- MultiRocketMV_50000_name_identifier
+|               |-- data
+|-- test
+    |-- Segment XX
+        |-- Second XX
+            |-- KPIs
+            |   |-- window_size 1
+            |      |-- data
+            |-- MultiRocketMV_50000_name_identifier
+                |-- data
+"""
+
+
 
 def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
     """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
