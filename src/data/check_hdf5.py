@@ -141,4 +141,3 @@ if __name__ == '__main__':
     
     check_hdf5(args.file_path)
     
-    
