@@ -1,7 +1,8 @@
 # To Do
 
 ## Model, Training and Feature Extraction
-- [ ] Optimize feature mean, avoid storing all features in memory
+- [X] Optimize feature mean, avoid storing all features in memory
+  - [ ] Consider doing similar optimisations to kpi statistics (doesn't seem to be necessary ATM)
 - [ ] Figure out which signals to extract features from
 - [ ] Max_num_channels in HydraMV (????)
 - [ ] Extract new features, using more than acc only
