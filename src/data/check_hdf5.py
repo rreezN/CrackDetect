@@ -68,7 +68,7 @@ def check_hdf5(file_path: str):
                             
                             # Only print the first 2 seconds
                             if j >= 1:
-                                print('        ...')
+                                print('      ...')
                                 break
                         
                         # Limit the number of segments
