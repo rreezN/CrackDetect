@@ -1,6 +1,10 @@
 # To Do
 
 ## Model, Training and Feature Extraction
+- [ ] When training the model, validation losses are insane...
+  - [x] Try: Normalize instead of standardize
+  - Did not fix it :(
+  - [ ] Come up with something else to fix it
 - [X] Optimize feature mean, avoid storing all features in memory
   - [ ] Consider further investigating accuracy of Welford's Online Algorithm for calculating means and stds 
   - [ ] Consider doing similar optimisations to kpi statistics (doesn't seem to be necessary ATM)
