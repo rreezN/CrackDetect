@@ -95,8 +95,8 @@ def plot_mean_lon_lat_distance_vs_normalised_second_idx(segments: h5py.File):
             norm_time_idx.append(int(i) / max_index)
             gm_to_aran = []
             gm_to_p79 = []
-            aran_latlon = aran[()][:, aran.attrs['Lat']:aran.attrs['Lon']+1] # Lat
-            p79_latlon = p79[()][:, p79.attrs['Lat']:p79.attrs['Lon']+1] # Lat
+            aran_latlon = np.vstack((aran[:, aran.attrs['Lat']], aran[:, aran.attrs['Lon']])).T # Lat
+            p79_latlon = np.vstack((p79[:, p79.attrs['Lat']], p79[:, p79.attrs['Lon']])).T # Lat
             for j in [0, gm[()].shape[0]-1]:
                 gm_lat = gm[()][j, gm.attrs['gps_0']] # Lat
                 gm_lon = gm[()][j, gm.attrs['gps_1']] # Lon
@@ -214,9 +214,9 @@ if __name__=='__main__':
     # train_loader = DataLoader(trainset, batch_size=32, shuffle=True, num_workers=0)
 
     # plot_kpi_vs_avg_speed(train_loader)
-    with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as segments:
-        distributions_of_sensors_in_gm(segments)
-    # with h5py.File('data/processed/w_kpis/segments.hdf5', 'r') as segments:
-    #     plot_number_of_reference_points_vs_avg_speed(segments)
-    #     plot_number_of_reference_points_vs_normalised_second_idx(segments)
-    #     plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
+    # with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as segments:
+    #     distributions_of_sensors_in_gm(segments)
+    with h5py.File('data/processed/w_kpis/segments.hdf5', 'r') as segments:
+        # plot_number_of_reference_points_vs_avg_speed(segments)
+        # plot_number_of_reference_points_vs_normalised_second_idx(segments)
+        plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
