@@ -75,13 +75,14 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
         for data_loader in data_loaders:
             data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
             segments_subgroup = data_loader_subgroup.require_group("segments")
-            statistics_subgroup = data_loader_subgroup.require_group("statistics")
             
             for feature_extractor in feature_extractors:
                 mean, sample_variance, running_min, running_max, all_targets, s = extract_features_from_extractor(feature_extractor, data_loader, segments_subgroup, segment_file)
                 
                 if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
                     continue
+                
+                statistics_subgroup = data_loader_subgroup.require_group("statistics")
                 
                 # Save feature and target statistics from training data
                 name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name

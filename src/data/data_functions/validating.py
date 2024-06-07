@@ -76,7 +76,7 @@ def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> n
 
     return data_int
 
-def validate(threshold: float, verbose: bool = False) -> None:
+def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', threshold: float = 0.9, verbose: bool = False) -> None:
     """
     Validate the data by comparing the AutoPi data and the CAN data (car sensors)
 
@@ -88,8 +88,8 @@ def validate(threshold: float, verbose: bool = False) -> None:
         Whether to plot the data for visual inspection
     """
     # Save gm data with converted values
-    autopi_hh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_HH.hdf5')
-    autopi_vh = unpack_hdf5('data/interim/gm/converted_platoon_CPH1_VH.hdf5')
+    autopi_hh = unpack_hdf5(hh)
+    autopi_vh = unpack_hdf5(vh)
 
     iterator = tqdm([autopi_hh, autopi_vh])
 
