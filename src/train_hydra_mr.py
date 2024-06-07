@@ -39,7 +39,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
     
     # Set loss function
     # TODO: Fix insane predictions in validation, and then switch to MSE
-    # L1 loss is used for now because it is more robust to outliers
+    # L1 loss is used for now because it is more robust to outliers (and we get inf in validation loss with MSE)
     loss_fn = nn.L1Loss()
     
     epoch_train_losses = []
@@ -79,7 +79,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         if np.mean(val_losses) < best_val_loss:
             best_val_loss = np.mean(val_losses)
             torch.save(model.state_dict(), f'models/best_{model.name}.pt')
-            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch}")
+            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1}")
             
         epoch_val_losses.append(np.mean(val_losses))
 
