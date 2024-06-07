@@ -22,7 +22,7 @@ from make_data_functions.kpis import compute_kpis
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
-    parser.add_argument('--begin_from', action='store_true', help='Start from specified mode (inclusive)')
+    parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
     parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
