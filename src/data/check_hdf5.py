@@ -36,32 +36,49 @@ def check_hdf5(file_path: str):
     
     with h5py.File(file_path, 'r') as f:
         
+        # Print the first level of keys (data_types: train, test, val)
         for key1 in f.keys():
             print(f'- {key1}')
             
+            # Print the second level of keys (segments, statistics)
             for key2 in f[key1].keys():
                 print(f'  - {key2}')
                 
-                for i, key3 in enumerate(f[key1][key2].keys()):
-                    print(f'    - {key3}')
-                    
-                    for j, key4 in enumerate(f[key1][key2][key3].keys()):
-                        print(f'      - {key4}')
+                if key2 == 'segments':
+                    # Print the third level of keys (segment keys)
+                    for i, key3 in enumerate(f[key1][key2].keys()):
+                        print(f'    - {key3}')
                         
-                        if isinstance(f[key1][key2][key3][key4], h5py.Dataset):
-                            print(f'        - {key4}')
-                        
-                        else:
-                            for k, key5 in enumerate(f[key1][key2][key3][key4].keys()):
-                                print(f'        - {key5}')
+                        # Print the fourth level of keys (second keys)
+                        for j, key4 in enumerate(f[key1][key2][key3].keys()):
+                            print(f'      - {key4}')
                             
-                        if j > 1:
-                            print('        ...')
+                            # Print the fifth level of keys (model keys or kpis)
+                            if isinstance(f[key1][key2][key3][key4], h5py.Dataset):
+                                print(f'        - {key4}')
+                            else:
+                                for k, key5 in enumerate(f[key1][key2][key3][key4].keys()):
+                                    print(f'        - {key5}')
+                            
+                            # Only print the first 2 seconds
+                            if j >= 1:
+                                print('        ...')
+                                break
+                        
+                        # Limit the number of segments
+                        if i >= args.limit:
+                            print('    ...')
                             break
-                    
-                    if i > args.limit:
-                        print('    ...')
-                        break
+                        
+                # Print the statistics
+                elif key2 == 'statistics':
+                    for key3 in f[key1][key2].keys():
+                        print(f'    - {key3}')
+                        for key4 in f[key1][key2][key3].keys():
+                            print(f'      - {key4}')
+                            if key3 == 'kpis':
+                                for key5 in f[key1][key2][key3][key4].keys():
+                                    print(f'        - {key5}')
                     
         
         
