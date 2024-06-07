@@ -11,23 +11,30 @@ from .hdf5_utils import save_hdf5
 #           Matching functions
 # ========================================================================================================================
 
-def match_data() -> None:
+def match_data(
+        aran_hh: str = "data/raw/ref_data/cph1_aran_vh.csv",
+        aran_vh: str = "data/raw/ref_data/cph1_aran_hh.csv",
+        p79_hh: str = "data/raw/ref_data/cph1_zp_vh.csv",
+        p79_vh: str = "data/raw/ref_data/cph1_zp_hh.csv",
+        ) -> None:
     """
     Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
     """
 
+    prefix = aran_hh.split("data/")[0]
+
     # Define path to segment files
-    segment_file = 'data/interim/gm/segments.hdf5'
+    segment_file = prefix + 'data/interim/gm/segments.hdf5'
 
     # Load reference and GoPro data
     aran = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_aran_hh.csv', sep=';', encoding='unicode_escape').fillna(0),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_aran_vh.csv', sep=';', encoding='unicode_escape').fillna(0)
+        'hh': pd.read_csv(aran_hh, sep=';', encoding='unicode_escape').fillna(0),
+        'vh': pd.read_csv(aran_vh, sep=';', encoding='unicode_escape').fillna(0)
     }
 
     p79 = {
-        'hh': pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape'),
-        'vh': pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')
+        'hh': pd.read_csv(p79_hh, sep=';', encoding='unicode_escape'),
+        'vh': pd.read_csv(p79_vh, sep=';', encoding='unicode_escape')
     }
     
     gopro_data = {}
@@ -35,16 +42,16 @@ def match_data() -> None:
     for trip_id in car_trips:
         gopro_data[trip_id] = {}
         for measurement in ['gps5', 'accl', 'gyro']:
-            gopro_data[trip_id][measurement] = pd.read_csv(f'data/interim/gopro/{trip_id}/{measurement}.csv')
+            gopro_data[trip_id][measurement] = pd.read_csv(prefix + f'data/interim/gopro/{trip_id}/{measurement}.csv')
 
     # Create folders for saving
-    Path('data/interim/aran').mkdir(parents=True, exist_ok=True)
-    Path('data/interim/p79').mkdir(parents=True, exist_ok=True)
-    Path('data/interim/gopro').mkdir(parents=True, exist_ok=True)
+    Path(prefix + 'data/interim/aran').mkdir(parents=True, exist_ok=True)
+    Path(prefix + 'data/interim/p79').mkdir(parents=True, exist_ok=True)
+    Path(prefix + 'data/interim/gopro').mkdir(parents=True, exist_ok=True)
 
     # Remove old segment files if they exist
     for folder in ['aran', 'p79', 'gopro']:
-        segment_path = Path(f'data/interim/{folder}/segments.hdf5')
+        segment_path = Path(prefix + f'data/interim/{folder}/segments.hdf5')
         if segment_path.exists():
             segment_path.unlink()
 
@@ -67,12 +74,12 @@ def match_data() -> None:
             # Match to ARAN data
             aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
             aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
-            save_hdf5(aran_segment, 'data/interim/aran/segments.hdf5', segment_id=i)
+            save_hdf5(aran_segment, prefix + 'data/interim/aran/segments.hdf5', segment_id=i)
 
             # Match to P79 data
             p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
             p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
-            save_hdf5(p79_segment, 'data/interim/p79/segments.hdf5', segment_id=i)
+            save_hdf5(p79_segment, prefix + 'data/interim/p79/segments.hdf5', segment_id=i)
                 
             # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
             if trip_name not in ["16006", "16009", "16011"]:
@@ -88,7 +95,7 @@ def match_data() -> None:
                 gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
 
             if gopro_segment != {}:
-                save_hdf5(gopro_segment, 'data/interim/gopro/segments.hdf5', segment_id=i)
+                save_hdf5(gopro_segment, prefix + 'data/interim/gopro/segments.hdf5', segment_id=i)
 
 
 def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> tuple[int, int]:
