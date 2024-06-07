@@ -119,9 +119,6 @@ class Features(torch.utils.data.Dataset):
                     Features selected:                      \n \
                         - Names:           {[feature_extractors for feature_extractors in self.feature_extractors]} \n \
                         - KPI Window Size: {self.kpi_window_size} \n \
-                    Transform:          \n \
-                        - Features:        {None if not self.feature_transform else True} \n \
-                        - KPI:             {None if not self.kpi_transform else True} \n \
                     ')   
 
 if __name__ == '__main__':
