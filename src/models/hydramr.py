@@ -31,6 +31,8 @@ class HydraMRRegressor(torch.nn.Module):
             Output tensor with shape [N,out_features]
 
         """
+        x = self.r(self.input_layer(x))
+        x = self.linear(x)
         
-        return self.linear(self.r(self.input_layer(x)))
-        # return self.linear(x)
+        return x
+        

@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 import h5py
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
@@ -109,6 +111,41 @@ class Platoon(torch.utils.data.Dataset):
         else:
             return train.T, KPIs # train data, labels
 
+    def plot_data(self):
+        # Define variable to contain the current segment data
+        all_data = np.array([])
+        for idx in tqdm(range(len(self.indices))):
+            segment_nr = str(self.indices[idx][0])
+            second_nr = str(self.indices[idx][1])
+            data = self.segments[segment_nr][second_nr]
+            train = data['gm'][:,tuple(self.gm_cols_indices)]
+            if len(all_data) == 0:
+                all_data = train
+            else:
+                all_data = np.vstack((all_data, train))
+        
+        transformed_data = (all_data - self.train_mean) / self.train_std
+        
+        # Create subplots 3 histograms in 1 row
+        # and transformed below
+        fig, axs = plt.subplots(2, 3, figsize=(20, 10))
+        axs = axs.flat
+        for i in range(len(self.gm_cols)):
+            axs[i].hist(all_data[:,i], bins=100, color='blue', alpha=0.7, label='Original')
+            axs[i].set_title(f'{self.gm_cols[i]}')
+            axs[i].set_xlabel('Value')
+            axs[i].set_ylabel('Frequency')
+            axs[i].legend()
+            
+            axs[i+3].hist(transformed_data[:,i], bins=100, color='blue', alpha=0.7, label='Original')
+            axs[i+3].set_title(f'{self.gm_cols[i]}')
+            axs[i+3].set_xlabel('Value')
+            axs[i+3].set_ylabel('Frequency')
+            axs[i+3].legend()
+        
+        plt.suptitle(f'Histograms of {self.data_type} GM data')
+        plt.show()
+    
     def print_arguments(self):
         print(f'Arguments: \n \
                     Data Path:          {self.data_path}\n \
@@ -127,7 +164,13 @@ if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
     trainset = Platoon(data_type='train', pm_windowsize=2)
-    train_loader = DataLoader(trainset, batch_size=32, shuffle=True, num_workers=0)
+    trainset.plot_data()
+    test_set = Platoon(data_type='test', pm_windowsize=2)
+    test_set.plot_data()
+    val_set = Platoon(data_type='val', pm_windowsize=2)
+    val_set.plot_data()
+    
+    train_loader = DataLoader(trainset, batch_size=1, shuffle=True, num_workers=0)
 
     start = time.time()
     i = 0
