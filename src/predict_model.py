@@ -12,11 +12,13 @@ from torch.utils.data import DataLoader
 def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     """Run prediction for a given model and dataloader.
     
-    Args:
+    Parameters:
+    ----------
         model: model to use for prediction
         dataloader: dataloader with batches
     
-    Returns
+    Returns:
+    -------
         Tensor of shape [N, d] where N is the number of samples and d is the output dimension of the model
 
     """
@@ -28,15 +30,15 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     
     test_iterator = tqdm(testloader, unit="batch", position=0, leave=False)
 
-    kpi_maxs = torch.tensor(testset.kpi_maxs)
-    kpi_mins = torch.tensor(testset.kpi_mins)
+    kpi_means = torch.tensor(testset.kpi_means)
+    kpi_stds = torch.tensor(testset.kpi_stds)
     
     for data, targets in test_iterator:
         output = model(data)
         
-        # Transform targets and predictions to original scale from [0, 1]
-        output = (((output - 0) * (kpi_maxs - kpi_mins)) / (1 - 0)) + kpi_mins
-        targets = (((targets - 0) * (kpi_maxs - kpi_mins)) / (1 - 0)) + kpi_mins
+        # Convert back from standardized to original scale
+        output = ((output * kpi_stds) + kpi_means)
+        targets = ((targets * kpi_stds) + kpi_means)
         
         loss_fn = nn.MSELoss()
         all_predictions = torch.cat((all_predictions, output), dim=0)
@@ -45,19 +47,58 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
         test_loss = torch.sqrt(loss_fn(output, targets)).item()
         test_losses = np.append(test_losses, test_loss)
         
-        test_iterator.set_description(f'Overall RMSE: {test_losses.mean():.2f} Batch RMSE: {test_loss:.2f}')
+        test_iterator.set_description(f'Overall RMSE (loss): {test_losses.mean():.2f} Batch RMSE (loss): {test_loss:.2f}')
         
         if args.plot_during:
             plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), test_losses)
-
-    all_predictions = all_predictions.detach().numpy()
-    all_targets = all_targets.detach().numpy()
-    plot_predictions(all_predictions, all_targets, test_losses)
         
     return all_predictions, all_targets, test_losses
 
 
+def calculate_errors(predictions: torch.Tensor, targets: torch.Tensor, lags: int = 10):
+    """Calculate the errors between the predictions and the targets.
+    
+    Parameters:
+    ----------
+        predictions (np.array): The predictions made by the model.
+        targets (np.array): The true values of the targets.
+    
+    Returns:
+    -------
+        RMSE (np.array): The Root Mean Squared Error between the predictions and the targets for each KPI.
+        baseline_RMSE (np.array): The Root Mean Squared Error between the targets and the mean of the targets for each KPI.
+        best_correlation (tuple): The best correlation between the predictions and the targets for each KPI.
+    """
+    
+    # Calculate RMSE between targets and predictions for each KPI
+    RMSE = np.sqrt(np.mean(np.abs(targets - predictions)**2, axis=0))
+    
+    # Calculate baseline RMSE between targets and predictions for each KPI
+    baseline_RMSE = np.sqrt(np.mean(np.abs(targets - np.mean(targets, axis=0))**2, axis=0))
+    
+    # Calculate correlation between targets and predictions for each KPI with different lags
+    correlations = []
+    for lag in range(1, lags):
+        correlation = np.corrcoef(targets[:-lag], predictions[lag:])[0, 1]
+        correlations.append(correlation)
+    
+    # Save best correlation
+    best_correlation = np.max(correlations)
+    best_correlation_lag = np.argmax(correlations) + 1
+    
+    return RMSE, baseline_RMSE, (best_correlation_lag, best_correlation)
+
+
 def plot_predictions(predictions, targets, test_losses, show=False):
+    """Plot the predictions against the targets. Also reports the RMSE and correlation between the predictions and the targets.
+
+    Args:
+        predictions (_type_): _description_
+        targets (_type_): _description_
+        test_losses (_type_): _description_
+        show (bool, optional): _description_. Defaults to False.
+    """
+    
     red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
     blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
     KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
@@ -66,30 +107,20 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     fig, axes = plt.subplots(2, 2, figsize=(20,10))
     axes = axes.flat
     
-    # Set title
-    rmse = np.mean(test_losses)
+    # Get errors
+    # TODO: Make sure this works... Might need to change the way errors are returned
+    # Or the way they are plotted
+    rmse, baseline_rmse, correlation = calculate_errors(predictions, targets)
     
-    correlations = []
-    r_squareds = []
     # Plot each KPIs
     for i in range(len(axes)):
-        # TODO: Correct correlation calculation
-        # calculate correlation between predictions and targets
-        correlation = np.corrcoef(targets[:, i], predictions[:, i])[0, 1]
-        correlations.append(correlation)
-        
-        # calculate r_squared between predictions and targets
-        
-        
-        # calculate RMSE between predictions and targets
-        rmse= np.sqrt(np.mean(np.abs(targets[:, i] - predictions[:, i])**2))
-        
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse:.2f}, correlation: {correlation:.2f}')
+        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse:.2f}, correlation: {correlation[1]:.2f}, baseline RMSE: {baseline_rmse:.2f}')
         axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
         axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
+        axes[i].plot(np.mean(targets, axis=1), label="mean target (baseline)", color='goldenrod', alpha=.75)
         axes[i].legend()
         
-    plt.suptitle(f'Predictions vs Targets, RMSE: {rmse:.2f}, correlation: {np.mean(correlations):.2f}', fontsize=24)
+    plt.suptitle(f'Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {rmse:.2f}, correlation: {np.mean(correlation[1]):.2f} baseline RMS: {np.mean(baseline_rmse):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig('reports/figures/model_results/predictions.pdf')
     if show:
@@ -102,8 +133,11 @@ def plot_predictions(predictions, targets, test_losses, show=False):
     start = 50
     end = 100
     
-    rmses = []
-    correlations = []
+    # TODO: Add this and make sure it works as above
+    return
+    # Get zoomed in errors
+    rmse, baseline_rmse, correlation = calculate_errors(predictions[start:end], targets[start:end])
+    
     for i in range(len(axes)):
         # TODO: Correct correlation calculation
         # calculate correlation between predictions and targets
