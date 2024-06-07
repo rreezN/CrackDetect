@@ -11,27 +11,17 @@ TODO:
 """
 from argparse import ArgumentParser
 
-from make_data_functions.converting import convert
-from make_data_functions.extract_gopro import preprocess_gopro_data
-from make_data_functions.validating import validate
-from make_data_functions.segmenting import segment
-from make_data_functions.matching import match_data
-from make_data_functions.resampling import resample
-from make_data_functions.kpis import compute_kpis
+from data_functions.converting import convert
+from data_functions.extract_gopro import preprocess_gopro_data
+from data_functions.validating import validate
+from data_functions.segmenting import segment
+from data_functions.matching import match_data
+from data_functions.resampling import resample
+from data_functions.kpis import compute_kpis
 
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
-    parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
-    parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
-    parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
-    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
-    parser.add_argument('--verbose', action='store_true', help='Print verbose output')
-
-    args = parser.parse_args()
+def main(args):
 
     begin_from = False
-
 
     if begin_from or args.mode in ['convert', 'all']:
         if not begin_from and args.begin_from:
@@ -70,3 +60,16 @@ if __name__ == '__main__':
             begin_from = True
         print('    ---### Calculating KPIs ###---')
         compute_kpis()
+
+if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
+    parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
+    parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
+    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
+    parser.add_argument('--verbose', action='store_true', help='Print verbose output')
+
+    args = parser.parse_args()
+
+    main(args)

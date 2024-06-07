@@ -54,6 +54,9 @@ Example of features.hdf5 file structure
 """
 
 
+# ======================================================================================================================
+#               Feature extraction from all data loaders and feature extractors
+# ======================================================================================================================
 
 def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
     """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
@@ -122,6 +125,10 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
                     target_2_subgroup.create_dataset("max", data=max)
                 
  
+ 
+# ======================================================================================================================
+#               Feature extraction from a single feature extractor and all data loaders
+# ======================================================================================================================
 
 def extract_features_from_extractor(feature_extractor: nn.Module, data_loader: DataLoader, subgroup: h5py.Group, segment_file: h5py.File):
     """Extracts features from a data loader using a feature extractor, saves them to a hdf5 file and returns them.
