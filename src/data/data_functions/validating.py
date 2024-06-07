@@ -100,7 +100,7 @@ def validate(threshold: float, verbose: bool = False) -> None:
                 iterator.set_description(f"Validating {trip_name}/{pass_name}")
                 validate_pass(pass_, threshold, verbose)
 
-def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
+def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
                  styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
     """
     Plot function to visualise the sensor data and their correlation when validating the data and verbose is set to True.
@@ -123,7 +123,6 @@ def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterab
         The title of the plot
     """
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     for sensor, label, style in zip(sensors, labels, styles):
         ax.plot(time, sensor, style, label=label)
 
@@ -134,8 +133,7 @@ def plot_sensors(time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterab
         ax.set_xlabel(xlabel)
     if title is not None:
         ax.set_title(title)
-    plt.tight_layout()
-    plt.show()
+
 
 def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     """
@@ -231,21 +229,18 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     aycan_100hz = atrans
     azrpi_100hz = azpn
 
+    
+
     # ACCELERATION MEASURE
     #   x-acceleration
     pcx = np.corrcoef(axrpi_100hz, axcan_100hz)[0, 1]
     if pcx < threshold:
         print(f"Correlation between Autopi and CAN x-acceleration sensors is below threshold: {pcx}")
-        if verbose:
-            plot_sensors(time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
 
     #   y-acceleration
     pcy = np.corrcoef(ayrpi_100hz, aycan_100hz)[0, 1]
-
     if pcy < threshold:
         print(f"Correlation between Autopi and CAN y-acceleration sensors is below threshold: {pcy}")
-        if verbose:
-            plot_sensors(time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
     
     # DISTANCE MEASURE
     # Define distance as by the odometer and GPS
@@ -257,5 +252,12 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     pcodo = np.corrcoef(dis_100hz, odo_dist)[0, 1]
     if pcodo < threshold or pcgps < threshold:
         print(f"Correlation between Autopi and CAN odo sensors or GPS distance is below threshold: {pcodo}, {pcgps}")
-        if verbose:
-            plot_sensors(time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
+
+    if verbose:
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        plot_sensors(axes[0], time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
+        plot_sensors(axes[1], time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
+        plot_sensors(axes[2], time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
+        plt.tight_layout()
+        plt.show()
+
