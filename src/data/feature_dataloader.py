@@ -31,10 +31,14 @@ class Features(torch.utils.data.Dataset):
         # Load the feature statistics for each feature extractor
         # Will result in a list of means and stds for each feature extractor 
         # means = [[mean1, mean2, ...], [mean1, mean2, ...]], stds = [[std1, std2, ...], [std1, std2, ...]]
+        self.feature_mins = []
+        self.feature_maxs = []
         self.feature_means = []
         self.feature_stds = []
         for i in range(len(feature_extractors)):
             name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+            self.feature_mins.append(torch.tensor(self.data['train']['statistics'][name]['min'][()]))
+            self.feature_maxs.append(torch.tensor(self.data['train']['statistics'][name]['max'][()]))
             self.feature_means.append(torch.tensor(self.data['train']['statistics'][name]['mean'][()]))
             self.feature_stds.append(torch.tensor(self.data['train']['statistics'][name]['std'][()]))
         
@@ -137,7 +141,7 @@ if __name__ == '__main__':
     from tqdm import tqdm
     from torch.utils.data import DataLoader
     
-    dataset = Features(data_type='train', feature_extractors=['MultiRocket_50000', 'Hydra_3_64'], name_identifier='subset100')
+    dataset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier='')
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
     
     start = time.time()

@@ -164,19 +164,43 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
                         mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2'] = current_best_trip_2
     
 
-    # Go through dictionary and delete all entries where the distance is still the placeholder value
-    for index, trips in mapping_to_the_two_best_seconds_for_each_pass_in_each_trip.items():
-        for trip_name, passes in trips.items():
-            for pass_name, segments in passes.items():
-                for segment_name, values in segments.items():
-                    if values[0] == 200:
-                        del mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][trip_name][pass_name][segment_name]
-    
     return mapping_to_the_two_best_seconds_for_each_pass_in_each_trip
 
 
+def filter_entries(data):
+    # Here we filter out the entries that are not close enough to the real location or still have placeholder values
+    threshold = 1.e-4
+    
+    # Function to filter the values within each pass
+    def filter_pass(pass_data):
+        filtered_pass_data = {}
+        for segment, values in pass_data.items():
+            distance = values[0]
+            if distance < threshold:
+                filtered_pass_data[segment] = values
+        return filtered_pass_data
+    
+    # Iterate through the main dictionary to filter the entries
+    filtered_data = {}
+    for key, trips in data.items():
+        filtered_trips = {}
+        for trip, passes in trips.items():
+            filtered_passes = {}
+            for pass_name, pass_data in passes.items():
+                filtered_pass_data = filter_pass(pass_data)
+                if filtered_pass_data:
+                    filtered_passes[pass_name] = filtered_pass_data
+            if filtered_passes:
+                filtered_trips[trip] = filtered_passes
+        if filtered_trips:
+            filtered_data[key] = filtered_trips
+            
+    return filtered_data
+
+
 def save_to_csv(mapping, direction):
-    filename = f"mapping_{direction}_time_to_location.csv" # TODO Change this to the desired path
+    name = f"mapping_{direction}_time_to_location.csv"
+    filename = f"data/AOI/{name}"
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -194,6 +218,31 @@ def save_to_csv(mapping, direction):
     print("CSV file has been created successfully.")
 
 
+def save_to_hdf5(mapping, direction):
+    name = f"mapping_{direction}_time_to_location.hdf5"
+    filename = f"data/AOI/{name}"
+
+    with h5py.File(filename, 'w') as hdf_file:
+        # Create the HDF5 groups and datasets
+        for index, trips in mapping.items():
+            index_group = hdf_file.create_group(str(index))
+            for trip_name, passes in trips.items():
+                trip_group = index_group.create_group(trip_name)
+                for pass_name, segments in passes.items():
+                    pass_group = trip_group.create_group(pass_name)
+                    for segment_name, values in segments.items():
+                        # Convert values to a numerical array if possible
+                        try:
+                            values_array = np.array(values, dtype=np.float64)
+                        except ValueError:
+                            # Handle the case where conversion fails
+                            values_array = np.array(values, dtype=h5py.string_dtype())
+
+                        pass_group.create_dataset(segment_name, data=values_array)
+
+    print("HDF5 file has been created successfully.")
+
+
 def main():
     # Get the segments 
     segments = h5py.File('data/processed/segments.hdf5', 'r')
@@ -201,25 +250,25 @@ def main():
     
     # Right side data
     autopi_hh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5')
-    gm_data_hh = autopi_hh['GM']['16006']['pass_1']
+    gm_data_hh = autopi_hh['GM']['16006']['pass_1'] # pass_1 is a VH route
     p79_hh = pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape')
     
     # Left side data
     autopi_vh = unpack_hdf5(f'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5')
-    gm_data_vh = autopi_vh['GM']['16006']['pass_2'] # pass two is a VH route
+    gm_data_vh = autopi_vh['GM']['16006']['pass_2'] # pass_2 is a VH route
     p79_vh = pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')   
     
     # Go trough both sides (takes 2 hours to run on Macbook 2019 16GB RAM 2.6 GHz 6-Core Intel Core i7)
-    gm_data = [gm_data_hh, gm_data_vh]
+    gm_data = [gm_data_hh, gm_data_vh] # The specific gm_data is only used to find_best_start_and_end_indeces_by_lonlat
     p79 = [p79_hh, p79_vh]
     directions = ['hh', 'vh']
     for gm_data_, p79_, direction in zip(gm_data, p79, directions):
         locations = get_locations(p79_, gm_data_)
         mapping = map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists, direction)
-        save_to_csv(mapping, direction)
-        
-        # TODO: save as HDF5 file instead
-            
+        cleaned_mapping = filter_entries(mapping) # TODO add funciton that cleans up the mapping dictionary right away
+        save_to_csv(cleaned_mapping, direction)
+        save_to_hdf5(cleaned_mapping, direction)
+
 
 if __name__ == "__main__":
     main()
