@@ -11,17 +11,38 @@ from models.regressor import Regressor
 from data.feature_dataloader import Features
 
 
-def train(model, train_loader, val_loader, epochs=100):
-    # val_iterator = tqdm(val_loader, unit="batch", position=1, leave=False)
+def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 10, lr: float = 0.001):
+    """Training loop for the Hydra-MR model.
+    
+    This function trains the Hydra-MR model using the provided training data and validation data loaders.
+    The model is trained for a specified number of epochs with a given learning rate.
+
+    The model is saved in the models directory with the name of the model along with the best model during training.
+    Training curves are saved in the reports/figures/model_results directory.
+    
+    Parameters:
+    ----------
+        model (HydraMRRegressor): The model to train.
+        train_loader (DataLoader): The training data loader.
+        val_loader (DataLoader): The validation data loader.
+        epochs (int, optional): Number of epochs to train. Defaults to 10.
+        lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
+    """
+    
+    if args.lr != 0.001:
+        lr = args.lr
+    if args.epochs != 10:
+        epochs = args.epochs
     
     # Set optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     # Set loss function
     loss_fn = nn.MSELoss()
     
     epoch_train_losses = []
     epoch_val_losses = []
     best_val_loss = np.inf
+    
     # Iterate over segments of data (each segment is a time series where the minimum speed is above XX km/h)
     for i, epoch in enumerate(range(epochs)):
         train_iterator = tqdm(train_loader, unit="batch", position=0, leave=False)
@@ -62,7 +83,7 @@ def train(model, train_loader, val_loader, epochs=100):
         plt.plot(epoch_train_losses, label="Train loss")
         plt.plot(epoch_val_losses, label="Val loss")
         plt.title('Loss per epoch')
-        plt.ylim(0, 1)
+        plt.ylim(0, 15)
         plt.ylabel('Loss')
         plt.xlabel('Epoch')
         plt.legend()
@@ -75,10 +96,10 @@ def train(model, train_loader, val_loader, epochs=100):
 
 
 def get_args():
-    parser = ArgumentParser(description='Hydra-MR')
-    parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=32)
-    # parser.add_argument('--regressor_batch_size', type=int, default=8)
+    parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
+    parser.add_argument('--epochs', type=int, default=10, hint='Number of epochs to train.')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features).')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for the optimizer. Good values are between 0.001 and 0.0001.')
     
     return parser.parse_args()
 
@@ -86,16 +107,25 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
     
+    # Define feature extractors
+    # These are the names of the stored models/features (in features.hdf5)
+    # If you have a name_identifier in the stored features, you need to include this in the feature_extractors list
+    # e.g. ['MultiRocketMV_50000_subset100', 'HydraMV_8_64_subset100']
+    feature_extractors = ['MultiRocketMV_50000', 'HydraMV_8_64'] 
+    
     # Load data
-    trainset = Features(data_type='train')
+    trainset = Features(data_type='train', feature_extractors=feature_extractors)
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
-    valset = Features(data_type='val')
+    valset = Features(data_type='val', feature_extractors=feature_extractors)
     val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
+    input_shape, target_shape = trainset.get_data_shape()
+    
     # Create model
-    model = HydraMRRegressor(49728+5120, 4) # Hardcoded for now, 49728=Features from MultiRocket, 5120=Features from Hydra
+    # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
+    model = HydraMRRegressor(input_shape, target_shape) 
     
     # Train
-    train(model, train_loader, val_loader, args.epochs)
+    train(model, train_loader, val_loader)
     

@@ -1,46 +1,109 @@
-from tqdm import tqdm
 import h5py
 import torch
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+import numpy.typing as npt
+
+from tqdm import tqdm
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from argparse import ArgumentParser
+from time import time
 
+from models.hydra.hydra import Hydra
 from models.hydra.hydra_multivariate import HydraMultivariate
-from models.multirocket.multirocket import MultiRocket
+from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
+from src.models.multirocket.multirocket import MultiRocket
 from data.dataloader import Platoon
 
+"""
+Example of features.hdf5 file structure 
 
-def extract_all_features(feature_extractors:list, data_loaders:list, segment_file:h5py.File):
-    with h5py.File('data/processed/features.hdf5', 'w') as f:
+|-- train
+|   |-- statistics
+|   |   |-- MultiRocketMV_50000
+|   |   |   |-- mean
+|   |   |   |-- std
+|   |   |-- kpis
+|   |       |-- mean
+|   |       |-- std
+|   |       |-- min
+|   |       |-- max
+|   |-- Segment XX
+|       |-- Second XX
+|           |-- kpis
+|           |   |-- window_size [1, 2]
+|           |       |-- data
+|           |-- MultiRocketMV_50000_name_identifier
+|           |   |-- data
+|-- val
+|   |-- Segment XX
+|       |-- Second XX
+|           |-- kpis
+|           |   |-- window_size 1
+|           |      |-- data
+|           |-- MultiRocketMV_50000_name_identifier
+|               |-- data
+|-- test
+    |-- Segment XX
+        |-- Second XX
+            |-- KPIs
+            |   |-- window_size 1
+            |      |-- data
+            |-- MultiRocketMV_50000_name_identifier
+                |-- data
+"""
+
+
+# ======================================================================================================================
+#               Feature extraction from all data loaders and feature extractors
+# ======================================================================================================================
+
+def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
+    """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
+    
+    Parameters:
+    ----------
+        feature_extractors (list[nn.Module]): List of feature extractors to use [multi_rocket, hydra]
+        data_loaders (list[DataLoader]): List of data loaders to extract features from [train, test, val]
+        segment_file (h5py.File): File to store the extracted features and targets
+    """
+    
+    
+    with h5py.File('data/processed/features.hdf5', 'a') as f:
         for data_loader in data_loaders:
-            data_loader_subgroup = f.create_group(data_loader.dataset.data_type)
-            segments_subgroup = data_loader_subgroup.create_group("segments")
-            statistics_subgroup = data_loader_subgroup.create_group("statistics")
+            data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
+            segments_subgroup = data_loader_subgroup.require_group("segments")
+            
             for feature_extractor in feature_extractors:
-                all_features, all_targets = extract_features_from_transformer(feature_extractor, data_loader, segments_subgroup, segment_file)
-                if len(all_features) == 0:
-                    continue
-                # Save feature and target statistics for training only
-                # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
-                if "hydra" in feature_extractor.name.lower():
-                    s = torch.mean((all_features==0).type(torch.FloatTensor), dim=0)**4 + 1e-8
-                else:
-                    s = 0
-                feature_extractor_subgroup = statistics_subgroup.create_group(feature_extractor.name + f"_{args.name_identfier}")
-                feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
-                feature_extractor_subgroup.create_dataset("mean", data=torch.mean(all_features, dim=0))
-                feature_extractor_subgroup.create_dataset("std", data=torch.std(all_features, dim=0)+s) # add small value to avoid division by zero in hydra features
-                min, _ = torch.min(all_features, dim=0)
-                max, _ = torch.max(all_features, dim=0)
-                feature_extractor_subgroup.create_dataset("min", data=min)
-                feature_extractor_subgroup.create_dataset("max", data=max)
+                mean, sample_variance, running_min, running_max, all_targets, s = extract_features_from_extractor(feature_extractor, data_loader, segments_subgroup, segment_file)
                 
-                if not "kpis" in statistics_subgroup.keys():
-                    kpi_stat_subgroup = statistics_subgroup.create_group("kpis")
-                    target_1_subgroup = kpi_stat_subgroup.create_group("1")
+                if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
+                    continue
+                
+                statistics_subgroup = data_loader_subgroup.require_group("statistics")
+                
+                # Save feature and target statistics from training data
+                name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
+                
+                # delete existing subgroup (to overwrite it with new data) if it exists
+                if name in statistics_subgroup.keys():
+                    del statistics_subgroup[name]
+                    
+                feature_extractor_subgroup = statistics_subgroup.require_group(name)
+                feature_extractor_subgroup.create_dataset("used_cols", data=data_loader.dataset.gm_cols)
+                feature_extractor_subgroup.create_dataset("mean", data=mean)
+                feature_extractor_subgroup.create_dataset("std", data=torch.sqrt(sample_variance) + s) # add small value to avoid division by zero in hydra features https://github.com/angus924/hydra/issues/9
+                feature_extractor_subgroup.create_dataset("min", data=running_min)
+                feature_extractor_subgroup.create_dataset("max", data=running_max)
+                
+                # TODO: Consider moving this to the extract_features_from_extractor function
+                # Save KPI statistics
+                # NOTE: To get proper KPI statistics, feature extraction must be run on the entire dataset (NOT a subset)
+                if not "kpis" in statistics_subgroup.keys() and args.subset is None:
+                    kpi_stat_subgroup = statistics_subgroup.require_group("kpis")
+                    target_1_subgroup = kpi_stat_subgroup.require_group("1")
                     target_1_subgroup.create_dataset("mean", data=torch.mean(torch.tensor(all_targets[::2, :]), dim=0))
                     target_1_subgroup.create_dataset("std", data=torch.std(torch.tensor(all_targets[::2, :]), dim=0))
                     min, _ = torch.min(torch.tensor(all_targets[::2, :]), dim=0)
@@ -48,7 +111,7 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                     target_1_subgroup.create_dataset("min", data=min)
                     target_1_subgroup.create_dataset("max", data=max)
                     
-                    target_2_subgroup = kpi_stat_subgroup.create_group("2")
+                    target_2_subgroup = kpi_stat_subgroup.require_group("2")
                     target_2_subgroup.create_dataset("mean", data=torch.mean(torch.tensor(all_targets[1::2, :]), dim=0))
                     target_2_subgroup.create_dataset("std", data=torch.std(torch.tensor(all_targets[1::2, :]), dim=0))
                     min, _ = torch.min(torch.tensor(all_targets[1::2, :]), dim=0)
@@ -56,25 +119,135 @@ def extract_all_features(feature_extractors:list, data_loaders:list, segment_fil
                     target_2_subgroup.create_dataset("min", data=min)
                     target_2_subgroup.create_dataset("max", data=max)
                 
-                    
 
-def extract_features_from_transformer(feature_extractor, data_loader, subgroup, segment_file):
-    all_features = torch.tensor([])
+# ======================================================================================================================
+#               Functions for computing statistics on the fly
+# ======================================================================================================================
+
+def update(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor], new_value: torch.Tensor) -> tuple[int, torch.Tensor, torch.Tensor]:
+    """ Welford's Online Algorithm, "https://www.wikiwand.com/en/Algorithms_for_calculating_variance#Welford's_online_algorithm"
+    For a new value new_value, compute the new count, new mean, the new M2.
+    count aggregates the number of samples seen so far
+    mean accumulates the mean of the entire dataset
+    M2 aggregates the squared distance from the mean
+    
+    Parameters:
+    ----------
+        existing_aggregate (tuple[int, torch.Tensor, torch.Tensor]): Tuple containing the existing count, mean, and M2
+        new_value (torch.Tensor): The new value to update the aggregate with
+    
+    Returns:
+    -------
+        tuple[int, torch.Tensor, torch.Tensor]
+        A tuple containing the following elements:
+        - count (int): The new count
+        - mean (torch.Tensor): The new mean
+        - M2 (torch.Tensor): The new M2
+    """
+    (count, mean, M2) = existing_aggregate
+    count += 1
+    delta = new_value - mean
+    mean += delta / count
+    delta2 = new_value - mean
+    M2 += delta * delta2
+    return (count, mean, M2)
+
+
+def finalize(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """ Welford's Online Algorithm, "https://www.wikiwand.com/en/Algorithms_for_calculating_variance#Welford's_online_algorithm"
+    Retrieve the mean, variance and sample variance from an aggregate
+
+    Parameters:
+    ----------
+        existing_aggregate (tuple[int, torch.Tensor, torch.Tensor]): Tuple containing the existing count, mean, and M2
+    
+    Returns:
+    -------
+        tuple[int, torch.Tensor, torch.Tensor]
+        A tuple containing the following elements:
+        - mean (torch.Tensor): The mean of the data
+        - variance (torch.Tensor): The variance of the data
+        - sample_variance (torch.Tensor): The sample variance of the data
+    """
+    (count, mean, M2) = existing_aggregate
+    if count < 2:
+        return float("nan")
+    else:
+        (mean, variance, sample_variance) = (mean, M2 / count, M2 / (count - 1))
+        return (mean, variance, sample_variance)
+
+ 
+# ======================================================================================================================
+#               Feature extraction from a single feature extractor and all data loaders
+# ======================================================================================================================
+
+def extract_features_from_extractor(feature_extractor: nn.Module, 
+                                    data_loader: DataLoader, 
+                                    subgroup: h5py.Group, 
+                                    segment_file: h5py.File
+                                    ) -> tuple[torch.Tensor, 
+                                               torch.Tensor, 
+                                               torch.Tensor, 
+                                               torch.Tensor, 
+                                               np.ndarray, 
+                                               torch.Tensor]: 
+    """Extracts features from a data loader using a feature extractor and saves them to data/processed/features.hdf5.
+    If the train_loader is used, the mean, std, min, and max of the features are returned to be saved in the statistics subgroup.
+    Additionally, an std correction factor 's' is returned for hydra features to avoid division by zero. 
+    Lastly, all targets are returned for KPI statistics.
+
+    If the val_loader or test_loader is used, empty tensors and ndarrays are returned for all values.
+
+    Statistics and computed on the fly using Welford's online algorithm to avoid storing all features in memory, thus
+    speeding up the feature extraction process.
+
+    Parameters
+    ----------
+        feature_extractor (nn.Module): The feature extractor to use (e.g. MultiRocket, Hydra)
+        data_loader (DataLoader): The data loader to extract features from (e.g. train, test, val)
+        subgroup (h5py.Group): The subgroup to save the extracted features to in the hdf5 file
+        segment_file (h5py.File): The file containing the segments
+
+    Returns: 
+    ---------
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, np.ndarray, torch.Tensor]
+        A tuple containing the following elements:
+        - mean (torch.Tensor): The mean of the extracted features. If the data loader is not the train loader, an empty tensor is returned.
+        - sample_variance (torch.Tensor): The sample variance of the extracted features. If the data loader is not the train loader, an empty tensor is returned.
+        - running_min (torch.Tensor): The minimum value of the extracted features. If the data loader is not the train loader, an empty tensor is returned.
+        - running_max (torch.Tensor): The maximum value of the extracted features. If the data loader is not the train loader, an empty tensor is returned.
+        - all_targets (np.ndarray): An array containing all accompanying targets. If the data loader is not the train loader, an empty ndarray is returned.
+        - s (torch.Tensor): The std correction factor for hydra features. If the data loader is not the train loader an empty tensor is returned.  
+    """
+    
     all_targets = np.array([])
-    iterator = tqdm(data_loader, unit="batch", position=0, leave=False)
+    
+    iterator = tqdm(data_loader, unit="batch", position=0, leave=False, total=args.subset if args.subset is not None else len(data_loader))
     iterator.set_description(f"Extracting {data_loader.dataset.data_type} features from {feature_extractor.name}")
     iteration = 0
+    
+    running_mean = None
+    running_min = None
+    running_max = None
+    zeros_array = None
+    n = 0
+    
     for data, segment_nr, second_nr in iterator:
         if args.subset is not None and iteration >= args.subset:
             break
-        if isinstance(feature_extractor, MultiRocket):
+        
+        # Check which feature extractor is used
+        # and transform the data to correct type accordingly
+        if isinstance(feature_extractor, MultiRocket) or isinstance(feature_extractor, MultiRocketMultivariate):
             data = data.numpy()
-        elif isinstance(feature_extractor, HydraMultivariate):
+        elif isinstance(feature_extractor, HydraMultivariate) or isinstance(feature_extractor, Hydra):
             data = data.type(torch.FloatTensor)
+            
         segment_nr = segment_nr[0]
         second_nr = second_nr[0]
+        
         if not segment_nr in subgroup.keys():
-            subgroup.create_group(segment_nr)
+            subgroup.require_group(segment_nr)
         
         segment_subgroup = subgroup[segment_nr]
         
@@ -84,43 +257,93 @@ def extract_features_from_transformer(feature_extractor, data_loader, subgroup, 
         segment_subgroup.attrs['pass_name'] = segment_file[segment_nr].attrs['pass_name']
         
         if not second_nr in segment_subgroup.keys():
-            segment_subgroup.create_group(second_nr)
+            segment_subgroup.require_group(second_nr)
         
+        # Copy the KPIs to the second subgroup if they are not already there
         second_subgroup = segment_subgroup[second_nr]
         if not "kpis" in second_subgroup.keys():
             copy_hdf5_(data={"kpis":segment_file[segment_nr][second_nr]["kpis"]}, group=second_subgroup)
         
+        # If using univariate data, squeeze the data to remove the channel dimension
+        if len(args.cols) == 1:
+            data = data.squeeze(1)
+        
+        # Extract features
         features = feature_extractor(data)
         features = features.flatten()
         
         if type(features) != torch.Tensor:
             features = torch.tensor(features)
+            
         # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+        # Avoids going below 0
         features = torch.sqrt(torch.clamp(features, min=0))
-        second_subgroup.create_dataset(feature_extractor.name, data=features)
+        
+        # Save features to hdf5 file and overwrite if it already exists
+        name = f"{feature_extractor.name}_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
+        if name in second_subgroup.keys():
+            del second_subgroup[name]
+        second_subgroup.create_dataset(name, data=features)
+
+        # We only need to compute statistics for the training data
         if data_loader.dataset.data_type == 'train':
-            if len(all_features) == 0:
-                all_features = features
+            new_value = features
+
+            if running_mean is None:
+                existing_aggregate = (0, torch.zeros_like(new_value), torch.zeros_like(new_value))
+                running_min = new_value
+                running_max = new_value
             else:
-                all_features = torch.vstack((all_features, features))
+                existing_aggregate = (n, running_mean, running_s)
+
+            n, running_mean, running_s = update(existing_aggregate, new_value)  # Welford's online algorithm
+            running_min = torch.min(running_min, new_value)
+            running_max = torch.max(running_max, new_value)
+
             targets1 = segment_file[segment_nr][second_nr]["kpis"]["1"][()]
             targets2 = segment_file[segment_nr][second_nr]["kpis"]["2"][()]
             targets = np.vstack((targets1, targets2))
+
             if all_targets.size == 0:
                 all_targets = targets
             else:
                 all_targets = np.vstack((all_targets, targets))
-        
-        iteration += 1
+
+            if "hydra" in feature_extractor.name.lower():
+                if zeros_array is None:
+                    zeros_array = (features == 0).type(torch.FloatTensor)
+                else:
+                    zeros_array += (features == 0).type(torch.FloatTensor)
             
-        
-    return all_features, all_targets
+        iteration += 1
+
+    if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
+        return torch.tensor, torch.tensor, torch.tensor, torch.tensor, np.array, torch.tensor
+
+    # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
+    # Essentially, since some groups might never be selected, we add a small value to the std to avoid division by zero
+    s = torch.zeros_like(running_mean)
+    if "hydra" in feature_extractor.name.lower():
+        denominator = args.subset if args.subset is not None else len(data_loader)
+        s = (zeros_array / denominator)**4 + 1e-8
+    
+    # Finalize to get the mean, variance, and sample variance
+    mean, _, sample_variance = finalize((n, running_mean, running_s))  # Welford's online algorithm
+
+    return mean, sample_variance, running_min, running_max, all_targets, s
+
           
-        
-def copy_hdf5_(data, group):
+def copy_hdf5_(data: dict[str, h5py.Group], group: h5py.Group):
+    """Copies a h5py group to another group.
+
+    Parameters:
+    ----------
+        data (dict[str, h5py.Group]): The data to copy
+        group (h5py.Group): The group to copy the data to
+    """
     for key, value in data.items():
         if isinstance(value, h5py.Group):
-            subgroup = group.create_group(key)
+            subgroup = group.require_group(key)
             # Save attributes
             for k, v in value.attrs.items():
                 subgroup.attrs[k] = v
@@ -132,39 +355,56 @@ def copy_hdf5_(data, group):
 
 
 def get_args():
+    """Parses the arguments from the command line.
+
+    Returns:
+    -------
+        Namespace: Arguments from the command line
+    """
     parser = ArgumentParser(description='Hydra-MR')
+    parser.add_argument('--cols', default=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'], nargs='+')
     parser.add_argument('--mr_num_features', type=int, default=50000)
-    parser.add_argument('--hydra_input_length', type=int, default=250)
-    parser.add_argument('--hydra_num_channels', type=int, default=2)
+    parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
     parser.add_argument('--subset', type=int, default=None)
-    parser.add_argument('--name_identifier', type=str)
-    # parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--name_identifier', type=str, default='')
     
     return parser.parse_args()
 
 
 if __name__ == '__main__':
+    start = time()
+
     args = get_args()
-    
-    assert args.name_identifier is not None, 'Please specify a name identifier to save the feature extraction under in the hdf5 file.'
     
     data_path = 'data/processed/w_kpis/segments.hdf5'
     
     # Load data
-    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True)
-    val_data = Platoon(data_path=data_path, data_type='val', feature_extraction=True)
-    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True)
+    print(f"Loading data from {data_path}")
+    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=args.cols)
+    val_data = Platoon(data_path=data_path, data_type='val', feature_extraction=True, gm_cols=args.cols)
+    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=args.cols)
     
     # Create dataloaders
+    # NOTE: Must use batch_size=1, to avoid errors when extracting features
+    print("Creating dataloaders")
     train_loader = DataLoader(train_data, batch_size=1, shuffle=False, num_workers=0)
     val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
     
     # Create feature extractors
-    multi_rocket_transformer = MultiRocket(args.mr_num_features)
-    hydra_transformer = HydraMultivariate(args.hydra_input_length, args.hydra_num_channels)
+    if len(args.cols) == 1:
+        multi_rocket_transformer = MultiRocket(args.mr_num_features)
+        hydra_transformer = Hydra(args.hydra_input_length)
+    else:
+        multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
+        hydra_transformer = HydraMultivariate(args.hydra_input_length, len(args.cols))
+    
+    print(f"Extracting features from {multi_rocket_transformer.name} and {hydra_transformer.name}")
     
     with h5py.File(data_path, 'r') as f:
         extract_all_features([multi_rocket_transformer, hydra_transformer], [train_loader, val_loader, test_loader], f)
     
-    
+    extraction_time = time() - start
+    minutes = int(extraction_time / 60)
+    seconds = int(extraction_time % 60)
+    print(f"Feature extraction took {minutes} minutes and {seconds} seconds")

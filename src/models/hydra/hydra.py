@@ -2,6 +2,7 @@
 
 # HYDRA: Competing Convolutional Kernels for Fast and Accurate Time Series Classification
 # https://arxiv.org/abs/2203.13652
+# https://github.com/angus924/hydra/blob/main/code/hydra.py
 
 import numpy as np
 import torch, torch.nn as nn, torch.nn.functional as F
@@ -11,7 +12,8 @@ class Hydra(nn.Module):
     def __init__(self, input_length, k = 8, g = 64, seed = None):
 
         super().__init__()
-
+        
+        self.name = f"Hydra_{k}_{g}"
         if seed is not None:
             torch.manual_seed(seed)
 

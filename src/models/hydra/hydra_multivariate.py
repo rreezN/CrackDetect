@@ -2,6 +2,7 @@
 
 # HYDRA: Competing convolutional kernels for fast and accurate time series classification
 # https://arxiv.org/abs/2203.13652
+# https://github.com/angus924/hydra/blob/main/code/hydra_multivariate.py
 
 # ** EXPERIMENTAL **
 # This is an *untested*, *experimental* extension of Hydra to multivariate input.
@@ -17,7 +18,7 @@ class HydraMultivariate(nn.Module):
 
         super().__init__()
 
-        self.name = f"Hydra_{num_channels}"
+        self.name = f"HydraMV_{k}_{g}"
         
         self.k = k # num kernels per group
         self.g = g # num groups
@@ -36,7 +37,7 @@ class HydraMultivariate(nn.Module):
 
         self.W = [self.normalize(torch.randn(divisor, k * _g, 1, 9)) for _ in range(self.num_dilations)]
         
-
+        # TODO: Check later
         # combine num_channels // 2 channels (2 < n < max_num_channels)
         num_channels_per = np.clip(num_channels // 2, 2, max_num_channels)
         self.I = [torch.randint(0, num_channels, (divisor, _g, num_channels_per)) for _ in range(self.num_dilations)]

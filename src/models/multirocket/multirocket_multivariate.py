@@ -2,21 +2,17 @@
 #
 # MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification
 # https://arxiv.org/abs/2102.00457
-# https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket.py
-
+# https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket_multivariate.py
 
 import torch.nn as nn
 import numpy as np
 from numba import njit, prange
-from sklearn.linear_model import RidgeClassifierCV
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 
-@njit("float32[:](float64[:,:],int32[:],int32[:],float32[:])",
+@njit("float32[:](float64[:,:,:],int32[:],int32[:],int32[:],int32[:],float32[:])",
       fastmath=True, parallel=False, cache=True)
-def _fit_biases(X, dilations, num_features_per_dilation, quantiles):
-    num_examples, input_length = X.shape
+def _fit_biases(X, num_channels_per_combination, channel_indices, dilations, num_features_per_dilation, quantiles):
+    num_examples, num_channels, input_length = X.shape
 
     # equivalent to:
     # >>> from itertools import combinations
@@ -45,6 +41,9 @@ def _fit_biases(X, dilations, num_features_per_dilation, quantiles):
 
     feature_index_start = 0
 
+    combination_index = 0
+    num_channels_start = 0
+
     for dilation_index in range(num_dilations):
 
         dilation = dilations[dilation_index]
@@ -56,40 +55,50 @@ def _fit_biases(X, dilations, num_features_per_dilation, quantiles):
 
             feature_index_end = feature_index_start + num_features_this_dilation
 
-            _X = X[np.random.randint(num_examples)]
+            num_channels_this_combination = num_channels_per_combination[combination_index]
+
+            num_channels_end = num_channels_start + num_channels_this_combination
+
+            channels_this_combination = channel_indices[num_channels_start:num_channels_end]
+
+            _X = X[np.random.randint(num_examples)][channels_this_combination]
 
             A = -_X  # A = alpha * X = -X
             G = _X + _X + _X  # G = gamma * X = 3X
 
-            C_alpha = np.zeros(input_length, dtype=np.float32)
+            C_alpha = np.zeros((num_channels_this_combination, input_length), dtype=np.float32)
             C_alpha[:] = A
 
-            C_gamma = np.zeros((9, input_length), dtype=np.float32)
+            C_gamma = np.zeros((9, num_channels_this_combination, input_length), dtype=np.float32)
             C_gamma[9 // 2] = G
 
             start = dilation
             end = input_length - padding
 
             for gamma_index in range(9 // 2):
-                C_alpha[-end:] = C_alpha[-end:] + A[:end]
-                C_gamma[gamma_index, -end:] = G[:end]
+                C_alpha[:, -end:] = C_alpha[:, -end:] + A[:, :end]
+                C_gamma[gamma_index, :, -end:] = G[:, :end]
 
                 end += dilation
 
             for gamma_index in range(9 // 2 + 1, 9):
-                C_alpha[:-start] = C_alpha[:-start] + A[start:]
-                C_gamma[gamma_index, :-start] = G[start:]
+                C_alpha[:, :-start] = C_alpha[:, :-start] + A[:, start:]
+                C_gamma[gamma_index, :, :-start] = G[:, start:]
 
                 start += dilation
 
             index_0, index_1, index_2 = indices[kernel_index]
 
             C = C_alpha + C_gamma[index_0] + C_gamma[index_1] + C_gamma[index_2]
+            C = np.sum(C, axis=0)
 
             biases[feature_index_start:feature_index_end] = np.quantile(C, quantiles[
                                                                            feature_index_start:feature_index_end])
 
             feature_index_start = feature_index_end
+
+            combination_index += 1
+            num_channels_start = num_channels_end
 
     return biases
 
@@ -123,7 +132,7 @@ def _quantiles(n):
 
 
 def fit(X, num_features=10_000, max_dilations_per_kernel=32):
-    _, input_length = X.shape
+    _, num_channels, input_length = X.shape
 
     num_kernels = 84
 
@@ -133,19 +142,40 @@ def fit(X, num_features=10_000, max_dilations_per_kernel=32):
 
     quantiles = _quantiles(num_kernels * num_features_per_kernel)
 
-    biases = _fit_biases(X, dilations, num_features_per_dilation, quantiles)
+    num_dilations = len(dilations)
+    num_combinations = num_kernels * num_dilations
 
-    return dilations, num_features_per_dilation, biases
+    max_num_channels = min(num_channels, 9)
+    max_exponent = np.log2(max_num_channels + 1)
+
+    num_channels_per_combination = (2 ** np.random.uniform(0, max_exponent, num_combinations)).astype(np.int32)
+
+    channel_indices = np.zeros(num_channels_per_combination.sum(), dtype=np.int32)
+
+    num_channels_start = 0
+    for combination_index in range(num_combinations):
+        num_channels_this_combination = num_channels_per_combination[combination_index]
+        num_channels_end = num_channels_start + num_channels_this_combination
+        channel_indices[num_channels_start:num_channels_end] = np.random.choice(num_channels,
+                                                                                num_channels_this_combination,
+                                                                                replace=False)
+
+        num_channels_start = num_channels_end
+
+    biases = _fit_biases(X, num_channels_per_combination, channel_indices,
+                         dilations, num_features_per_dilation, quantiles)
+
+    return num_channels_per_combination, channel_indices, dilations, num_features_per_dilation, biases
 
 
 @njit(
-    "float32[:,:](float64[:,:],float64[:,:],Tuple((int32[:],int32[:],float32[:])),Tuple((int32[:],int32[:],float32[:])),int32)",
+    "float32[:,:](float64[:,:,:],float64[:,:,:],Tuple((int32[:],int32[:],int32[:],int32[:],float32[:])),Tuple((int32[:],int32[:],int32[:],int32[:],float32[:])),int32)",
     fastmath=True, parallel=True, cache=True)
 def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
-    num_examples, input_length = X.shape
+    num_examples, num_channels, input_length = X.shape
 
-    dilations, num_features_per_dilation, biases = parameters
-    dilations1, num_features_per_dilation1, biases1 = parameters1
+    num_channels_per_combination, channel_indices, dilations, num_features_per_dilation, biases = parameters
+    _, _, dilations1, num_features_per_dilation1, biases1 = parameters1
 
     # equivalent to:
     # >>> from itertools import combinations
@@ -185,6 +215,9 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
         # Base series
         feature_index_start = 0
 
+        combination_index = 0
+        num_channels_start = 0
+
         for dilation_index in range(num_dilations):
 
             _padding0 = dilation_index % 2
@@ -194,24 +227,24 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
             num_features_this_dilation = num_features_per_dilation[dilation_index]
 
-            C_alpha = np.zeros(input_length, dtype=np.float32)
+            C_alpha = np.zeros((num_channels, input_length), dtype=np.float32)
             C_alpha[:] = A
 
-            C_gamma = np.zeros((9, input_length), dtype=np.float32)
+            C_gamma = np.zeros((9, num_channels, input_length), dtype=np.float32)
             C_gamma[9 // 2] = G
 
             start = dilation
             end = input_length - padding
 
             for gamma_index in range(9 // 2):
-                C_alpha[-end:] = C_alpha[-end:] + A[:end]
-                C_gamma[gamma_index, -end:] = G[:end]
+                C_alpha[:, -end:] = C_alpha[:, -end:] + A[:, :end]
+                C_gamma[gamma_index, :, -end:] = G[:, :end]
 
                 end += dilation
 
             for gamma_index in range(9 // 2 + 1, 9):
-                C_alpha[:-start] = C_alpha[:-start] + A[start:]
-                C_gamma[gamma_index, :-start] = G[start:]
+                C_alpha[:, :-start] = C_alpha[:, :-start] + A[:, start:]
+                C_gamma[gamma_index, :, :-start] = G[:, start:]
 
                 start += dilation
 
@@ -219,14 +252,21 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
                 feature_index_end = feature_index_start + num_features_this_dilation
 
+                num_channels_this_combination = num_channels_per_combination[combination_index]
+
+                num_channels_end = num_channels_start + num_channels_this_combination
+
+                channels_this_combination = channel_indices[num_channels_start:num_channels_end]
+
                 _padding1 = (_padding0 + kernel_index) % 2
 
                 index_0, index_1, index_2 = indices[kernel_index]
 
-                C = C_alpha + \
-                    C_gamma[index_0] + \
-                    C_gamma[index_1] + \
-                    C_gamma[index_2]
+                C = C_alpha[channels_this_combination] + \
+                    C_gamma[index_0][channels_this_combination] + \
+                    C_gamma[index_1][channels_this_combination] + \
+                    C_gamma[index_2][channels_this_combination]
+                C = np.sum(C, axis=0)
 
                 if _padding1 == 0:
                     for feature_count in range(num_features_this_dilation):
@@ -299,12 +339,18 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
                 feature_index_start = feature_index_end
 
+                combination_index += 1
+                num_channels_start = num_channels_end
+
         # First order difference
         _X1 = X1[example_index]
         A1 = -_X1  # A = alpha * X = -X
         G1 = _X1 + _X1 + _X1  # G = gamma * X = 3X
 
         feature_index_start = 0
+
+        combination_index = 0
+        num_channels_start = 0
 
         for dilation_index in range(num_dilations1):
 
@@ -315,24 +361,24 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
             num_features_this_dilation = num_features_per_dilation1[dilation_index]
 
-            C_alpha = np.zeros(input_length - 1, dtype=np.float32)
+            C_alpha = np.zeros((num_channels, input_length - 1), dtype=np.float32)
             C_alpha[:] = A1
 
-            C_gamma = np.zeros((9, input_length - 1), dtype=np.float32)
+            C_gamma = np.zeros((9, num_channels, input_length - 1), dtype=np.float32)
             C_gamma[9 // 2] = G1
 
             start = dilation
             end = input_length - padding
 
             for gamma_index in range(9 // 2):
-                C_alpha[-end:] = C_alpha[-end:] + A1[:end]
-                C_gamma[gamma_index, -end:] = G1[:end]
+                C_alpha[:, -end:] = C_alpha[:, -end:] + A1[:, :end]
+                C_gamma[gamma_index, :, -end:] = G1[:, :end]
 
                 end += dilation
 
             for gamma_index in range(9 // 2 + 1, 9):
-                C_alpha[:-start] = C_alpha[:-start] + A1[start:]
-                C_gamma[gamma_index, :-start] = G1[start:]
+                C_alpha[:, :-start] = C_alpha[:, :-start] + A1[:, start:]
+                C_gamma[gamma_index, :, :-start] = G1[:, start:]
 
                 start += dilation
 
@@ -340,14 +386,21 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
 
                 feature_index_end = feature_index_start + num_features_this_dilation
 
+                num_channels_this_combination = num_channels_per_combination[combination_index]
+
+                num_channels_end = num_channels_start + num_channels_this_combination
+
+                channels_this_combination = channel_indices[num_channels_start:num_channels_end]
+
                 _padding1 = (_padding0 + kernel_index) % 2
 
                 index_0, index_1, index_2 = indices[kernel_index]
 
-                C = C_alpha + \
-                    C_gamma[index_0] + \
-                    C_gamma[index_1] + \
-                    C_gamma[index_2]
+                C = C_alpha[channels_this_combination] + \
+                    C_gamma[index_0][channels_this_combination] + \
+                    C_gamma[index_1][channels_this_combination] + \
+                    C_gamma[index_2][channels_this_combination]
+                C = np.sum(C, axis=0)
 
                 if _padding1 == 0:
                     for feature_count in range(num_features_this_dilation):
@@ -423,19 +476,18 @@ def transform(X, X1, parameters, parameters1, n_features_per_kernel=4):
     return features
 
 """
-Slight adaptation from https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket.py
+Slight adaptation from https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket_multivariate.py
 
-We use MultiRocket only as a feature extractor and not a full model
+We use MultiRocketMultivariate only as a feature extractor and not a full model
 """
-class MultiRocket(nn.Module):
-
+class MultiRocketMultivariate(nn.Module):
     def __init__(
             self,
             num_features=50000,
             verbose=0
     ):
         super().__init__()
-        self.name = f"MultiRocket_{num_features}"
+        self.name = f"MultiRocketMV_{num_features}"
 
         self.base_parameters = None
         self.diff1_parameters = None
@@ -452,6 +504,13 @@ class MultiRocket(nn.Module):
     def forward(self, x_train):
         if self.verbose > 1:
             print('[{}] Training with training set of {}'.format(self.name, x_train.shape))
+        if x_train.shape[2] < 10:
+            # handling very short series (like PensDigit from the MTSC archive)
+            # series have to be at least a length of 10 (including differencing)
+            _x_train = np.zeros((x_train.shape[0], x_train.shape[1], 10), dtype=x_train.dtype)
+            _x_train[:, :, :x_train.shape[2]] = x_train
+            x_train = _x_train
+            del _x_train
 
         self.generate_kernel_duration = 0
         self.apply_kernel_on_train_duration = 0
@@ -473,6 +532,7 @@ class MultiRocket(nn.Module):
             self.base_parameters, self.diff1_parameters,
             self.n_features_per_kernel
         )
+
 
         x_train_transform = np.nan_to_num(x_train_transform)
 
