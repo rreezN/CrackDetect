@@ -17,11 +17,17 @@ def delete_model(file_path: str, keys: list[str]):
         for data_type in data_types:
             for segment in f[data_type]['segments'].keys():
                 for second in f[data_type]['segments'][segment].keys():
+                    # if len(keys) == 1:
+                    #     key = keys[0]
+                    #     if key in f[data_type]['segments'][segment][second].keys():
+                    #         del f[data_type]['segments'][segment][second][key]
+                    #         print(f'Deleted {key} from {data_type}/{segment}/{second}')
+                    # else:
                     for key in keys:
                         if key in f[data_type]['segments'][segment][second].keys():
                             del f[data_type]['segments'][segment][second][key]
                             print(f'Deleted {key} from {data_type}/{segment}/{second}')
-            
+
 
 
 def check_hdf5(file_path: str):
@@ -130,14 +136,14 @@ def get_args():
     parser.add_argument('--file_path', type=str, default='data/processed/features.hdf5')
     parser.add_argument('--limit', type=int, default=10)
     parser.add_argument('--no_summary', action='store_true')
-    parser.add_argument('--delete_model', type=list[str], nargs='+', default=[])
+    parser.add_argument('--delete_model', nargs='+', default=[])
     return parser.parse_args()
             
 if __name__ == '__main__':
     args = get_args()
     
     if args.delete_model != []:
-        delete_model(args.file_path, args.delete)
+        delete_model(args.file_path, args.delete_model)
     
     check_hdf5(args.file_path)
     
