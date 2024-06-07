@@ -1,7 +1,9 @@
 # To Do
 
 ## Model, Training and Feature Extraction
+- [ ] Optimize feature mean, avoid storing all features in memory
 - [ ] Figure out which signals to extract features from
+- [ ] Max_num_channels in HydraMV (????)
 - [ ] Extract new features, using more than acc only
   - [x] Check if this fixes std = 0 issue
   - It does not
