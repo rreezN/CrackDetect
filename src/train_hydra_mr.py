@@ -60,6 +60,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
             if len(epoch_val_losses) > 0:
                 train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Last epoch val loss: {epoch_val_losses[i-1]:.3f}")
             else:
@@ -69,9 +70,13 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
         model.eval()
         val_losses = []
-        for data, target in val_iterator:
-            output = model(data)
+        for val_data, target in val_iterator:
+            output = model(val_data)
             val_loss = loss_fn(output, target)
+            # TODO: Fix insane predictions in validation, and then switch to MSE
+            # Validation losses explodeeeeee
+            if val_loss > 5:
+                print(f"Val loss: {val_loss}")
             val_losses.append(val_loss.item())
             val_iterator.set_description(f"Validating Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Val loss: {val_loss:.3f}, Mean Val Loss: {np.mean(val_losses):.3f}")
         
