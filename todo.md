@@ -14,7 +14,7 @@
   - [ ] If can't find out and fix, then remove features with std = 0 before training
 - [ ] Reduce step-size to avoid loss explosion (gradients exploding?)
   - [ ] If this doesn't work then we can do gradient clipping
-- [ ] Allow deleting features from file without having to completely delete the file
+- [X] Allow deleting features from file without having to completely delete the file
 - [X] Create Feature Data Set
   - [x] Implement transforms
     - [x] Normalize each feature
