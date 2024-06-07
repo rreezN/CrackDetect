@@ -24,6 +24,14 @@ def delete_model(file_path: str, keys: list[str]):
 
 
 def h5_tree(val, pre: str = '', max_items: int = 10):
+    """Recursively print the hdf5 file structure.
+
+    Parameters:
+    -----------
+        val (h5py.File): The hdf5 file.
+        pre (str, optional): The pre-fix of the file (determines the level to call the function at). Defaults to ''.
+        max_items (int, optional): The maximum number of items to print at each level. Defaults to 10.
+    """
     items = len(val)
     for i, (key, val) in enumerate(val.items()):
         if i >= max_items:
@@ -103,11 +111,11 @@ def summary(file_path: str):
 
 
 def get_args():
-    parser = ArgumentParser(description='Check hdf5 file')
-    parser.add_argument('--file_path', type=str, default='data/processed/features.hdf5')
-    parser.add_argument('--limit', type=int, default=3)
-    parser.add_argument('--summary', action='store_true')
-    parser.add_argument('--delete_model', nargs='+', default=[])
+    parser = ArgumentParser(description='Check the hdf5 file structure.')
+    parser.add_argument('--file_path', type=str, default='data/processed/features.hdf5', help='The path to the hdf5 file.')
+    parser.add_argument('--limit', type=int, default=5, help='The maximum number of items to print at each level.')
+    parser.add_argument('--summary', action='store_true', help='Print a summary of the hdf5 file. NOTE: Only works for features.hdf5 files created with the feature_extractor.py script.')
+    parser.add_argument('--delete_model', nargs='+', default=[], help='Delete models from the hdf5 file, example: --delete_model model1 model2')
     return parser.parse_args()
             
 if __name__ == '__main__':

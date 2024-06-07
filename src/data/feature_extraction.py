@@ -379,12 +379,14 @@ if __name__ == '__main__':
     data_path = 'data/processed/w_kpis/segments.hdf5'
     
     # Load data
+    print(f"Loading data from {data_path}")
     train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=args.cols)
     val_data = Platoon(data_path=data_path, data_type='val', feature_extraction=True, gm_cols=args.cols)
     test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=args.cols)
     
     # Create dataloaders
     # NOTE: Must use batch_size=1, to avoid errors when extracting features
+    print("Creating dataloaders")
     train_loader = DataLoader(train_data, batch_size=1, shuffle=False, num_workers=0)
     val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=0)
     test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)

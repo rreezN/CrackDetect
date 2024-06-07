@@ -96,6 +96,7 @@ class Features(torch.utils.data.Dataset):
             
             # If std = 0, set nan to 0 (no information in the feature)
             # This happens to the MultiRocket features in some cases
+            # The authors of the MultiRocket paper also set the transformed features to 0 in these cases
             feats = torch.nan_to_num(feats)
             
             features = torch.cat((features, feats))
@@ -110,6 +111,16 @@ class Features(torch.utils.data.Dataset):
         targets = torch.tensor(targets).type(torch.FloatTensor)
         
         return features, targets
+    
+    def get_data_shape(self):
+        """Returns the shape of the data and target tensors.
+
+        Returns:
+        -------
+            tuple: features.shape, targets.shape
+        """
+        features, targets = self.__getitem__(0)
+        return features.shape, targets.shape
     
     def print_arguments(self):
         print(f'Arguments: \n \
