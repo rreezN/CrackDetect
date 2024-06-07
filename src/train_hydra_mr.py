@@ -36,8 +36,11 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    
     # Set loss function
-    loss_fn = nn.MSELoss()
+    # TODO: Fix insane predictions in validation, and then switch to MSE
+    # L1 loss is used for now because it is more robust to outliers
+    loss_fn = nn.L1Loss()
     
     epoch_train_losses = []
     epoch_val_losses = []
@@ -58,9 +61,9 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             loss.backward()
             optimizer.step()
             if len(epoch_val_losses) > 0:
-                train_iterator.set_description(f"Training Epoch {epoch}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Last epoch val loss: {epoch_val_losses[i-1]:.3f}")
+                train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Last epoch val loss: {epoch_val_losses[i-1]:.3f}")
             else:
-                train_iterator.set_description(f"Training Epoch {epoch}/{epochs}, Train loss: {loss.item():.3f}")
+                train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}")
         epoch_train_losses.append(np.mean(train_losses))
         
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
@@ -70,7 +73,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             output = model(data)
             val_loss = loss_fn(output, target)
             val_losses.append(val_loss.item())
-            val_iterator.set_description(f"Validating Epoch {epoch}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Val loss: {val_loss:.3f}, Mean Val Loss: {np.mean(val_losses):.3f}")
+            val_iterator.set_description(f"Validating Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Val loss: {val_loss:.3f}, Mean Val Loss: {np.mean(val_losses):.3f}")
         
         # save best model
         if np.mean(val_losses) < best_val_loss:
@@ -79,9 +82,11 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch}")
             
         epoch_val_losses.append(np.mean(val_losses))
-    
-        plt.plot(epoch_train_losses, label="Train loss")
-        plt.plot(epoch_val_losses, label="Val loss")
+
+        x = np.arange(1, epoch+2, step=1)
+        plt.plot(x, epoch_train_losses, label="Train loss")
+        plt.plot(x, epoch_val_losses, label="Val loss")
+        plt.xticks(x)
         plt.title('Loss per epoch')
         plt.ylim(0, 15)
         plt.ylabel('Loss')
@@ -97,9 +102,9 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
 
 def get_args():
     parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
-    parser.add_argument('--epochs', type=int, default=10, hint='Number of epochs to train.')
+    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train.')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features).')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate for the optimizer. Good values are between 0.001 and 0.0001.')
+    parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer.')
     
     return parser.parse_args()
 
@@ -109,22 +114,25 @@ if __name__ == '__main__':
     
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
-    # If you have a name_identifier in the stored features, you need to include this in the feature_extractors list
-    # e.g. ['MultiRocketMV_50000_subset100', 'HydraMV_8_64_subset100']
+    # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64']
     feature_extractors = ['MultiRocketMV_50000', 'HydraMV_8_64'] 
     
+    # If you have a name_identifier in the stored features, you need to include this in the dataset
+    # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
+    name_identifier = ''
+    
     # Load data
-    trainset = Features(data_type='train', feature_extractors=feature_extractors)
+    trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier)
     train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
-    valset = Features(data_type='val', feature_extractors=feature_extractors)
+    valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier)
     val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     
     input_shape, target_shape = trainset.get_data_shape()
     
     # Create model
     # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-    model = HydraMRRegressor(input_shape, target_shape) 
+    model = HydraMRRegressor(input_shape[0], target_shape[0]) 
     
     # Train
     train(model, train_loader, val_loader)
