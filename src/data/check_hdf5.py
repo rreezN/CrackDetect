@@ -85,7 +85,7 @@ def check_hdf5(file_path: str):
             models = []
             for model in f['train']['segments'][first_segment][first_second].keys():
                 if model != 'kpis':
-                    print(f'  - {model}')
+                    print(f'  - {model}: {f["train"]["segments"][first_segment][first_second][model].shape}')
                     models += [model]
             print(f'\nStatistics:')
             for model in models:
