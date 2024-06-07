@@ -54,6 +54,9 @@ Example of features.hdf5 file structure
 """
 
 
+# ======================================================================================================================
+#               Feature extraction from all data loaders and feature extractors
+# ======================================================================================================================
 
 def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
     """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
@@ -78,8 +81,8 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
                 if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
                     continue
                 
-                # Save feature and target statistics from training data                 
-                name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier is not None else feature_extractor.name
+                # Save feature and target statistics from training data
+                name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
                 
                 # delete existing subgroup (to overwrite it with new data) if it exists
                 if name in statistics_subgroup.keys():
@@ -136,6 +139,10 @@ def finalize(existing_aggregate):
         (mean, variance, sample_variance) = (mean, M2 / count, M2 / (count - 1))
         return (mean, variance, sample_variance)
 
+ 
+# ======================================================================================================================
+#               Feature extraction from a single feature extractor and all data loaders
+# ======================================================================================================================
 
 def extract_features_from_extractor(feature_extractor: nn.Module, data_loader: DataLoader, subgroup: h5py.Group, segment_file: h5py.File):
     #TODO: Update docstring
@@ -215,8 +222,9 @@ def extract_features_from_extractor(feature_extractor: nn.Module, data_loader: D
         
         if f'{feature_extractor.name}_{args.name_identifier}' in second_subgroup.keys():
             del second_subgroup[f'{feature_extractor.name}_{args.name_identifier}']
-            
-        second_subgroup.create_dataset(f'{feature_extractor.name}_{args.name_identifier}', data=features)
+        
+        name = f"feature_extractor.name_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
+        second_subgroup.create_dataset(f'{name}', data=features)
 
         # In your existing code
         if data_loader.dataset.data_type == 'train':
@@ -299,7 +307,7 @@ def get_args():
     parser.add_argument('--mr_num_features', type=int, default=50000)
     parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
     parser.add_argument('--subset', type=int, default=None)
-    parser.add_argument('--name_identifier', type=str)
+    parser.add_argument('--name_identifier', type=str, default='')
     
     return parser.parse_args()
 
