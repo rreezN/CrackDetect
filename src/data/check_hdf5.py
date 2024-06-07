@@ -3,7 +3,15 @@ import numpy as np
 from argparse import ArgumentParser
 
 
-def delete_model(file_path, keys):
+def delete_model(file_path: str, keys: list[str]):
+    """Delets models from the hdf5 file.
+
+    Parameters:
+    ----------
+        file_path (str): The file to delete the models from.
+        keys (list[str]): A list of models to delete. Each model is a key in the hdf5 file. ['model1', 'model2', ...]
+    """
+    
     with h5py.File(file_path, 'r+') as f:
         data_types = ['train', 'test', 'val']
         for data_type in data_types:
@@ -16,7 +24,16 @@ def delete_model(file_path, keys):
             
 
 
-def check_hdf5(file_path):
+def check_hdf5(file_path: str):
+    """Prints the structure of the hdf5 file, with the option to print a summary of the data.
+
+    Parameters:
+    ----------
+        file_path (str): path to the hdf5 file.
+    """
+    
+    print('\n    ---### HDF5 FILE STRUCTURE ###---\n')
+    
     with h5py.File(file_path, 'r') as f:
         
         for key1 in f.keys():
@@ -39,7 +56,7 @@ def check_hdf5(file_path):
                                 print(f'        - {key5}')
                             
                         if j > 1:
-                            print('       ...')
+                            print('        ...')
                             break
                     
                     if i > args.limit:
@@ -61,10 +78,30 @@ def check_hdf5(file_path):
             first_second = list(f['train']['segments'][first_segment].keys())[0]
             nr_models = len(f['train']['segments'][first_segment][first_second].keys()) - 1
             
-            print('\n  -- SUMMARY --  ')
+            print('\n    ---### SUMMARY ###---\n')
             print(f'Segments: {nr_segments}')
             print(f'Seconds: {nr_seconds}')
             print(f'Models: {nr_models}')
+            models = []
+            for model in f['train']['segments'][first_segment][first_second].keys():
+                if model != 'kpis':
+                    print(f'  - {model}')
+                    models += [model]
+            print(f'\nStatistics:')
+            for model in models:
+                print(f'  - {model}')
+                for key in f['train']['statistics'][model[:-1]].keys():
+                    data = f['train']['statistics'][model[:-1]][key][()]
+                    if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
+                        data = np.round(np.array(data), 3)
+                    print(f'    - {key}: {data}')
+            print(f'  - KPIs:')
+            for key in f['train']['statistics']['kpis']['1'].keys():
+                data = f['train']['statistics']['kpis']['1'][key][()]
+                if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
+                    data = np.round(np.array(data), 3)
+                print(f'    - {key}: {data}')
+            
             print()
         
                             
