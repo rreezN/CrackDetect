@@ -47,7 +47,7 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
                 else:
                     s = 0
                     
-                name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier is not None else feature_extractor.name
+                name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
                 
                 # delete existing subgroup (to overwrite it with new data) if it exists
                 if name in statistics_subgroup.keys():
@@ -155,8 +155,9 @@ def extract_features_from_extractor(feature_extractor: nn.Module, data_loader: D
         
         if f'{feature_extractor.name}_{args.name_identifier}' in second_subgroup.keys():
             del second_subgroup[f'{feature_extractor.name}_{args.name_identifier}']
-            
-        second_subgroup.create_dataset(f'{feature_extractor.name}_{args.name_identifier}', data=features)
+        
+        name = f"feature_extractor.name_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
+        second_subgroup.create_dataset(f'{name}', data=features)
 
         # TODO: Optimize this and avoid storing all features in memory
         if data_loader.dataset.data_type == 'train':
@@ -211,7 +212,7 @@ def get_args():
     parser.add_argument('--mr_num_features', type=int, default=50000)
     parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
     parser.add_argument('--subset', type=int, default=None)
-    parser.add_argument('--name_identifier', type=str)
+    parser.add_argument('--name_identifier', type=str, default='')
     
     return parser.parse_args()
 
