@@ -8,7 +8,7 @@ from pathlib import Path
 #           Hardcoded GoPro functions
 # ========================================================================================================================
 
-def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str) -> None:
+def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str, raw_folder: str = "data/raw/gopro") -> None:
     """
     Saves the GoPro data to a csv file for each trip
 
@@ -25,7 +25,7 @@ def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str) 
     for measurement in ['accl', 'gps5', 'gyro']:
         gopro_data = None
         for trip_id in go_pro_names:
-            trip_folder = f"data/raw/gopro_data/{car_number}/{trip_id}"
+            trip_folder =  f"{raw_folder}/{car_number}/{trip_id}"
             new_data = pd.read_csv(f'{trip_folder}/{trip_id}_HERO8 Black-{measurement.upper()}.csv')
             new_data['date'] = pd.to_datetime(new_data['date']).map(dt.datetime.timestamp)
             
@@ -38,12 +38,13 @@ def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str) 
                 gopro_data = new_data
             
         # save gopro_data[measurement]
-        new_folder = f"data/interim/gopro/{car_trip}"
+        interim_folder = raw_folder.replace("/raw/", "/interim/")
+        new_folder = f"{interim_folder}/{car_trip}"
         Path(new_folder).mkdir(parents=True, exist_ok=True)
         
         gopro_data.to_csv(f"{new_folder}/{measurement}.csv", index=False)
 
-def preprocess_gopro_data() -> None:
+def preprocess_gopro_data(folder: str = "data/raw/gopro") -> None:
     """
     Preprocess the GoPro data by combining the data from the three GoPro cameras into one csv file for each trip
 
@@ -66,4 +67,4 @@ def preprocess_gopro_data() -> None:
     pbar = tqdm(car_trips)
     for car_trip in pbar:
         pbar.set_description(f"Converting GoPro/{car_trip}")
-        csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip])
+        csv_files_together(car_trip, car_gopro[car_trip], car_numbers[car_trip], raw_folder=folder)

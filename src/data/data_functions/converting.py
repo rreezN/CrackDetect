@@ -160,10 +160,12 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     vh : str
         The path to the AutoPi CAN data for the VH direction
     """
+    prefix = hh.split("data/")[0]
+
     hh = Path(hh)
     vh = Path(vh)
 
-    interim_gm = Path('data/interim/gm')
+    interim_gm = Path(prefix + 'data/interim/gm')
     interim_gm.mkdir(parents=True, exist_ok=True)
 
 
