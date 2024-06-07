@@ -6,10 +6,8 @@ TODO:
 - Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?
 - Create jupyter notebook that explains the data processing steps and the validation process
     - Explain each intermediate step and showcase what happens to data!
-- Should we split the functions into separate files?
-    - This would also require us to account for the paths of the filed loaed in the functions
 """
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 from data_functions.converting import convert
 from data_functions.extract_gopro import preprocess_gopro_data
@@ -19,7 +17,8 @@ from data_functions.matching import match_data
 from data_functions.resampling import resample
 from data_functions.kpis import compute_kpis
 
-def main(args):
+
+def main(args: Namespace) -> None:
 
     begin_from = False
 
@@ -61,13 +60,14 @@ def main(args):
         print('    ---### Calculating KPIs ###---')
         compute_kpis()
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('mode', type=str, default='segment', choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
     parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
-    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Threshold for validating data')
+    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Correlation threshold for validating data')
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
 
     args = parser.parse_args()
