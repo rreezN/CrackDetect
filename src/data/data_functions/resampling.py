@@ -49,8 +49,8 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
 
     # Calculate the distance between each point
     time, speed = remove_duplicates(
-        section['measurements']['spd_veh'][()][:, 0],
-        section['measurements']['spd_veh'][()][:, 1]
+        section['spd_veh'][()][:, 0],
+        section['spd_veh'][()][:, 1]
     )
     distance = calculate_distance_from_time_and_speed(time, speed, 3.6)
 
@@ -67,8 +67,8 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
     new_section["time"] = resampled_time
     new_section["distance"] = resampled_distance
 
-    for key, measurement in section['measurements'].items():
-        measurement = measurement[()]
+    for key, measurement in section.items():
+        # measurement = measurement[()]  #TODO: Check if this is necessary
         measurement_time, measurement_value = remove_duplicates(measurement[:, 0], measurement[:, 1:])
 
         # Interpolate distance by time
@@ -196,9 +196,7 @@ def resample(verbose: bool = False) -> None:
                             segment_subgroup = wo_kpis.create_group(str(i))
 
                             # Add direction, trip name and pass name as attr to segment subgroup
-                            segment_subgroup.attrs['direction'] = segment['direction'][()].decode("utf-8")
-                            segment_subgroup.attrs['trip_name'] = segment["trip_name"][()].decode('utf-8')
-                            segment_subgroup.attrs['pass_name'] = segment["pass_name"][()].decode('utf-8')
+                            segment_subgroup.attrs.update(segment.attrs)
 
                             # Get relevant reference data
                             aran_segment = aran[str(i)]

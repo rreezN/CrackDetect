@@ -40,7 +40,7 @@ def main(args: Namespace) -> None:
         if not begin_from and args.begin_from:
             begin_from = True
         print('    ---### Segmenting data ###---')
-        segment(args.speed_threshold, args.time_threshold)
+        segment(speed_threshold=args.speed_threshold, time_threshold=args.time_threshold)
 
     if begin_from or args.mode in ['match', 'all']:
         if not begin_from and args.begin_from:
@@ -52,7 +52,7 @@ def main(args: Namespace) -> None:
         if not begin_from and args.begin_from:
             begin_from = True
         print('    ---### Resampling data ###---')
-        resample(args.verbose)
+        resample(verbose=args.verbose)
     
     if begin_from or args.mode in ['kpi', 'all']:
         if not begin_from and args.begin_from:

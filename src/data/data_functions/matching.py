@@ -12,10 +12,10 @@ from .hdf5_utils import save_hdf5
 # ========================================================================================================================
 
 def match_data(
-        aran_hh: str = "data/raw/ref_data/cph1_aran_vh.csv",
-        aran_vh: str = "data/raw/ref_data/cph1_aran_hh.csv",
-        p79_hh: str = "data/raw/ref_data/cph1_zp_vh.csv",
-        p79_vh: str = "data/raw/ref_data/cph1_zp_hh.csv",
+        aran_hh: str = "data/raw/ref_data/cph1_aran_hh.csv",
+        aran_vh: str = "data/raw/ref_data/cph1_aran_vh.csv",
+        p79_hh: str = "data/raw/ref_data/cph1_zp_hh.csv",
+        p79_vh: str = "data/raw/ref_data/cph1_zp_vh.csv",
         ) -> None:
     """
     Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
@@ -62,11 +62,11 @@ def match_data(
         for i, segment in enumerate(pbar):
             pbar.set_description(f"Matching segment {i+1:03d}/{len(segment_files)}")
 
-            direction = segment['direction'][()].decode("utf-8")
-            trip_name = segment["trip_name"][()].decode('utf-8')
-            pass_name = segment["pass_name"][()].decode('utf-8')
+            direction = segment.attrs['direction']  # [()].decode("utf-8")
+            trip_name = segment.attrs["trip_name"]  # [()].decode('utf-8')
+            pass_name = segment.attrs["pass_name"]  # [()].decode('utf-8')
 
-            segment_lonlat = segment['measurements']['gps'][()][:, 2:0:-1]
+            segment_lonlat = segment['gps'][()][:, 2:0:-1]  # ['measurements]
 
             aran_dir = aran[direction]
             p79_dir = p79[direction]
@@ -74,12 +74,12 @@ def match_data(
             # Match to ARAN data
             aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
             aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
-            save_hdf5(aran_segment, prefix + 'data/interim/aran/segments.hdf5', segment_id=i)
+            save_hdf5(aran_segment, prefix + 'data/interim/aran/segments.hdf5', segment_id=i, attributes=segment.attrs)
 
             # Match to P79 data
             p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
             p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
-            save_hdf5(p79_segment, prefix + 'data/interim/p79/segments.hdf5', segment_id=i)
+            save_hdf5(p79_segment, prefix + 'data/interim/p79/segments.hdf5', segment_id=i, attributes=segment.attrs)
                 
             # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
             if trip_name not in ["16006", "16009", "16011"]:
@@ -87,7 +87,7 @@ def match_data(
             
             gopro_segment = {}
             for measurement in ['gps5', 'accl', 'gyro']:
-                start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(segment, gopro_data[trip_name][measurement]["date"])
+                start_index, end_index, start_diff, end_diff = find_best_start_and_end_indeces_by_time(segment["gps"][()], gopro_data[trip_name][measurement]["date"])
 
                 if max(start_diff, end_diff) > 1:
                     continue
@@ -95,7 +95,7 @@ def match_data(
                 gopro_segment[measurement] = gopro_data[trip_name][measurement][start_index:end_index].to_dict('series')
 
             if gopro_segment != {}:
-                save_hdf5(gopro_segment, prefix + 'data/interim/gopro/segments.hdf5', segment_id=i)
+                save_hdf5(gopro_segment, prefix + 'data/interim/gopro/segments.hdf5', segment_id=i, attributes=segment.attrs)
 
 
 def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> tuple[int, int]:
@@ -120,21 +120,21 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
     return start_index, end_index+1
 
 
-def find_best_start_and_end_indeces_by_time(current_segment: h5py.Group, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
+def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
     """
     Find the start and end indeces of the section data based on time
 
     Parameters
     ----------
-    current_segment : h5py.Group
-        The current segment data
+    current_segment : np.ndarray
+        The time data from the current segment
     gopro_time : np.ndarray
         The time data from the GoPro
     """
 
     # Find the start and end indeces of the section data based on time
-    current_segment_start_time = current_segment["measurements"]["gps"][()][0, 0]
-    current_segment_end_time = current_segment["measurements"]["gps"][()][-1, 0]
+    current_segment_start_time = current_segment_time[0, 0]
+    current_segment_end_time = current_segment_time[-1, 0]
     segment_time = [current_segment_start_time, current_segment_end_time]
     
     diff_start = (gopro_time - segment_time[0]).abs()
