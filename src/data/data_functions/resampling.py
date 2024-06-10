@@ -155,7 +155,13 @@ def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndar
         bit_attributes[key] = i
     return bit_data, bit_attributes
 
-def resample(verbose: bool = False) -> None:
+def resample(
+        gm_file: str='data/interim/gm/segments.hdf5',
+        gopro_file: str='data/interim/gopro/segments.hdf5',
+        aran_file: str='data/interim/aran/segments.hdf5',
+        p79_file: str='data/interim/p79/segments.hdf5',
+        verbose: bool = False
+    ) -> None:
     """
     Resample the GM data to a fixed frequency and save the resampled data into a new file
     Additionally resample the GoPro data if it exists
@@ -172,25 +178,26 @@ def resample(verbose: bool = False) -> None:
     aran_counts = []
     p79_counts = []
 
-    gm_segment_file = 'data/interim/gm/segments.hdf5'
+    prefix = gm_file.split("data/")[0]
     
-    Path('data/processed/wo_kpis').mkdir(parents=True, exist_ok=True)
+    wo_kpis_folder = Path(prefix + 'data/processed/wo_kpis')
+    wo_kpis_folder.mkdir(parents=True, exist_ok=True)
 
-    segment_path = Path(f'data/processed/wo_kpis/segments.hdf5')
-    if segment_path.exists():
-        segment_path.unlink()
+    wo_kpis_path = wo_kpis_folder / 'segments.hdf5'
+    if wo_kpis_path.exists():
+        wo_kpis_path.unlink()
 
     # Resample the data
-    with h5py.File(gm_segment_file, 'r') as gm:
+    with h5py.File(gm_file, 'r') as gm:
         segment_files = [gm[str(i)] for i in range(len(gm))]
         pbar = tqdm(segment_files)
         # Load gopro data
-        with h5py.File('data/interim/gopro/segments.hdf5', 'r') as gopro:
+        with h5py.File(gopro_file, 'r') as gopro:
             # Load ARAN and P79 data
-            with h5py.File('data/interim/aran/segments.hdf5', 'r') as aran:
-                with h5py.File('data/interim/p79/segments.hdf5', 'r') as p79:
+            with h5py.File(aran_file, 'r') as aran:
+                with h5py.File(p79_file, 'r') as p79:
                     # Open final processed segments file
-                    with h5py.File('data/processed/wo_kpis/segments.hdf5', 'a') as wo_kpis:
+                    with h5py.File(wo_kpis_path, 'a') as wo_kpis:
                         for i, segment in enumerate(pbar):
                             pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
                             segment_subgroup = wo_kpis.create_group(str(i))
