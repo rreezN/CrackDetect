@@ -38,9 +38,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     
     # Set loss function
-    # TODO: Fix insane predictions in validation, and then switch to MSE
-    # L1 loss is used for now because it is more robust to outliers (and we get inf in validation loss with MSE)
-    loss_fn = nn.L1Loss()
+    loss_fn = nn.MSELoss()
     
     epoch_train_losses = []
     epoch_val_losses = []
@@ -70,12 +68,20 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
         model.eval()
         val_losses = []
+        # bad_predictions = 0
+        # bad_data = []
+        # bad_max_idx = []
+        # bad_min_idx = []
         for val_data, target in val_iterator:
             output = model(val_data)
             val_loss = loss_fn(output, target)
             # TODO: Fix insane predictions in validation, and then switch to MSE
             # Validation losses explodeeeeee
-            if val_loss > 5:
+            if val_loss > 100:
+                # bad_predictions += 1
+                # bad_data.append([val_data[val_data > 10], val_data[val_data < -10]])
+                # bad_max_idx.append((val_data == torch.max(val_data)).nonzero())
+                # bad_min_idx.append((val_data == torch.min(val_data)).nonzero())
                 print(f"Val loss: {val_loss}")
             val_losses.append(val_loss.item())
             val_iterator.set_description(f"Validating Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Val loss: {val_loss:.3f}, Mean Val Loss: {np.mean(val_losses):.3f}")
@@ -93,7 +99,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         plt.plot(x, epoch_val_losses, label="Val loss")
         plt.xticks(x)
         plt.title('Loss per epoch')
-        plt.ylim(0, 15)
+        plt.ylim(0, min(5, max(max(epoch_train_losses), max(epoch_val_losses))+1))
         plt.ylabel('Loss')
         plt.xlabel('Epoch')
         plt.legend()
@@ -119,7 +125,7 @@ if __name__ == '__main__':
     
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
-    # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64']
+    # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
     feature_extractors = ['MultiRocketMV_50000', 'HydraMV_8_64'] 
     
     # If you have a name_identifier in the stored features, you need to include this in the dataset
