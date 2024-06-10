@@ -140,7 +140,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         axes[i].plot(np.full(len(targets), np.mean(targets[:, i])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
         axes[i].legend()
         
-    plt.suptitle(f'Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
+    plt.suptitle(f'{args.data_type} Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions.pdf')
     if show:
@@ -166,7 +166,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         axes[i].plot(np.arange(start, end, step=1), np.full(len(targets[start:end]), np.mean(targets[:, i][start:end])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
         axes[i].legend()
         
-    plt.suptitle(f'Zoomed Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
+    plt.suptitle(f'Zoomed {args.data_type} Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
     plt.tight_layout
     plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions_zoomed.pdf')
     if show:
