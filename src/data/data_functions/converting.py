@@ -99,6 +99,10 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
             raise NotImplementedError(f"Smoothing method {kind} not implemented")
     return data
 
+def check_sensor_orientation(data: np.ndarray) -> None:
+    return ...
+
+
 def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, verbose: bool = False, pbar: Optional[tqdm] = None) -> None:
     """
     Convert the data in the original data file containing the AutoPi and CAN data and save it into the converted file.
