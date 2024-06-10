@@ -116,6 +116,8 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train.')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features).')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer.')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
+    parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
     
     return parser.parse_args()
 
@@ -126,11 +128,11 @@ if __name__ == '__main__':
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
-    feature_extractors = ['MultiRocketMV_50000', 'HydraMV_8_64'] 
+    feature_extractors = args.feature_extractors
     
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
-    name_identifier = ''
+    name_identifier = args.name_identifier
     
     # Load data
     trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier)

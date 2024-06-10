@@ -56,7 +56,7 @@
 - [x] Modify predict script to follow train script
 - [x] Load features for prediction (avoid long predict inference time)
 - [x] Figure out what is happening with correlations...
-- [ ] Cross correlation between target and predictions for different lags - report the lowest
+- [x] Cross correlation between target and predictions for different lags - report the lowest
 - [X] Report baseline RMSE with predictions (average of targets (?))
 
 

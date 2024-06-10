@@ -6,14 +6,11 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
 class Platoon(torch.utils.data.Dataset):
-    def __init__(self, data_path='data/processed/w_kpis/segments.hdf5', data_type='train', gm_cols=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'],
-                 pm_windowsize=1, rut='straight-edge', random_state=42, data_transform=None, kpi_transform=None, kpi_names = ['DI', 'RUT', 'PI', 'IRI'], 
-                 feature_extraction=False):
-        self.data_path = data_path
+    def __init__(self, data_path: str = 'data/processed/w_kpis/segments.hdf5', data_type: str = 'train', gm_cols: list[str] = ['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'],
+                 pm_windowsize: int = 1, rut: str = 'straight-edge', random_state: int = 42, kpi_names: list[str] = ['DI', 'RUT', 'PI', 'IRI'], 
+                 feature_extraction: bool = False):
         
-        # Specify transform functions
-        self.data_transform = data_transform
-        self.kpi_transform = kpi_transform    
+        self.data_path = data_path  
         
         self.feature_extraction = feature_extraction
         self.data_type = data_type
@@ -101,10 +98,6 @@ class Platoon(torch.utils.data.Dataset):
         # Standardize each input signal seperately
         train = (train - self.train_mean) / self.train_std
         
-        if self.data_transform:
-            train = self.data_transform(train)
-        if self.kpi_transform:
-            KPIs = self.kpi_transform(KPIs)
         # Return
         if self.feature_extraction:
             return train.T, segment_nr, second_nr
@@ -156,9 +149,6 @@ class Platoon(torch.utils.data.Dataset):
                         - Names:        {self.kpi_names} \n \
                         - Window Size:  {self.windowsize} \n \
                     Selected RUT:       {self.rut} \n \
-                    Transform:          \n \
-                        - Data:         {None if not self.data_transform else True} \n \
-                        - KPI:          {None if not self.kpi_transform else True} \n \
                     ')
 
 if __name__ == '__main__':
