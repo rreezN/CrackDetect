@@ -2,8 +2,11 @@
 
 ## Model, Training and Feature Extraction
 - [ ] When training the model, validation losses are insane...
+  - Seems to happen because some features from multirocket go to extreme values (e+32), primarily channels: 4515, 4526, 4531, 4842
   - [x] Try: Normalize instead of standardize
-  - Did not fix it :(
+    - Did not fix it :(
+  - [x] Try univariate multirocket
+    - Did not fix it :()
   - [ ] Come up with something else to fix it
 - [X] Optimize feature mean, avoid storing all features in memory
   - [X] Consider further investigating accuracy of Welford's Online Algorithm for calculating means and stds 

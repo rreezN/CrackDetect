@@ -112,6 +112,8 @@ class Platoon(torch.utils.data.Dataset):
             return train.T, KPIs # train data, labels
 
     def plot_data(self):
+        """Plots the histograms of the GM data before and after transformation.
+        """
         # Define variable to contain the current segment data
         all_data = np.array([])
         for idx in tqdm(range(len(self.indices))):
@@ -128,7 +130,7 @@ class Platoon(torch.utils.data.Dataset):
         
         # Create subplots 3 histograms in 1 row
         # and transformed below
-        fig, axs = plt.subplots(2, 3, figsize=(20, 10))
+        fig, axs = plt.subplots(2, len(self.gm_cols), figsize=(20, 10))
         axs = axs.flat
         for i in range(len(self.gm_cols)):
             axs[i].hist(all_data[:,i], bins=100, color='blue', alpha=0.7, label='Original')
@@ -137,8 +139,8 @@ class Platoon(torch.utils.data.Dataset):
             axs[i].set_ylabel('Frequency')
             axs[i].legend()
             
-            axs[i+3].hist(transformed_data[:,i], bins=100, color='blue', alpha=0.7, label='Original')
-            axs[i+3].set_title(f'{self.gm_cols[i]}')
+            axs[i+3].hist(transformed_data[:,i], bins=100, color='red', alpha=0.7, label='Transformed')
+            axs[i+3].set_title(f'Transformed {self.gm_cols[i]}')
             axs[i+3].set_xlabel('Value')
             axs[i+3].set_ylabel('Frequency')
             axs[i+3].legend()
