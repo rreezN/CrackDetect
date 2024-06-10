@@ -1,13 +1,3 @@
-"""
-TODO:
-- complete todos
-- During conversion, ensure that the sensor orientiations are standardized
-- Improve validation
-- Add path-to-file as arguments?
-- Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?
-- Create jupyter notebook that explains the data processing steps and the validation process
-    - Explain each intermediate step and showcase what happens to data!
-"""
 from argparse import ArgumentParser, Namespace
 
 from data_functions.converting import convert
