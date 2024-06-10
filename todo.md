@@ -6,8 +6,8 @@
   - Did not fix it :(
   - [ ] Come up with something else to fix it
 - [X] Optimize feature mean, avoid storing all features in memory
-  - [ ] Consider further investigating accuracy of Welford's Online Algorithm for calculating means and stds 
-  - [ ] Consider doing similar optimisations to kpi statistics (doesn't seem to be necessary ATM)
+  - [X] Consider further investigating accuracy of Welford's Online Algorithm for calculating means and stds 
+  - [ ] Consider doing similar optimisations to the kpi statistics (doesn't seem to be necessary ATM)
 - [ ] Figure out which signals to extract features from
 - [ ] Max_num_channels in HydraMV (????)
 - [ ] Extract new features, using more than acc only
