@@ -8,31 +8,39 @@ from tqdm import tqdm
 #           KPI functions
 # ========================================================================================================================
 
-def compute_kpis(WINDOW_SIZES: list[int] = [1, 2]) -> None:
+def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', window_sizes: list[int] = [1, 2]) -> None:
     """
     Alters the existing segments file by adding KPIs to each second in each segment, based on the window sizes provided.
 
-    Do account for the fact that the first and last seconds of each segment depend on the max(WINDOW_SIZES), such that the KPIs can be computed,
+    Do account for the fact that the first and last seconds of each segment depend on the max(window_sizes), such that the KPIs can be computed,
     and compared across window-sizes.
 
     Parameters
     ----------
-    WINDOW_SIZES : list[int]
+    segment_path : str
+        The path to the segments file. Default is 'data/processed/w_kpis/segments.hdf5'.
+    window_sizes : list[int]
         The window sizes to compute KPIs for. Default is [1, 2]. 
     """
+    path_split = segment_path.split('w_kpis')
+    if len(path_split) == 1:
+        path_split = segment_path.split('wo_kpis')
+
+    w_path = path_split[0] + 'w_kpis' + path_split[1]
+    wo_path = path_split[0] + 'wo_kpis' + path_split[1]
 
     # Create folders for saving
-    Path('data/processed/w_kpis').mkdir(parents=True, exist_ok=True)
+    Path(path_split[0] + 'w_kpis').mkdir(parents=True, exist_ok=True)
 
     # Remove old segment files if they exist
-    segment_path = Path(f'data/processed/w_kpis/segments.hdf5')
+    segment_path = Path(w_path)
     if segment_path.exists():
         segment_path.unlink()
     
     # Load processed data
-    with h5py.File('data/processed/wo_kpis/segments.hdf5', 'r') as f:
+    with h5py.File(wo_path, 'r') as f:
         # Open final processed segments file
-        with h5py.File('data/processed/w_kpis/segments.hdf5', 'a') as f2:
+        with h5py.File(w_path, 'a') as f2:
             for i, segment in (pbar := tqdm(f.items())):
                 pbar.set_description(f"Computing KPIs for segment {i}")
                 segment_subgroup = f2.create_group(str(i))
@@ -46,8 +54,8 @@ def compute_kpis(WINDOW_SIZES: list[int] = [1, 2]) -> None:
 
                 for j, second in segment.items():
                     j = int(j)
-                    # Skip the first and last seconds which can not be computed with a window size of max(WINDOW_SIZES)
-                    if j < max(WINDOW_SIZES) or j >= num_seconds_in_segment - max(WINDOW_SIZES):
+                    # Skip the first and last seconds which can not be computed with a window size of max(window_sizes)
+                    if j < max(window_sizes) or j >= num_seconds_in_segment - max(window_sizes):
                         continue
 
                     second_subgroup = segment_subgroup.create_group(str(j))
@@ -58,8 +66,8 @@ def compute_kpis(WINDOW_SIZES: list[int] = [1, 2]) -> None:
                     
                     # Compute KPIs
                     kpi_subgroup = second_subgroup.create_group('kpis')
-                    kpi_subgroup.attrs['window_sizes'] = WINDOW_SIZES
-                    for window_size in WINDOW_SIZES:
+                    kpi_subgroup.attrs['window_sizes'] = window_sizes
+                    for window_size in window_sizes:
                         kpis = compute_kpis_for_second(segment, j, window_size)
                         kpi_data = kpi_subgroup.create_dataset(str(window_size), data=kpis)
                         for i, kpi_name in enumerate(['DI', 'RUT', 'PI', 'IRI']):
