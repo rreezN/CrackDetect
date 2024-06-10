@@ -188,7 +188,7 @@ The model will predict on the specified data set, plot the predictions and save 
 
 
 **MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification**
-> [Tan, Chang Wei and Dempster, Angus and Bergmeir, Cristoph and Webb, Geoffrey I](https://arxiv:2102.00457)
+> [Tan, Chang Wei and Dempster, Angus and Bergmeir, Cristoph and Webb, Geoffrey I](https://arxiv.org/abs/2102.00457)
 > 
 > Tan, Chang Wei and Dempster, Angus and Bergmeir, Christoph and Webb, Geoffrey I. 2021. MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification.
 
