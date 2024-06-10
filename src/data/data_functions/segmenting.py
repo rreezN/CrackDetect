@@ -35,18 +35,18 @@ def segment_gm(autopi: dict, direction: str, prefix : str, speed_threshold: int 
     for trip_name, trip in pbar:
         for pass_name, pass_ in trip.items():
             pbar.set_description(f"Interpolating {trip_name} {pass_name}")
-            segments = segment_gm_trip(pass_, trip_name, pass_name, direction, speed_threshold=speed_threshold, time_threshold=time_threshold)
-            for segment in segments:
+            segments, attributes = segment_gm_trip(pass_, trip_name, pass_name, direction, speed_threshold=speed_threshold, time_threshold=time_threshold)
+            for segment, attribute in zip(segments, attributes):
                 # Save the segment dictionary to a hdf5 file
                 segment_path = Path(prefix + f'data/interim/gm/segments.hdf5')
-                save_hdf5(segment, segment_path, segment_id=segment_index)
+                save_hdf5(segment, segment_path, segment_id=segment_index, attributes=attribute)
 
                 # Increment the segment index
                 segment_index += 1
     return segment_index
 
 
-def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10) -> list[dict]:
+def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10) -> tuple[list[dict], list[dict]]:
     """
     Segment a single GM trip into sections where the vehicle is moving
     
@@ -90,21 +90,24 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
 
     # Create a list of dictionaries, each containing the measurements for a section of the trip
     sections = []
+    attributes = []
     for start, end in non_zero_speed_ranges:
         # Check if the section is too short
         if end - start < time_threshold:
             continue
-        section = {
+        attribute = {
             "trip_name": trip_name,
             "pass_name": pass_name,
-            "direction": direction,
-            "measurements": {}
+            "direction": direction
+        }
+        section = {
         }
         for key, value in measurements.items():
-            section["measurements"][key] = value[(value[:, 0] >= start) & (value[:, 0] <= end)]
+            section[key] = value[(value[:, 0] >= start) & (value[:, 0] <= end)]
         sections.append(section)
+        attributes.append(attribute)
     
-    return sections
+    return sections, attributes
 
 def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', speed_threshold: int = 5, time_threshold: int = 10) -> None:
     """

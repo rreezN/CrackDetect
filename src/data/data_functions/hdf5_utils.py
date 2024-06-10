@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
 import pandas as pd
+from typing import Optional
 
 
 # ========================================================================================================================
@@ -52,7 +53,7 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
                 data[key] = group[key][()]
     return data
 
-def save_hdf5(data: dict, hdf5_file: str, segment_id: str = None) -> None:
+def save_hdf5(data: dict, hdf5_file: str, segment_id: Optional[str] = None, attributes: Optional[dict] = None) -> None:
     """
     Wrapper function used to call the recursive save function for saving the data to an hdf5 file.
 
@@ -67,10 +68,12 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: str = None) -> None:
     """
     if segment_id is None:
         with h5py.File(hdf5_file, 'w') as f:
+            f.attrs.update(attributes)
             save_hdf5_(data, f)
     else:
         with h5py.File(hdf5_file, 'a') as f:
             segment_group = f.create_group(str(segment_id))
+            segment_group.attrs.update(attributes)
             save_hdf5_(data, segment_group)
 
 def save_hdf5_(data: dict, group: h5py.Group) -> None:
