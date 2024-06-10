@@ -1,6 +1,7 @@
 """
 TODO:
 - complete todos
+- During conversion, ensure that the sensor orientiations are standardized
 - Improve validation
 - Add path-to-file as arguments?
 - Are there additional validation methods that could be used to ensure the data is correct after resampling and calculating the KPIs?

@@ -125,7 +125,7 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
 # ======================================================================================================================
 
 def update(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor], new_value: torch.Tensor) -> tuple[int, torch.Tensor, torch.Tensor]:
-    """ Welford's Online Algorithm, "https://www.wikiwand.com/en/Algorithms_for_calculating_variance#Welford's_online_algorithm"
+    """ Welford's Online Algorithm, "https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm"
     For a new value new_value, compute the new count, new mean, the new M2.
     count aggregates the number of samples seen so far
     mean accumulates the mean of the entire dataset
@@ -154,7 +154,7 @@ def update(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor], new_value
 
 
 def finalize(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """ Welford's Online Algorithm, "https://www.wikiwand.com/en/Algorithms_for_calculating_variance#Welford's_online_algorithm"
+    """ Welford's Online Algorithm, "https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm"
     Retrieve the mean, variance and sample variance from an aggregate
 
     Parameters:
