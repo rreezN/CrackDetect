@@ -38,6 +38,9 @@
   - [ ] MSE vs MAE
   - [ ] Other ML tricks :)
 - [ ] Model using only Hydra or only MultiRocket features
+- [ ] Hyperparameter tuning (learning rate)
+- [ ] LR Schedulers
+- [ ] Dropout?
 
 ## Aflevering
 - [ ] Comments, comments, comments... and more comments
