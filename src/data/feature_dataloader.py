@@ -1,5 +1,6 @@
 import torch
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 
 class Features(torch.utils.data.Dataset):
@@ -22,6 +23,7 @@ class Features(torch.utils.data.Dataset):
         
         self.data_path = data_path
         self.feature_extractors = feature_extractors
+        self.name_identifier = name_identifier
         self.kpi_window_size = str(kpi_window)
         
         self.data_type = data_type
@@ -83,10 +85,11 @@ class Features(torch.utils.data.Dataset):
         
         data = self.data[self.data_type]['segments'][segment_index][second_index]
         features = torch.tensor([])
-
+        
         # Concatenate the features from all feature extractors (as done in the Hydra paper for HydraMultiRocket)
         for i, feature_extractor in enumerate(self.feature_extractors):
-            feats = torch.tensor(data[feature_extractor][()])
+            name = feature_extractor + f'_{self.name_identifier}' if self.name_identifier != '' else feature_extractor
+            feats = torch.tensor(data[name][()])
 
             # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
             if 'hydra' in feature_extractor.lower():
@@ -126,6 +129,45 @@ class Features(torch.utils.data.Dataset):
         features, targets = self.__getitem__(0)
         return features.shape, targets.shape
     
+    def plot_data(self):
+        """Plots the histograms of the GM data before and after transformation.
+        """
+        # Define variable to contain the current segment data
+        all_data = np.array([])
+        all_data_transformed = np.array([])
+        for idx in tqdm(range(len(self.indices))):
+            segment_nr = str(self.indices[idx][0])
+            second_nr = str(self.indices[idx][1])
+            data = self.data[self.data_type]['segments'][segment_nr][second_nr]
+            targets = data['kpis'][self.kpi_window_size][()]
+            # Standardize targets
+            if len(all_data) == 0:
+                all_data = targets
+                all_data_transformed = (targets - self.kpi_means)/self.kpi_stds
+            else:
+                all_data = np.vstack((all_data, targets))
+                all_data_transformed = np.vstack((all_data_transformed, (targets - self.kpi_means)/self.kpi_stds))
+        
+        # Create subplots 3 histograms in 1 row
+        # and transformed below
+        fig, axs = plt.subplots(2, all_data.shape[1], figsize=(20, 10))
+        axs = axs.flat
+        for i in range(all_data.shape[1]):
+            axs[i].hist(all_data[:,i], bins=100, color='blue', alpha=0.7, label='Original')
+            axs[i].set_title(f'{i}')
+            axs[i].set_xlabel('Value')
+            axs[i].set_ylabel('Frequency')
+            axs[i].legend()
+            
+            axs[i+all_data.shape[1]].hist(all_data_transformed[:,i], bins=100, color='red', alpha=0.7, label='Transformed')
+            axs[i+all_data.shape[1]].set_title(f'Transformed {i}')
+            axs[i+all_data.shape[1]].set_xlabel('Value')
+            axs[i+all_data.shape[1]].set_ylabel('Frequency')
+            axs[i+all_data.shape[1]].legend()
+        
+        plt.suptitle(f'Histograms of {self.data_type} targets')
+        plt.show()
+    
     def print_arguments(self):
         print(f'Arguments: \n \
                     Data Path:             {self.data_path} \n \
@@ -141,8 +183,14 @@ if __name__ == '__main__':
     from tqdm import tqdm
     from torch.utils.data import DataLoader
     
-    dataset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier='')
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    train_dataset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier='')
+    train_dataset.plot_data()
+    val_dataset = Features(data_type='val', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier='')
+    val_dataset.plot_data()
+    test_dataset = Features(data_type='test', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier='')
+    test_dataset.plot_data()
+    
+    dataloader = DataLoader(train_dataset, batch_size=1, shuffle=False)
     
     start = time.time()
     i = 0
