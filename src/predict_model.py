@@ -142,7 +142,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         
     plt.suptitle(f'Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
     plt.tight_layout
-    plt.savefig('reports/figures/model_results/predictions.pdf')
+    plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions.pdf')
     if show:
         plt.show()
     plt.close()
@@ -168,7 +168,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         
     plt.suptitle(f'Zoomed Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
     plt.tight_layout
-    plt.savefig(f'reports/figures/model_results/predictions_zoomed.pdf')
+    plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions_zoomed.pdf')
     if show:
         plt.show()
     plt.close()
@@ -176,10 +176,13 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
 
 def get_args():
     parser = ArgumentParser(description='Predict Model')
-    parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt')
-    parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv')
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--plot_during', action='store_true')
+    parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
+    parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv', help='Path to the data file.')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
+    parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
+    parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
+    parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
     return parser.parse_args()
 
 if __name__ == '__main__':
@@ -188,11 +191,8 @@ if __name__ == '__main__':
     model = HydraMRRegressor()
     model.load_state_dict(torch.load(args.model))
     
-    feature_extractors = ['MultiRocketMV_50000', 'HydraMV_8_64']
-    name_identifier = ''
-    
     # Load data
-    testset = Features(data_type='test', feature_extractors=feature_extractors, name_identifier=name_identifier)
+    testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     predictions, targets, test_losses = predict(model, test_loader)
