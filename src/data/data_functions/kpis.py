@@ -1,7 +1,20 @@
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import h5py
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
+from pathlib import Path
 
 
 # ========================================================================================================================
@@ -22,6 +35,12 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     window_sizes : list[int]
         The window sizes to compute KPIs for. Default is [1, 2]. 
     """
+    assert type(segment_path) == str, f"Input value 'segment_path' type is {type(segment_path)}, but expected str."
+    assert Path(segment_path).exists(), f"Path '{segment_path}' does not exist."
+    assert type(window_sizes) == list, f"Input value 'window_sizes' type is {type(window_sizes)}, but expected list."
+    assert all([type(i) == int for i in window_sizes]), f"Input value 'window_sizes' contains non-integers."
+    
+    
     path_split = segment_path.split('w_kpis')
     if len(path_split) == 1:
         path_split = segment_path.split('wo_kpis')
@@ -37,7 +56,13 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     if segment_path.exists():
         segment_path.unlink()
     
-    # Load processed data
+    # Assert that data exists
+    assert Path(wo_path).exists(), f"Path '{wo_path}' does not exist."
+    assert Path(wo_path).suffix == '.hdf5', f"File '{wo_path}' is not a hdf5 file."
+    assert Path(w_path).exists(), f"Path '{w_path}' does not exist."
+    assert Path(w_path).suffix == '.hdf5', f"File '{w_path}' is not a hdf5 file."
+    
+    # Load processed data    
     with h5py.File(wo_path, 'r') as f:
         # Open final processed segments file
         with h5py.File(w_path, 'a') as f2:
@@ -110,6 +135,11 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     np.ndarray
         The KPIs for the given second.
     """
+    assert type(segment) == h5py.Group, f"Input value 'segment' type is {type(segment)}, but expected h5py.Group."
+    assert type(second_index) == int, f"Input value 'second_index' type is {type(second_index)}, but expected int."
+    assert type(window_size) == int, f"Input value 'window_size' type is {type(window_size)}, but expected int."
+    
+    
     # Extract ARAN data for all seconds within the window
     windowed_aran_data = []
     for i in range(second_index - window_size, second_index + window_size + 1):
@@ -156,6 +186,9 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The damage index for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
 
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
     alligatorsum = alligator_sum(windowed_aran_data, aran_attrs)
@@ -180,6 +213,9 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The cracking sum for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
     LCL = windowed_aran_data[:, aran_attrs['Revner På Langs Store (m)']]
@@ -205,6 +241,9 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     float
         The alligator sum for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
     ACL = windowed_aran_data[:, aran_attrs['Krakeleringer Store (m²)']]
@@ -227,6 +266,9 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
     float
         The pothole sum for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
     PAL = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth High (mm)']]
@@ -250,7 +292,9 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The rutting mean for the given window.
     """
-
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     # TODO: FIGURE OUT WHICH ONE TO USE
     if rut == 'straight-edge':
         RDL = windowed_aran_data[:, aran_attrs['LRUT Straight Edge (mm)']]
@@ -277,6 +321,9 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     float
         The IRI mean for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
     IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
     return (((IRL + IRR)/2)**(0.2)).mean()
@@ -297,6 +344,9 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The patching sum for the given window.
     """
+    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
+    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]
     return ((LCSe**2 + 2*TCSe)**(0.1)).mean()
