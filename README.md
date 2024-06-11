@@ -34,10 +34,6 @@ Repository containing code for the project Predicting Road Pavement Condition Ba
   - [Model training](#model-training)
   - [Predicting](#predicting)
 - [Credits](#credits)
-    - [Supervisors](#supervisors)
-    - [LiRA-CD: An open-source dataset for road condition modelling and research](#lira-cd-an-open-source-dataset-for-road-condition-modelling-and-research)
-    - [HYDRA: Competing convolutional kernels for fast and accurate time series classification](#hydra-competing-convolutional-kernels-for-fast-and-accurate-time-series-classification)
-    - [MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification](#multirocket-multiple-pooling-operators-and-transformations-for-fast-and-effective-time-series-classification)
 - [License](#license)
 
 # Installation
@@ -175,24 +171,24 @@ The model will predict on the specified data set, plot the predictions and save 
 - [Kristian R. Møllmann](https://github.com/KristianMoellmann)
 - [Kristoffer Marboe](https://github.com/KrisMarboe)
 
-### Supervisors
+**Supervisors**
 - Asmus Skar
 - Tommy Sonne Alstrøm
 
-### LiRA-CD: An open-source dataset for road condition modelling and research
+**LiRA-CD: An open-source dataset for road condition modelling and research**
 > [Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari](https://orbit.dtu.dk/en/publications/lira-cd-an-open-source-dataset-for-road-condition-modelling-and-r)
 >
 > Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari. 2023. LiRA-CD: An open-source dataset for road condition modelling and research. Technical University of Denmark: Geotechnics & GeologyDepartment of Environmental and Resource Engineering, Cognitive Systems, Department of Applied Mathematics and Computer Science, Software Systems Engineering Sweco Danmark A/SDanish Road Directorate.
 
 
-### HYDRA: Competing convolutional kernels for fast and accurate time series classification
+**HYDRA: Competing convolutional kernels for fast and accurate time series classification**
 > [Angus Dempster and Daniel F. Schmidt and Geoffrey I. Webb](https://arxiv.org/abs/2203.13652)
 >
 > Angus Dempster and Daniel F. Schmidt and Geoffrey I. Webb. HYDRA: Competing convolutional kernels for fast and accurate time series classification. 2022.
 
 
-### MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification
-> [Tan, Chang Wei and Dempster, Angus and Bergmeir, Cristoph and Webb, Geoffrey I](https://arxiv:2102.00457)
+**MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification**
+> [Tan, Chang Wei and Dempster, Angus and Bergmeir, Cristoph and Webb, Geoffrey I](https://arxiv.org/abs/2102.00457)
 > 
 > Tan, Chang Wei and Dempster, Angus and Bergmeir, Christoph and Webb, Geoffrey I. 2021. MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification.
 

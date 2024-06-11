@@ -24,46 +24,6 @@
 - [ ] Reduce step-size to avoid loss explosion (gradients exploding?)
   - [ ] If this doesn't work then we can do gradient clipping
 - [ ] Some form of logging (wandb, hydra, whatever)
-- [X] Allow deleting features from file without having to completely delete the file
-- [X] Create Feature Data Set
-  - [x] Implement transforms
-    - [x] Normalize each feature
-      - [x] Rocket feature transformation
-      - [X] Problem: Some stds are 0 (current solution: pick max(stds, 1e-12), but causes features and loss to explode)
-      - [x] New solution: Mean over feature_means and feature_stds instead
-    - [x] Targets need to be in same range ([0, 1]?)
-      - [x] Load Max and Min
-      - [x] ```new_target = ((target - mean) / std)```
-      - [x] Check that everything works
-- [X] Implement new data loader
-- [x] Feature extraction script
-  - [x] Save features to file
-    - [x] MultiRocket Features
-    - [x] Hydra Features
-    - [x] Save Max and Min targets
-    - [x] Calculate and save statistics on features (mean, std)
-      - [x] Hydra Statistics
-      - [x] MultiRocket Statistics
-
- 
-- [x] Train script needs to batch over features
-- [x] Train script needs to run epochs over data
-- [x] Saving best model during training
-- [x] Train script needs to follow Hydra/MR implementation
-
-  
-## Predicting
-- [x] Modify predict script to follow train script
-- [x] Load features for prediction (avoid long predict inference time)
-- [x] Figure out what is happening with correlations...
-- [x] Cross correlation between target and predictions for different lags - report the lowest
-- [X] Report baseline RMSE with predictions (average of targets (?))
-
-
-## Data loaders
-- [ ] Evaluate whether we want to keep the transform arguments
-  - Deleted from Features dataloader, not sure about Platoon dataloader
-
 
 ## Experiments
 - [ ] Test out various signals for feature extraction
@@ -78,7 +38,9 @@
   - [ ] MSE vs MAE
   - [ ] Other ML tricks :)
 - [ ] Model using only Hydra or only MultiRocket features
-
+- [ ] Hyperparameter tuning (learning rate)
+- [ ] LR Schedulers
+- [ ] Dropout?
 
 ## Aflevering
 - [ ] Comments, comments, comments... and more comments
@@ -86,3 +48,4 @@
 - [ ] NO MAGIC NUMBERS (TOMMY BLIVER KED AF DET)
 - [ ] Henvis til papers i koden (ligninger, osv.)
 - [ ] Notebooks
+- [ ] README: tilføj afsnit om check_hdf5.py
