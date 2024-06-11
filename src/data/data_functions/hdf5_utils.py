@@ -1,8 +1,20 @@
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import h5py
 import numpy as np
 import pandas as pd
 from typing import Optional
-
+from pathlib import Path
 
 # ========================================================================================================================
 #           hdf5 utility functions
@@ -22,6 +34,10 @@ def unpack_hdf5(hdf5_file: str) -> dict:
     dict
         The unpacked data
     """
+    assert type(hdf5_file) == str, f"Input value 'hdf5_file' type is {type(hdf5_file)}, but expected str."
+    assert Path(hdf5_file).exists(), f"Path '{hdf5_file}' does not exist."
+    assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
+    
     with h5py.File(hdf5_file, 'r') as f:
         data = unpack_hdf5_(f)
     return data
@@ -40,6 +56,8 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
     dict
         The unpacked data
     """
+    assert (type(group) == h5py.Group or type(group) == h5py.File), f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File."
+    
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
@@ -66,6 +84,8 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: Optional[str] = None, attr
     segment_id : str
         The segment id to save the data to. If None, the data is saved to the root of the hdf5 file
     """
+    assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
+
     if segment_id is None:
         with h5py.File(hdf5_file, 'w') as f:
             f.attrs.update(attributes)

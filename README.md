@@ -1,10 +1,10 @@
 (insert picture here)
-# crackdetect (Predicting Road Pavement Condition Based On Real In-Vehicle Data)
+# crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
 [badges here maybe ?](shields.io)
 
 (Maybe put abstract from report here)
 
-Repository containing code for the project Predicting Road Pavement Condition Based On Real In-Vehicle Data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
+Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
 (INSERT SOME PICTURES OF RESULTS)
@@ -197,5 +197,20 @@ a [cookiecutter template](https://github.com/cookiecutter/cookiecutter) for gett
 started with Machine Learning Operations (MLOps).
 
 # License
-MIT ?
+[(Back to top)](#table-of-contents)
 
+See [LICENSE](LICENSE)
+
+ Copyright 2024 FleetYeeters
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.

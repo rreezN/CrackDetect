@@ -1,6 +1,17 @@
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import h5py
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
@@ -18,7 +29,7 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005},
+    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005}, # NOTE Måske den ikke skal smoothes?
     'spd_veh':       {'kind': 'lowess', 'frac': 0.005},
     'acc_long':      {'kind': 'lowess', 'frac': 0.005},
     'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
@@ -58,6 +69,18 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     np.ndarray
         The converted data
     """
+    # We assert that the input data is as expected
+    # data
+    assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
+    assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
+    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
+    # parameter
+    assert "bstar" in parameter, f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values."
+    assert "rstar" in parameter, f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values."
+    assert "b" in parameter, f"Parameter does not contain 'b'. Check the parameter dictionary for missing values."
+    assert "r" in parameter, f"Parameter does not contain 'r'. Check the parameter dictionary for missing values."
+    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict"
+       
     bstar = parameter['bstar']
     rstar = parameter['rstar']
     b = parameter['b']
@@ -87,6 +110,16 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     np.ndarray
         The smoothed data
     """
+    
+    # We assert that the input data is as expected
+    # data
+    assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
+    assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
+    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
+    # parameter
+    assert "kind" in parameter, f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values."
+    assert "frac" in parameter, f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values."
+    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict."
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
@@ -98,9 +131,6 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
         else:
             raise NotImplementedError(f"Smoothing method {kind} not implemented")
     return data
-
-def check_sensor_orientation(data: np.ndarray) -> None:
-    return ...
 
 
 def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, verbose: bool = False, pbar: Optional[tqdm] = None) -> None:
@@ -120,6 +150,17 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     pbar : Optional[tqdm]
         The progress bar to use
     """
+    # original_file
+    assert (type(original_file) == h5py.Group or type(original_file) == h5py.File), f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File."
+    # converted_file
+    assert (type(converted_file) == h5py.Group or type(converted_file) == h5py.File), f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File."
+    # verbose
+    assert type(verbose) == bool, f"Verbose type is {type(verbose)}, but expected bool"
+    # pbar
+    if pbar is not None:
+        assert type(pbar) == tqdm, f"Progress bar type is {type(pbar)}, but expected tqdm"
+    
+    
     # Specify iterator based on verbose
     if verbose:
         iterator = tqdm(original_file.keys())
@@ -164,6 +205,15 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     vh : str
         The path to the AutoPi CAN data for the VH direction
     """
+    
+    # hh
+    assert type(hh) == str, f"Input value 'hh' type is {type(hh)}, but expected str."
+    # ensure the path exists
+    assert Path(hh).exists(), f"Path '{hh}' does not exist."
+    # vh
+    assert type(vh) == str, f"Input value 'vh' type is {type(vh)}, but expected str."
+    assert Path(vh).exists(), f"Path '{vh}' does not exist."
+    
     prefix = hh.split("data/")[0]
 
     hh = Path(hh)

@@ -1,6 +1,13 @@
 # To Do
 
 ## Model, Training and Feature Extraction
+- [ ] Cross validation
+  - Idea for solution: KFold when creating features (using Platoon), store the data under e.g. MultiRocketMV_50000 > Fold1 > statistics / features / targets
+- [ ] Smaller hidden layer (30 neurons)
+- [ ] Add additional hidden layer
+- [ ] MSE confine to 0:15 (did not understand this)
+- [ ] Don't tanh, normalize it or use raw output instead
+- [ ] Shapley values (?)
 - [ ] When training the model, validation losses are insane...
   - Seems to happen because some features from multirocket go to extreme values (e+32), primarily channels: 4515, 4526, 4531, 4842
   - [x] Try: Normalize instead of standardize
@@ -8,6 +15,9 @@
   - [x] Try univariate multirocket
     - Did not fix it :()
   - [ ] Come up with something else to fix it
+  - [ ] Investigate multirocket initial kernels of exploding channels
+    - [ ] Plot Input signals over time along with features over time of the channels
+  - [ ] Normalize channels so they sum to 1 (to avoid exploding channels)
 - [X] Optimize feature mean, avoid storing all features in memory
   - [X] Consider further investigating accuracy of Welford's Online Algorithm for calculating means and stds 
   - [ ] Consider doing similar optimisations to the kpi statistics (doesn't seem to be necessary ATM)
