@@ -3,7 +3,8 @@
 # MultiRocket: Multiple pooling operators and transformations for fast and effective time series classification
 # https://arxiv.org/abs/2102.00457
 # https://github.com/ChangWeiTan/MultiRocket/blob/main/multirocket/multirocket.py
-
+# NOTE Convelutions should sum to one to ensure energy is the same
+# Dispose of filters that does not work. Do not use random filters.
 
 import torch.nn as nn
 import numpy as np
