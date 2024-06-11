@@ -12,15 +12,18 @@ class HydraMRRegressor(torch.nn.Module):
         out_features: number of output features
     
     """
-    def __init__(self, in_features: int = 49728+5120, out_features: int = 4) -> None:
+    def __init__(self, in_features: int = 49728+5120, out_features: int = 4, name: str = 'HydraMRRegressor') -> None:
         super(HydraMRRegressor, self).__init__()
         
-        self.name = 'HydraMRRegressor'
+        self.name = name
         
         self.input_layer = torch.nn.Linear(in_features, 500)
         self.r = torch.nn.ReLU()
         self.tanh = torch.nn.Tanh()
         self.linear = nn.Linear(500, out_features)
+        # TODO add a hidden layer. 500 might be to big!
+        # regularization is needed
+        # Permutation test on the 30 raw signals. 
         
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
