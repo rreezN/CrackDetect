@@ -17,10 +17,12 @@ class HydraMRRegressor(torch.nn.Module):
         
         self.name = name
         
-        self.input_layer = torch.nn.Linear(in_features, 500)
+        self.input_layer = torch.nn.Linear(in_features, 30)
+        self.dropout = nn.Dropout(0.5)
+        self.hidden = torch.nn.Linear(30, 30)
         self.r = torch.nn.ReLU()
         self.tanh = torch.nn.Tanh()
-        self.linear = nn.Linear(500, out_features)
+        self.linear = nn.Linear(30, out_features)
         # TODO add a hidden layer. 500 might be to big!
         # regularization is needed
         # Permutation test on the 30 raw signals. 
@@ -39,6 +41,7 @@ class HydraMRRegressor(torch.nn.Module):
 
         """
         x = self.r(self.input_layer(x))
+        x = self.r(self.hidden(x))
         x = self.linear(x)
        
         # TODO: Find a proper way to do this 
