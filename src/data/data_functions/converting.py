@@ -58,6 +58,7 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     np.ndarray
         The converted data
     """
+    # TODO implement unit tests on the input parameters 
     bstar = parameter['bstar']
     rstar = parameter['rstar']
     b = parameter['b']
