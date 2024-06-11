@@ -1,10 +1,10 @@
 (insert picture here)
-# crackdetect (Predicting Road Pavement Condition Based On Real In-Vehicle Data)
+# crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
 [badges here maybe ?](shields.io)
 
 (Maybe put abstract from report here)
 
-Repository containing code for the project Predicting Road Pavement Condition Based On Real In-Vehicle Data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
+Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
 (INSERT SOME PICTURES OF RESULTS)
