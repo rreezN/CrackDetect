@@ -2,6 +2,7 @@
 
 ## Model, Training and Feature Extraction
 - [ ] Cross validation
+  - Idea for solution: KFold when creating features (using Platoon), store the data under e.g. MultiRocketMV_50000 > Fold1 > statistics / features / targets
 - [ ] Smaller hidden layer (30 neurons)
 - [ ] Add additional hidden layer
 - [ ] MSE confine to 0:15 (did not understand this)
