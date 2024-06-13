@@ -168,7 +168,7 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     return np.asarray([KPI_DI, KPI_RUT, PI, IRI])
 
 
-def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     Calculates the damage index for a given window of ARAN data as specified in the paper. TODO add reference to paper
 
@@ -182,7 +182,7 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -192,8 +192,8 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
 
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
     alligatorsum = alligator_sum(windowed_aran_data, aran_attrs)
@@ -202,7 +202,7 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     return DI
 
 
-def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     Conventional/longitudinal and transverse cracks are reported as length.
 
@@ -210,7 +210,7 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -220,8 +220,8 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
@@ -232,7 +232,7 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     return ((LCS**2 + LCM**3 + LCL**4 + 3*TCS + 4*TCM + 5*TCL)**(0.1)).mean()
 
 
-def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     Alligator cracks are computed as area of the pavement affected by the damage
 
@@ -240,7 +240,7 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
     
     Returns
@@ -250,8 +250,8 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
@@ -259,7 +259,7 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     return ((3*ACS + 4*ACM + 5*ACL)**(0.3)).mean()
 
 
-def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     Potholes are computed as the average weighted depth of the potholes based on the ARAN manual.
 
@@ -267,7 +267,7 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -277,8 +277,8 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
@@ -287,7 +287,7 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
     return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
 
 
-def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager, rut: str ='straight-edge') -> float:
+def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager, rut: str ='straight-edge') -> float:
     """
     The rutting index is computed as the average of the square root of the rut depth for each wheel track.
 
@@ -295,7 +295,7 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -305,8 +305,8 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     # TODO: FIGURE OUT WHICH ONE TO USE
     if rut == 'straight-edge':
@@ -318,7 +318,7 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     return (((RDL +RDR)/2)**(0.5)).mean()
 
 
-def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     The IRI is computed as the average of the square root of the IRI for the left and right wheel tracks.
 
@@ -326,7 +326,7 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -336,14 +336,14 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
     IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
     return (((IRL + IRR)/2)**(0.2)).mean()
     
-def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.AttributeManager) -> float:
+def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
     The patching index is computed based on the ARAN manual.    
 
@@ -351,7 +351,7 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     ----------
     windowed_aran_data : np.ndarray
         The ARAN data for the window.
-    aran_attrs : h5py._hl.attrs.AttributeManager
+    aran_attrs : h5py.AttributeManager
         The ARAN attributes for the data.
 
     Returns
@@ -361,8 +361,8 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     """
     if not isinstance(windowed_aran_data, np.ndarray):
         raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
+    if not isinstance(aran_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
     
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]

@@ -8,4 +8,3 @@ def set_all_seeds(seed: int) -> None:
     np.random.seed(seed)
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
-    return None

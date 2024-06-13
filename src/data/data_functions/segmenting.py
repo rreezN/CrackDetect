@@ -1,26 +1,27 @@
+import h5py
 from pathlib import Path
 from tqdm import tqdm
 
-from .hdf5_utils import save_hdf5, unpack_hdf5
+from .hdf5_utils import save_hdf5
 
 
 # ========================================================================================================================
 #           Segmentation functions
 # ========================================================================================================================
 
-def segment_gm(autopi: dict, direction: str, prefix : str, speed_threshold: int = 5, time_threshold: int = 10, segment_index: int = 0) -> int:
+def segment_gm(autopi: h5py.Group, direction: str, prefix : str, speed_threshold: float = 5, time_threshold: float = 10, segment_index: int = 0) -> int:
     """
     Segment the GM data into sections where the vehicle is moving
     
     Parameters
     ----------
-    autopi : dict
-        The AutoPi data dictionary
+    autopi : h5py.Group
+        The AutoPi data group
     direction : str
         The direction of the trip, either 'hh' or 'vh'
-    speed_threshold : int
+    speed_threshold : float
         The speed in km/h below which the vehicle is considered to be stopped
-    time_threshold : int
+    time_threshold : float
         The minimum time in seconds for a section to be considered valid
     segment_index : int
         The index to start the segment numbering from
@@ -30,6 +31,17 @@ def segment_gm(autopi: dict, direction: str, prefix : str, speed_threshold: int 
     int
         The new segment index
     """
+    if not isinstance(autopi, h5py.Group):
+        raise TypeError(f"Input value 'autopi' type is {type(autopi)}, but expected h5py.Group.")
+    if direction not in ['hh', 'vh']:
+        raise ValueError(f"Input value 'direction' is {direction}, but expected 'hh' or 'vh'.")
+    if not isinstance(speed_threshold, float | int):
+        raise TypeError(f"Input value 'speed_threshold' type is {type(speed_threshold)}, but expected float or int.")
+    if not isinstance(time_threshold, float | int):
+        raise TypeError(f"Input value 'time_threshold' type is {type(time_threshold)}, but expected float or int.")
+    if not isinstance(segment_index, int):
+        raise TypeError(f"Input value 'segment_index' type is {type(segment_index)}, but expected int.")
+
     # direction is either 'hh' or 'vh'
     pbar = tqdm(autopi.items())
     for trip_name, trip in pbar:
@@ -46,14 +58,14 @@ def segment_gm(autopi: dict, direction: str, prefix : str, speed_threshold: int 
     return segment_index
 
 
-def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, direction: str, speed_threshold: int = 5, time_threshold: int = 10) -> tuple[list[dict], list[dict]]:
+def segment_gm_trip(measurements: h5py.Group, trip_name: str, pass_name: str, direction: str, speed_threshold: float = 5, time_threshold: float = 10) -> tuple[list[dict], list[dict]]:
     """
     Segment a single GM trip into sections where the vehicle is moving
     
     Parameters
     ----------
-    measurements : dict
-        The AutoPi data dictionary
+    measurements : h5py.Group
+        The autopi pass group
     trip_name : str
         The name of the trip
     pass_name : str
@@ -70,14 +82,23 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     list[dict]
         A list of dictionaries, each containing the measurements for a section of the trip
     """
-
-    # threshold is the speed in km/h below which the vehicle is considered to be stopped
-    measurements["spd_veh"][:, 1] = measurements["spd_veh"][:, 1]
+    if not isinstance(measurements, h5py.Group):
+        raise TypeError(f"Input value 'measurements' type is {type(measurements)}, but expected h5py.Group.")
+    if not isinstance(trip_name, str):
+        raise TypeError(f"Input value 'trip_name' type is {type(trip_name)}, but expected str.")
+    if not isinstance(pass_name, str):
+        raise TypeError(f"Input value 'pass_name' type is {type(pass_name)}, but exprected str.")
+    if direction not in ['hh', 'vh']:
+        raise ValueError(f"Input value 'direction' is {direction}, but expected 'hh' or 'vh'.")
+    if not isinstance(speed_threshold, float | int):
+        raise TypeError(f"Input value 'speed_threshold' type is {type(speed_threshold)}, but expected float or int.")
+    if not isinstance(time_threshold, float | int):
+        raise TypeError(f"Input value 'time_threshold' type is {type(time_threshold)}, but expected float or int.")
 
     # Find the ranges in time where the speed is not zero
     non_zero_speed_ranges = []
     start_index = -1
-    for i in range(len(measurements["spd_veh"])):
+    for i in range(len(measurements["spd_veh"][()])):
         if measurements["spd_veh"][i, 1] > speed_threshold:
             if start_index == -1:
                 start_index = i
@@ -109,7 +130,7 @@ def segment_gm_trip(measurements: dict, trip_name: str, pass_name: str, directio
     
     return sections, attributes
 
-def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', speed_threshold: int = 5, time_threshold: int = 10) -> None:
+def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', speed_threshold: float = 5, time_threshold: float = 10) -> None:
     """
     Segment the GM data into sections where the vehicle is moving.
 
@@ -120,11 +141,19 @@ def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str
     time_threshold : int
         The minimum time in seconds for a section to be considered valid
     """
-    prefix = hh.split("data/")[0]
+    if not isinstance(hh, str):
+        raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
+    assert Path(hh).exists(), f"Path '{hh}' does not exist."
+    if not isinstance(vh, str):
+        raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
+    assert Path(vh).exists(), f"Path '{vh}' does not exist."
+    if not isinstance(speed_threshold, float | int):
+        raise TypeError(f"Input value 'speed_threshold' type is {type(speed_threshold)}, but expected float or int.")
+    if not isinstance(time_threshold, float | int):
+        raise TypeError(f"Input value 'time_threshold' type is {type(time_threshold)}, but expected float or int.")
+    
 
-    # Load data
-    autopi_hh = unpack_hdf5(hh)
-    autopi_vh = unpack_hdf5(vh)
+    prefix = hh.split("data/")[0]
 
     # Remove old segment file if it exists
     segment_path = Path(prefix + 'data/interim/gm/segments.hdf5')
@@ -132,5 +161,8 @@ def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str
         segment_path.unlink()
 
     # Segment data
-    segment_index = segment_gm(autopi_hh['GM'], direction='hh', prefix=prefix, speed_threshold=speed_threshold, time_threshold=time_threshold)
-    segment_gm(autopi_vh['GM'], direction='vh', prefix = prefix, speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
+    with h5py.File(hh, 'r') as autopi_hh:
+        segment_index = segment_gm(autopi_hh['GM'], direction='hh', prefix=prefix, speed_threshold=speed_threshold, time_threshold=time_threshold)
+    
+    with h5py.File(vh, 'r') as autopi_vh:
+        segment_gm(autopi_vh['GM'], direction='vh', prefix = prefix, speed_threshold=speed_threshold, time_threshold=time_threshold, segment_index=segment_index)
