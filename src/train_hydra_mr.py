@@ -1,4 +1,5 @@
 import torch
+import wandb
 import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
@@ -40,7 +41,9 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
     
     # Set loss function
     loss_fn = nn.MSELoss()
-    
+
+    wandb.config.update({"optimizer": str(optimizer), "loss_function": str(loss_fn)})
+
     epoch_train_losses = []
     epoch_val_losses = []
     best_val_loss = np.inf
@@ -64,7 +67,10 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
                 train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Last epoch val loss: {epoch_val_losses[i-1]:.3f}")
             else:
                 train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}")
-        epoch_train_losses.append(np.mean(train_losses))
+
+        mean_train_loss = np.mean(train_losses)
+        wandb.log({"epoch": epoch+1, "train_loss": mean_train_loss})
+        epoch_train_losses.append(mean_train_loss)
         
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
         model.eval()
@@ -76,6 +82,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         for val_data, target in val_iterator:
             output = model(val_data)
             val_loss = loss_fn(output, target)
+
             # TODO: Fix insane predictions in validation, and then switch to MSE
             # Validation losses explodeeeeee
             if val_loss > 100:
@@ -92,8 +99,12 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             best_val_loss = np.mean(val_losses)
             torch.save(model.state_dict(), f'models/best_{model.name}.pt')
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1}")
+            # Note to windows users: you may need to run the script as administrator to save the model
+            wandb.save(f'models/best_{model.name}.pt')
             
-        epoch_val_losses.append(np.mean(val_losses))
+        mean_val_loss = np.mean(val_losses)
+        wandb.log({"epoch": epoch+1, "val_loss": mean_val_loss})
+        epoch_val_losses.append(mean_val_loss)
 
         x = np.arange(1, epoch+2, step=1)
         plt.plot(x, epoch_train_losses, label="Train loss")
@@ -113,7 +124,6 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
     torch.save(model.state_dict(), f'models/{model.name}.pt')
     
 
-
 def get_args():
     parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train.')
@@ -128,6 +138,8 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
     
+    wandb.init(project='hydra_mr_test', entity='fleetyeet')
+    wandb.config.update(args)
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
@@ -149,8 +161,12 @@ if __name__ == '__main__':
     
     # Create model
     # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-    model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
+    model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_HydraMV_8_64_100_latent_dim') 
     
+    wandb.watch(model, log='all')
+    wandb.config.update({"model": model.name})
+
     # Train
     train(model, train_loader, val_loader)
     
+    wandb.finish()
