@@ -1,16 +1,16 @@
+import os
 import torch
 import wandb
 import numpy as np
-from tqdm import tqdm
 import torch.nn as nn
+
+from tqdm import tqdm
 from matplotlib import pyplot as plt
 from argparse import ArgumentParser
 from torch.utils.data import DataLoader 
 
 from models.hydramr import HydraMRRegressor
-from models.regressor import Regressor
 from data.feature_dataloader import Features
-import os
 
 
 def train(model: HydraMRRegressor, 

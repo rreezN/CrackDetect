@@ -14,6 +14,7 @@ from sklearn.model_selection import KFold
 
 from data.dataloader import Platoon
 from models.hydra.hydra import Hydra
+from src.util.utils import set_all_seeds
 from src.models.multirocket.multirocket import MultiRocket
 from models.hydra.hydra_multivariate import HydraMultivariate
 from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
@@ -247,7 +248,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
     Additionally, an std correction factor 's' is returned for hydra features to avoid division by zero. 
     Lastly, all targets are returned for KPI statistics.
 
-    If the val_loader or test_loader is used, empty tensors and ndarrays are returned for all values.
+    If calculate_statistics is false, empty tensors and ndarrays are returned for all values.
 
     Statistics and computed on the fly using Welford's online algorithm to avoid storing all features in memory, thus
     speeding up the feature extraction process.
@@ -323,7 +324,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
             copy_hdf5_(data={"kpis":segment_file[segment_nr][second_nr]["kpis"]}, group=second_subgroup)
         
         # If using univariate data, squeeze the data to remove the channel dimension
-        if len(args.cols) == 1:
+        if len(args.cols) == 1 and args.all_cols == False:
             data = data.squeeze(1)
         
         # Extract features
@@ -411,29 +412,8 @@ def copy_hdf5_(data: dict[str, h5py.Group], group: h5py.Group):
             for k, v in value.attrs.items():
                 dataset.attrs[k] = v
 
-
-def get_args():
-    """Parses the arguments from the command line.
-
-    Returns:
-    -------
-        Namespace: Arguments from the command line
-    """
-    parser = ArgumentParser(description='Hydra-MR')
-    parser.add_argument('--cols', default=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'], nargs='+')
-    parser.add_argument('--mr_num_features', type=int, default=50000)
-    parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
-    parser.add_argument('--subset', type=int, default=None)
-    parser.add_argument('--name_identifier', type=str, default='')
-    parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation, Default 5')
-    parser.add_argument('--seed', type=int, default=42, help='Seed for reproducibility')
-    
-    return parser.parse_args()
-
-
-
 class SubsetSampler(torch.utils.data.Sampler):
-    """Samples elements sequentially, always in the same order.
+    """Samples elements from the given indices sequentially, always in the same order.
     
     Parameters:
     ----------
@@ -449,23 +429,67 @@ class SubsetSampler(torch.utils.data.Sampler):
         return len(self.indices)
 
 
+def get_args():
+    """Parses the arguments from the command line.
+
+    Returns:
+    -------
+        Namespace: Arguments from the command line
+    """
+    parser = ArgumentParser(description='Hydra-MR')
+    parser.add_argument('--cols', default=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'], nargs='+')
+    parser.add_argument('--all_cols', action='store_true', help='Use all columns (signals) in the dataset')
+    parser.add_argument('--mr_num_features', type=int, default=50000)
+    parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
+    parser.add_argument('--subset', type=int, default=None)
+    parser.add_argument('--name_identifier', type=str, default='')
+    parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation, Default 5')
+    parser.add_argument('--seed', type=int, default=42, help='Seed for reproducibility')
+    
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     start = time()
 
     args = get_args()
     
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    set_all_seeds(args.seed)
     
     data_path = 'data/processed/w_kpis/segments.hdf5'
     
+    if args.all_cols:
+        cols = ['gps_0', 'gps_1',                                               # Latitute and longitude
+                'acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2',                          # Acceleration in x, y, z
+                'spd_veh',                                                      # Vehicle speed
+                'odo',                                                          # Odometer
+                'acc_long', 'acc_trans', 'acc_yaw',                             # Longitudinal, transversal, and yaw acceleration
+                'strg_acc', 'strg_pos',                                         # Steering acceleration and position
+                'rpm', 'rpm_fl', 'rpm_fr', 'rpm_rl', 'rpm_rr',                  # RPM for each wheel
+                'whl_prs_fl', 'whl_prs_fr', 'whl_prs_rl', 'whl_prs_rr',         # Wheel tire pressure for each wheel
+                'whl_trq_est',                                                  # Estimated wheel torque                          
+                'trac_cons',                                                    # Traction power
+                'brk_trq_elec',                                                 # Brake torque
+                ]
+    else:
+        cols = args.cols
+    
     # Load data
     print(f"Loading train data from {data_path}")
-    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=args.cols)
+    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=cols)
+    
+    # Create feature extractors
+    if len(cols) == 1:
+        multi_rocket_transformer = MultiRocket(args.mr_num_features)
+        hydra_transformer = Hydra(args.hydra_input_length)
+    else:
+        multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
+        hydra_transformer = HydraMultivariate(args.hydra_input_length, len(cols))
+    
+    print(f"Extracting features from {multi_rocket_transformer.name} and {hydra_transformer.name}")
     
     # Split into K folds
     kfold = KFold(n_splits=args.folds, shuffle=True, random_state=args.seed)
-    
     for fold, (train_idx, val_idx) in enumerate(kfold.split(train_data)):
         # Create dataloaders
         # NOTE: Must use batch_size=1, to avoid errors when extracting features
@@ -477,30 +501,22 @@ if __name__ == '__main__':
                                 batch_size=1, 
                                 sampler=SubsetSampler(val_idx),
                                 )
-    
-    
-        # Create feature extractors
-        if len(args.cols) == 1:
-            multi_rocket_transformer = MultiRocket(args.mr_num_features)
-            hydra_transformer = Hydra(args.hydra_input_length)
-        else:
-            multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
-            hydra_transformer = HydraMultivariate(args.hydra_input_length, len(args.cols))
         
-        print(f"Extracting features from {multi_rocket_transformer.name} and {hydra_transformer.name}")
-        
+        # Extract features from train and val data for each fold
         with h5py.File(data_path, 'r') as f:
-            print(f'Extracting features for fold {fold}')
+            print(f'Extracting features for fold {fold+1}/{args.folds}')
+            # TODO: This is where the feature extraction happens, might need to be changed to allow arguments
             extract_all_train_features([multi_rocket_transformer, hydra_transformer], [train_loader, val_loader], f, fold, [True, False])
     
     # Extract features from test data
     print("Loading test data")
-    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=args.cols)
+    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=cols)
     test_loader = DataLoader(test_data, batch_size=1)
     print("Extracting features from test data")
     with h5py.File(data_path, 'r') as f:
         extract_all_test_features([multi_rocket_transformer, hydra_transformer], [test_loader], f)
     
+    # Report time
     extraction_time = time() - start
     minutes = int(extraction_time / 60)
     seconds = int(extraction_time % 60)
