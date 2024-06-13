@@ -124,7 +124,7 @@ def train(model: HydraMRRegressor,
         plt.grid()
         plt.tight_layout()
         os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
-        plt.savefig(f'reports/figures/model_results/{model.name}/loss.pdf')
+        plt.savefig(f'reports/figures/model_results/{model.name}/loss_{fold}.pdf')
         plt.close()
     
     torch.save(model.state_dict(), f'models/{model.name}.pt')
