@@ -69,18 +69,24 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     np.ndarray
         The converted data
     """
-    # We assert that the input data is as expected
     # data
+    if not isinstance(data, np.ndarray):
+        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
     assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
     assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
-    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
-    # parameter
-    assert "bstar" in parameter, f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values."
-    assert "rstar" in parameter, f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values."
-    assert "b" in parameter, f"Parameter does not contain 'b'. Check the parameter dictionary for missing values."
-    assert "r" in parameter, f"Parameter does not contain 'r'. Check the parameter dictionary for missing values."
-    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict"
-       
+    # parameter  
+    if not isinstance(parameter, dict):
+        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+    if "bstar" not in parameter:
+        raise KeyError(f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values.")
+    if "rstar" not in parameter:
+        raise KeyError(f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values.")
+    if "b" not in parameter:
+        raise KeyError(f"Parameter does not contain 'b'. Check the parameter dictionary for missing values.")
+    if "r" not in parameter:
+        raise KeyError(f"Parameter does not contain 'r'. Check the parameter dictionary for missing values.")
+    
+    # We extract the parameters from the parameter dictionary
     bstar = parameter['bstar']
     rstar = parameter['rstar']
     b = parameter['b']
@@ -113,13 +119,16 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     
     # We assert that the input data is as expected
     # data
-    assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
-    assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
-    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
+    if not isinstance(data, np.ndarray):
+        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
     # parameter
-    assert "kind" in parameter, f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values."
-    assert "frac" in parameter, f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values."
-    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict."
+    if not isinstance(parameter, dict):
+        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+    if "kind" not in parameter:
+        raise KeyError(f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values.")
+    if "frac" not in parameter:
+        raise KeyError(f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values.")
+
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
@@ -151,15 +160,18 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         The progress bar to use
     """
     # original_file
-    assert (type(original_file) == h5py.Group or type(original_file) == h5py.File), f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File."
+    if not isinstance(original_file, h5py.Group) and not isinstance(original_file, h5py.File):
+        raise TypeError(f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File.")
     # converted_file
-    assert (type(converted_file) == h5py.Group or type(converted_file) == h5py.File), f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File."
+    if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
+        raise TypeError(f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
     # verbose
-    assert type(verbose) == bool, f"Verbose type is {type(verbose)}, but expected bool"
+    if not isinstance(verbose, bool):
+        raise TypeError(f"Verbose type is {type(verbose)}, but expected bool")
     # pbar
     if pbar is not None:
-        assert type(pbar) == tqdm, f"Progress bar type is {type(pbar)}, but expected tqdm"
-    
+        if not isinstance(pbar, tqdm):
+            raise TypeError(f"Progress bar type is {type(pbar)}, but expected tqdm.")    
     
     # Specify iterator based on verbose
     if verbose:
@@ -207,11 +219,13 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     """
     
     # hh
-    assert type(hh) == str, f"Input value 'hh' type is {type(hh)}, but expected str."
+    if not isinstance(hh, str):
+        raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
     # ensure the path exists
     assert Path(hh).exists(), f"Path '{hh}' does not exist."
     # vh
-    assert type(vh) == str, f"Input value 'vh' type is {type(vh)}, but expected str."
+    if not isinstance(vh, str):
+        raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
     assert Path(vh).exists(), f"Path '{vh}' does not exist."
     
     prefix = hh.split("data/")[0]
