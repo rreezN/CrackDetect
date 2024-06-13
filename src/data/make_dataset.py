@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
-    parser.add_argument('--validation-threshold', type=float, default=0.8, help='Correlation threshold for validating data')
+    parser.add_argument('--validation-threshold', type=float, default=0.2, help='Normalised MSE threshold for validating data')
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
 
     args = parser.parse_args()

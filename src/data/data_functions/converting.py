@@ -217,7 +217,7 @@ def reorient_autopi_can(converted_file: h5py.Group) -> None:
     # Go through all the trips and passes in the converted file
     for trip_name, trip in (pbar := tqdm(converted_file['GM'].items())):
         for pass_name, pass_ in trip.items():
-            pbar.set_description(f"File: {converted_file.name}, Trip: {trip_name}, Pass: {pass_name}")
+            pbar.set_description(f"Orienting: {pass_.name}")
             reorient_pass(pass_)
 
 
