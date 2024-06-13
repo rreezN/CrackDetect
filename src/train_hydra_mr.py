@@ -12,7 +12,8 @@ from data.feature_dataloader import Features
 import os
 
 
-def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 10, lr: float = 0.001):
+def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoader,
+          epochs: int = 10, lr: float = 0.001):
     """Training loop for the Hydra-MR model.
     
     This function trains the Hydra-MR model using the provided training data and validation data loaders.
@@ -121,6 +122,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer.')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
+    parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     
     return parser.parse_args()
 
@@ -138,19 +140,23 @@ if __name__ == '__main__':
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
     name_identifier = args.name_identifier
     
-    # Load data
-    trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier)
-    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    
-    valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier)
-    val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    
-    input_shape, target_shape = trainset.get_data_shape()
-    
-    # Create model
-    # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-    model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
-    
-    # Train
-    train(model, train_loader, val_loader)
+    for fold in range(args.folds):
+        print(f"Training fold {fold+1}/{args.folds}")
+        
+        # Load data
+        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+        
+        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+        
+        input_shape, target_shape = trainset.get_data_shape()
+        
+        # Create model
+        # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
+        model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
+        
+        # Train
+        # TODO: Modify train function to return best_model, best_val_loss, and training curves
+        train(model, train_loader, val_loader)
     

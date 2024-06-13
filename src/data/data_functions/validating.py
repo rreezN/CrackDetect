@@ -1,10 +1,12 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import h5py
+import os
+import warnings
 from scipy.interpolate import PchipInterpolator
 from tqdm import tqdm
 from typing import Iterable
-import matplotlib.pyplot as plt
 
-from .hdf5_utils import unpack_hdf5
 
 
 # ========================================================================================================================
@@ -76,29 +78,27 @@ def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> n
 
     return data_int
 
-def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', threshold: float = 0.9, verbose: bool = False) -> None:
+def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str = 'data/interim/gm/converted_platoon_CPH1_VH.hdf5', threshold: float = 0.2, verbose: bool = False) -> None:
     """
     Validate the data by comparing the AutoPi data and the CAN data (car sensors)
 
     Parameters
     ----------
-    threshold : float (default 0.9)
-        The threshold for the correlation between the AutoPi and CAN data
+    threshold : float (default 0.2)
+        The threshold for the normalised MSE between the AutoPi and CAN data
     verbose : bool (default False)
         Whether to plot the data for visual inspection
     """
-    # Save gm data with converted values
-    autopi_hh = unpack_hdf5(hh)
-    autopi_vh = unpack_hdf5(vh)
 
-    iterator = tqdm([autopi_hh, autopi_vh])
+    for file in [hh, vh]:
+        with h5py.File(file, 'r+') as f:
+            for trip_name, trip in (pbar := tqdm(f['GM'].items())):
+                for pass_name, pass_ in trip.items():
+                    pbar.set_description(f"File: {os.path.basename(file)}, Validating {trip_name}, {pass_name}")
+                    validate_pass(pass_, threshold, verbose)
+        
 
-    # Validate the trips
-    for file in iterator:
-        for trip_name, trip in file['GM'].items():
-            for pass_name, pass_ in trip.items():
-                iterator.set_description(f"Validating {trip_name}/{pass_name}")
-                validate_pass(pass_, threshold, verbose)
+
 
 def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
                  styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
@@ -134,21 +134,45 @@ def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: It
     if title is not None:
         ax.set_title(title)
 
+def normalised_mse(x: np.ndarray, y: np.ndarray) -> float:
+    """
+    Calculate the normalised mean squared error between two signals.
 
-def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
+    Parameters
+    ----------
+    x : np.ndarray
+        The first signal
+    y : np.ndarray
+        The second signal
+
+    Returns
+    -------
+    float
+        The normalised mean squared error
+    """
+    return np.mean((x-y)**2) / np.mean(np.maximum(x**2, y**2))
+
+def validate_pass(car: h5py.Group, threshold: float, verbose: bool = False) -> None:
     """
     Main validation function for validating the data by comparing the AutoPi data and the CAN data (car sensors).
     NOTE: This function is a translation of the MATLAB code from PLATOON_SENSOR_VAL.m by Asmus Skar.
 
     Parameters
     ----------
-    car : dict
+    car : h5py.Group
         The car data to validate
     threshold : float
-        The threshold for the correlation between the AutoPi and CAN data
+        The threshold for the normalised MSE between the AutoPi and CAN data
     verbose : bool
         Whether to plot the data for visual inspection
     """
+
+    # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
+    def custom_formatwarning(msg, *args, **kwargs):
+        # ignore everything except the message
+        return '\n' + str(msg) + '\n'
+
+    warnings.formatwarning = custom_formatwarning
     
     fs = 10 # Sampling frequency
 
@@ -170,7 +194,6 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     taccrpi = car['acc.xyz'][:, 0]
     xaccrpi = car['acc.xyz'][:, 1] - np.mean(car['acc.xyz'][:, 1])
     yaccrpi = car['acc.xyz'][:, 2] - np.mean(car['acc.xyz'][:, 2])
-    zaccrpi = car['acc.xyz'][:, 3] - np.mean(car['acc.xyz'][:, 3])
 
     tatra = car['acc_trans'][:, 0]
     atra = car['acc_trans'][:, 1] - np.mean(car['acc_trans'][:, 1])
@@ -184,9 +207,8 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     time = np.arange(0, tend, 1/fs)
 
     # Interpolate
-    axrpi_100hz = clean_int(taccrpi-time_start_max, xaccrpi, time)
-    ayrpi_100hz = clean_int(taccrpi-time_start_max, yaccrpi, time)
-    azrpi_100hz = clean_int(taccrpi-time_start_max, zaccrpi, time)
+    axrpi_100hz = clean_int(taccrpi-time_start_max, xaccrpi, time) * 9.81
+    ayrpi_100hz = clean_int(taccrpi-time_start_max, yaccrpi, time) * 9.81
     aycan_100hz = clean_int(tatra-time_start_max, atra, time)
     axcan_100hz = clean_int(talon-time_start_max, alon, time)
     dis_100hz   = clean_int(tspd-time_start_max, dspd, time)
@@ -194,53 +216,16 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     lat_100hz   = clean_int(tgps-time_start_max, lat, time)
     odo_100hz   = clean_int(todo-time_start_max, odo, time)
 
-    # Reorient accelerations
-    alon = axcan_100hz.copy()
-    atrans = aycan_100hz.copy()
-    axpn = axrpi_100hz * 9.81
-    aypn = ayrpi_100hz * 9.81
-    azpn = azrpi_100hz * 9.81
-
-    # Calculate correlation with CAN accelerations
-    pcxl = np.corrcoef(axpn, alon)[0, 1]
-    pcyl = np.corrcoef(aypn, alon)[0, 1]
-
-    pcxt = np.corrcoef(axpn, atrans)[0, 1]
-    pcyt = np.corrcoef(aypn, atrans)[0, 1]
-    
-    # Determine the orientation of the sensors
-    if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
-        if pcxt < 0:
-            axrpi_100hz = aypn
-            ayrpi_100hz = -axpn
-        else:
-            axrpi_100hz = aypn
-            ayrpi_100hz = axpn
-    else:
-        if pcyt < 0:
-            axrpi_100hz = axpn
-            ayrpi_100hz = -aypn
-        else:
-            axrpi_100hz = axpn
-            ayrpi_100hz = aypn
-    
-    # Update the acceleration sensors with the reoriented values
-    axcan_100hz = alon
-    aycan_100hz = atrans
-    azrpi_100hz = azpn
-
-    
-
     # ACCELERATION MEASURE
     #   x-acceleration
-    pcx = np.corrcoef(axrpi_100hz, axcan_100hz)[0, 1]
-    if pcx < threshold:
-        print(f"Correlation between Autopi and CAN x-acceleration sensors is below threshold: {pcx}")
+    x_err = normalised_mse(axrpi_100hz, axcan_100hz)
+    if x_err > threshold:
+        warnings.warn(f"Warning: Normalised MSE between Autopi and CAN x-acceleration sensors is above threshold: {x_err}")
 
     #   y-acceleration
-    pcy = np.corrcoef(ayrpi_100hz, aycan_100hz)[0, 1]
-    if pcy < threshold:
-        print(f"Correlation between Autopi and CAN y-acceleration sensors is below threshold: {pcy}")
+    y_err = normalised_mse(ayrpi_100hz, aycan_100hz)
+    if y_err > threshold:
+        print(f"Warning: Normalised MSE between Autopi and CAN y-acceleration sensors is above threshold: {y_err}")
     
     # DISTANCE MEASURE
     # Define distance as by the odometer and GPS
@@ -248,16 +233,16 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     gps_dist = distance_gps(np.column_stack((lat_100hz, lon_100hz)))
 
     # Compute correlation between the two distance measures
-    pcgps = np.corrcoef(dis_100hz, gps_dist)[0, 1]
-    pcodo = np.corrcoef(dis_100hz, odo_dist)[0, 1]
-    if pcodo < threshold or pcgps < threshold:
-        print(f"Correlation between Autopi and CAN odo sensors or GPS distance is below threshold: {pcodo}, {pcgps}")
+    mse_gps = normalised_mse(dis_100hz, gps_dist)
+    mse_odo = normalised_mse(dis_100hz, odo_dist)
+    if mse_gps > threshold or mse_odo > threshold:
+        print(f"Warning: Normalised MSE between Autopi and CAN odo sensors or GPS distance is above threshold: {mse_odo}, {mse_gps}")
 
     if verbose:
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-        plot_sensors(axes[0], time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcx:.3f}")
-        plot_sensors(axes[1], time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Correlation: {pcy:.3f}")
-        plot_sensors(axes[2], time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Correlation Autopi vs. (odo, gps): {pcodo:.3f}, {pcgps:.3f}")
+        plot_sensors(axes[0], time, sensors=[axrpi_100hz, axcan_100hz], labels=['Autopi x-acceleration', 'CAN x-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Normalised MSE: {x_err:.3f}")
+        plot_sensors(axes[1], time, sensors=[ayrpi_100hz, aycan_100hz], labels=['Autopi y-acceleration', 'CAN y-acceleration'], styles=['r-', 'b-'], ylabel='Acceleration [$m/s^2$]', xlabel='Time [s]', title=f"Normalised MSE: {y_err:.3f}")
+        plot_sensors(axes[2], time, sensors=[dis_100hz, gps_dist, odo_dist], labels=['Autopi distance', 'GPS distance', 'Odometer distance'], styles=['r-', 'b-', 'g-'], ylabel='Distance [m]', xlabel='Time [s]', title=f"Normalised MSE Autopi vs. (odo, gps): {mse_odo:.2f}, {mse_gps:.2f}")
         plt.tight_layout()
         plt.show()
 

@@ -12,10 +12,13 @@
 
 import h5py
 import numpy as np
+import statsmodels.api as sm
+import warnings
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
-import statsmodels.api as sm
+
+from .validating import clean_int
 
 
 CONVERT_PARAMETER_DICT = {
@@ -203,6 +206,109 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
             # Save the data to the converted file
             converted_file.create_dataset(key, data=data)
 
+
+def reorient_autopi_can(converted_file: h5py.Group) -> None:
+    """
+    Reorient the acceleration sensors in the converted AutoPi and CAN data.
+
+    Parameters
+    ----------
+    converted_file : h5py.Group
+        The converted AutoPi and CAN data to reorient
+    """
+    # Go through all the trips and passes in the converted file
+    for trip_name, trip in (pbar := tqdm(converted_file['GM'].items())):
+        for pass_name, pass_ in trip.items():
+            pbar.set_description(f"Orienting: {pass_.name}")
+            reorient_pass(pass_)
+
+
+def reorient_pass(pass_group: h5py.Group) -> None:
+    """
+    Reorient the acceleration sensors in the pass, and update the pass group in place.
+    The reorientation is done based on the correlation between the CAN accelerations and the AutoPi accelerations.
+
+    Parameters
+    ----------
+    pass_group : h5py.Group
+        The pass group containing the converted AutoPi and CAN data to reorient
+    """
+    # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
+    def custom_formatwarning(msg, *args, **kwargs):
+        # ignore everything except the message
+        return '\n' + str(msg) + '\n'
+
+    warnings.formatwarning = custom_formatwarning
+    
+    fs = 10 # Sampling frequency
+
+    # Speed distance
+    tspd = pass_group['spd_veh'][:, 0]
+    dspd = np.cumsum(pass_group['spd_veh'][1:, 1]*np.diff(pass_group['spd_veh'][:, 0]))/3.6
+    dspd = np.insert(dspd, 0, 0)
+
+    # GPS data
+    tgps = pass_group['gps'][:, 0]
+
+    # Normalize accelerations
+    taccrpi = pass_group['acc.xyz'][:, 0]
+    xaccrpi = pass_group['acc.xyz'][:, 1] - np.mean(pass_group['acc.xyz'][:, 1])
+    yaccrpi = pass_group['acc.xyz'][:, 2] - np.mean(pass_group['acc.xyz'][:, 2])
+
+    tatra = pass_group['acc_trans'][:, 0]
+    atra = pass_group['acc_trans'][:, 1] - np.mean(pass_group['acc_trans'][:, 1])
+    talon = pass_group['acc_long'][:, 0]
+    alon = pass_group['acc_long'][:, 1] - np.mean(pass_group['acc_long'][:, 1])
+
+    # Resample to 100Hz
+    time_start_max = np.max([taccrpi[0], tatra[0], talon[0], tgps[0], tspd[0]])
+    time_end_min = np.min([taccrpi[-1], tatra[-1], talon[-1], tgps[-1], tspd[-1]])
+    tend = time_end_min - time_start_max
+    time = np.arange(0, tend, 1/fs)
+
+    # Interpolate
+    axrpi_100hz = clean_int(taccrpi-time_start_max, xaccrpi, time)
+    ayrpi_100hz = clean_int(taccrpi-time_start_max, yaccrpi, time)
+    aycan_100hz = clean_int(tatra-time_start_max, atra, time)
+    axcan_100hz = clean_int(talon-time_start_max, alon, time)
+
+    # Reorient accelerations
+    alon = axcan_100hz.copy()
+    atrans = aycan_100hz.copy()
+    axpn = axrpi_100hz * 9.81
+    aypn = ayrpi_100hz * 9.81
+
+    # Calculate correlation with CAN accelerations
+    pcxl = np.corrcoef(axpn, alon)[0, 1]
+    pcyl = np.corrcoef(aypn, alon)[0, 1]
+
+    pcxt = np.corrcoef(axpn, atrans)[0, 1]
+    pcyt = np.corrcoef(aypn, atrans)[0, 1]
+    
+    # Determine the orientation of the sensors
+    # NOTE: Here we also alter the entries in the original converted data if necessary!
+    if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
+        if pcxt < 0:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, -x, z)")
+            y_acc = pass_group['acc.xyz'][:, 2]                    
+            pass_group['acc.xyz'][:, 2] = -pass_group['acc.xyz'][:, 1]    # y = -x
+            pass_group['acc.xyz'][:, 1] = y_acc                    # x = y
+
+        else:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, x, z)")
+            y_acc = pass_group['acc.xyz'][:, 2]
+            pass_group['acc.xyz'][:, 2] = pass_group['acc.xyz'][:, 1]    # y = x
+            pass_group['acc.xyz'][:, 1] = y_acc                   # x = y
+
+    else:
+        if pcyt < 0:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (x, -y, z)")
+            pass_group['acc.xyz'][:, 2] = -pass_group['acc.xyz'][:, 2]    # y = -y
+        else:
+            # No reorientation needed
+            pass
+
+
 def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5') -> None:
     """
     Main function for converting the AutoPi CAN data to the converted data.
@@ -243,3 +349,4 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
         with h5py.File(file, 'r') as f:
             with h5py.File(interim_gm / f"converted_{file.name}", 'w') as converted_file:
                 convert_autopi_can(f, converted_file, verbose=True)
+                reorient_autopi_can(converted_file)
