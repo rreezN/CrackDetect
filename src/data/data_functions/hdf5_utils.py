@@ -34,7 +34,8 @@ def unpack_hdf5(hdf5_file: str) -> dict:
     dict
         The unpacked data
     """
-    assert type(hdf5_file) == str, f"Input value 'hdf5_file' type is {type(hdf5_file)}, but expected str."
+    if not isinstance(hdf5_file, str):
+        raise TypeError(f"Input value 'hdf5_file' type is {type(hdf5_file)}, but expected str.")
     assert Path(hdf5_file).exists(), f"Path '{hdf5_file}' does not exist."
     assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
     
@@ -56,8 +57,9 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
     dict
         The unpacked data
     """
-    assert (type(group) == h5py.Group or type(group) == h5py.File), f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File."
-    
+    if not isinstance(group, h5py.Group) and not isinstance(group, h5py.File):
+        raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
+
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
