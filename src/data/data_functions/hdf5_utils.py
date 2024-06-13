@@ -112,8 +112,6 @@ def save_hdf5_(data: dict, group: h5py.Group) -> None:
     group : h5py.Group
         The hdf5 group to save the data to
     """
-    if not isinstance(data, dict):
-        raise TypeError(f"Input value 'data' type is {type(data)}, but expected dict.")
     if not isinstance(group, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
     
