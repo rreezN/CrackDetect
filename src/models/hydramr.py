@@ -41,14 +41,14 @@ class HydraMRRegressor(torch.nn.Module):
         """
         x = self.r(self.input_layer(x))
         x = self.dropout(x)  # Apply dropout after activation
-        x = self.r(self.hidden_layer(x))  # Pass through hidden layer
+        x = self.r(self.hidden(x))  # Pass through hidden layer
         x = self.dropout(x)  # Apply dropout after hidden layer
         x = self.linear(x)
        
         # TODO: Find a proper way to do this 
         # Scale output for now...
         # Targets lie in range [-5, 10] (after standardization)
-        x = self.tanh(x)
-        x = x * 10
+        # x = self.tanh(x)
+        # x = x * 10
         
         return x

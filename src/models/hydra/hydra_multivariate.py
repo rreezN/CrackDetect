@@ -98,3 +98,33 @@ class HydraMultivariate(nn.Module):
         Z = torch.cat(Z, 1).view(num_examples, -1)
 
         return Z
+
+
+
+if __name__ == '__main__':
+    # test
+    X = torch.randn(32, 100, 20)
+    model = HydraMultivariate(100, 20, k = 8, g = 64, max_num_channels = 8)
+    Z = model(X)
+    
+    print('## --- Hydra Multivariate --- ##')
+    print(f'Model: {model.name}')
+    print(f'Input shape: {X.shape}')
+    print('Input:')
+    print(X)
+    print(f'Output shape: {Z.shape}')
+    print('Output:')
+    print(Z)
+    print('## ------------------------- ##')
+    
+    print(f'W len: {len(model.W)}')
+    print(f'W[0] shape: {model.W[0].shape}')
+    print(f'W[0]:')
+    print(model.W[0])
+    
+    print(f'I len: {len(model.I)}')
+    print(f'I[0] shape: {model.I[0].shape}')
+    print(f'I[0]:')
+    print(model.I[0])
+    
+    print('## ------------------------- ##')
