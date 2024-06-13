@@ -16,6 +16,7 @@ import statsmodels.api as sm
 import warnings
 from pathlib import Path
 from typing import Optional
+from sympy import ShapeError
 from tqdm import tqdm
 
 from .validating import clean_int
@@ -74,20 +75,20 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     """
     # data
     if not isinstance(data, np.ndarray):
-        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
-    assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
-    assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
+        raise TypeError(f"Input value 'data' type is {type(data)}, but expected np.ndarray")
+    if not len(data.shape) == 2 or not data.shape[1] == 2:
+        raise ShapeError(f"Input value 'data' shape is {data.shape}, but expected (n, 2)")
     # parameter  
     if not isinstance(parameter, dict):
-        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+        raise TypeError(f"Input value 'parameter' type is {type(parameter)}, but expected dict.")
     if "bstar" not in parameter:
-        raise KeyError(f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values.")
+        raise KeyError(f"Input value 'parameter' does not contain 'bstar'. Check the parameter dictionary for missing values.")
     if "rstar" not in parameter:
-        raise KeyError(f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values.")
+        raise KeyError(f"Input value 'parameter' does not contain 'rstar'. Check the parameter dictionary for missing values.")
     if "b" not in parameter:
-        raise KeyError(f"Parameter does not contain 'b'. Check the parameter dictionary for missing values.")
+        raise KeyError(f"Input value 'parameter' does not contain 'b'. Check the parameter dictionary for missing values.")
     if "r" not in parameter:
-        raise KeyError(f"Parameter does not contain 'r'. Check the parameter dictionary for missing values.")
+        raise KeyError(f"Input value 'parameter' does not contain 'r'. Check the parameter dictionary for missing values.")
     
     # We extract the parameters from the parameter dictionary
     bstar = parameter['bstar']
@@ -123,17 +124,16 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     # We assert that the input data is as expected
     # data
     if not isinstance(data, np.ndarray):
-        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
+        raise TypeError(f"Input value 'data' type is {type(data)}, but expected np.ndarray")
     # parameter
     if not isinstance(parameter, dict):
-        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
-    if not len(parameter['frac']) == data.shape[1]-1:
-        raise ValueError(f"Parameter 'frac' length is not equal to the number of columns in the data (excluding the time column).")
+        raise TypeError(f"Input value 'parameter' type is {type(parameter)}, but expected dict.")
     if "kind" not in parameter:
-        raise KeyError(f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values.")
+        raise KeyError(f"Input value 'parameter' does not contain 'kind'. Check the parameter dictionary for missing values.")
     if "frac" not in parameter:
-        raise KeyError(f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values.")
-
+        raise KeyError(f"Input value 'parameter' does not contain 'frac'. Check the parameter dictionary for missing values.")
+    if not len(parameter['frac']) == data.shape[1]-1:
+        raise ValueError(f"Input value 'parameter', 'frac' length is not equal to the number of columns in the data (excluding the time column).")
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
@@ -166,17 +166,17 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     """
     # original_file
     if not isinstance(original_file, h5py.Group) and not isinstance(original_file, h5py.File):
-        raise TypeError(f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File.")
+        raise TypeError(f"Input value 'original_file' type is {type(original_file)}, but expected h5py.Group or h5py.File.")
     # converted_file
     if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
-        raise TypeError(f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
+        raise TypeError(f"Input value 'converted_file' type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
     # verbose
     if not isinstance(verbose, bool):
-        raise TypeError(f"Verbose type is {type(verbose)}, but expected bool")
+        raise TypeError(f"Input value 'verbose' type is {type(verbose)}, but expected bool")
     # pbar
     if pbar is not None:
         if not isinstance(pbar, tqdm):
-            raise TypeError(f"Progress bar type is {type(pbar)}, but expected tqdm.")    
+            raise TypeError(f"Input value 'pbar' type is {type(pbar)}, but expected tqdm.")    
     
     # Specify iterator based on verbose
     if verbose:
@@ -218,6 +218,9 @@ def reorient_autopi_can(converted_file: h5py.Group) -> None:
     converted_file : h5py.Group
         The converted AutoPi and CAN data to reorient
     """
+    if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
+        raise TypeError(f"Input value 'converted_file' type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
+    
     # Go through all the trips and passes in the converted file
     for trip_name, trip in (pbar := tqdm(converted_file['GM'].items())):
         for pass_name, pass_ in trip.items():
@@ -235,6 +238,9 @@ def reorient_pass(pass_group: h5py.Group) -> None:
     pass_group : h5py.Group
         The pass group containing the converted AutoPi and CAN data to reorient
     """
+    if not isinstance(pass_group, h5py.Group) and not isinstance(pass_group, h5py.File):
+        raise TypeError(f"Input value 'pass_group' type is {type(pass_group)}, but expected h5py.Group or h5py.File.")
+    
     # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
     def custom_formatwarning(msg, *args, **kwargs):
         # ignore everything except the message
@@ -325,6 +331,9 @@ def get_total_subgroups(group: h5py.Group) -> int:
     int
         The total number of subgroups in the group
     """
+    if not isinstance(group, h5py.Group) and not isinstance(group, h5py.File):
+        raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
+    
     sub_groups = 0
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
@@ -353,12 +362,13 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     # hh
     if not isinstance(hh, str):
         raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
-    # ensure the path exists
-    assert Path(hh).exists(), f"Path '{hh}' does not exist."
+    if not Path(hh).exists():
+        raise FileNotFoundError(f"Path '{hh}' does not exist.")
     # vh
     if not isinstance(vh, str):
         raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
-    assert Path(vh).exists(), f"Path '{vh}' does not exist."
+    if not Path(vh).exists():
+        raise FileNotFoundError(f"Path '{vh}' does not exist.")
     
     prefix = hh.split("data/")[0]
 

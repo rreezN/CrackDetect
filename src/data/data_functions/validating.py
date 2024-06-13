@@ -4,10 +4,11 @@ import h5py
 import os
 import warnings
 from scipy.interpolate import PchipInterpolator
+from sympy import ShapeError
 from tqdm import tqdm
 from typing import Iterable
 
-
+from pathlib import Path
 
 # ========================================================================================================================
 #           Validation functions
@@ -28,6 +29,10 @@ def distance_gps(gps: np.ndarray) -> np.ndarray:
     np.ndarray
         The accumulated distance in meters
     """
+    if not isinstance(gps, np.ndarray):
+        raise TypeError(f"Input value 'gps' type is {type(gps)}, but expected np.ndarray.")
+    if not gps.shape[1] == 2:
+        raise ShapeError(f"Input value 'gps' shape is {gps.shape}, but expected (n, 2).")
     # Extract lat and lon
     lat = gps[:, 0]
     lon = gps[:, 1]
@@ -66,6 +71,13 @@ def clean_int(tick: np.ndarray, response: np.ndarray, tick_int: np.ndarray) -> n
     np.ndarray
         The interpolated response values
     """
+    if not isinstance(tick, np.ndarray):
+        raise TypeError(f"Input value 'tick' type is {type(tick)}, but expected np.ndarray.")
+    if not isinstance(response, np.ndarray):
+        raise TypeError(f"Input value 'response' type is {type(response)}, but expected np.ndarray.")
+    if not isinstance(tick_int, np.ndarray):
+        raise TypeError(f"Input value 'tick_int' type is {type(tick_int)}, but expected np.ndarray.")
+    
     # Add offset to multiple data (in interpolant)
     ve = np.cumsum(np.ones_like(tick)) * np.abs(tick) * np.finfo(float).eps  # Scaled Offset For Non-Zero Elements
     ve += np.cumsum(np.ones_like(tick)) * (tick == 0) * np.finfo(float).eps  # Add Scaled Offset For Zero Elements
@@ -89,6 +101,14 @@ def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str
     verbose : bool (default False)
         Whether to plot the data for visual inspection
     """
+    if not isinstance(hh, str):
+        raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
+    if not Path(hh).exists():
+        raise FileNotFoundError(f"Input value 'hh' file does not exist: {hh}.")
+    if not isinstance(vh, str):
+        raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
+    if not Path(vh).exists():
+        raise FileNotFoundError(f"Input value 'vh' file does not exist: {vh}.")
 
     for file in [hh, vh]:
         with h5py.File(file, 'r+') as f:
@@ -96,9 +116,6 @@ def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str
                 for pass_name, pass_ in trip.items():
                     pbar.set_description(f"File: {os.path.basename(file)}, Validating {trip_name}, {pass_name}")
                     validate_pass(pass_, threshold, verbose)
-        
-
-
 
 def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
                  styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
@@ -122,6 +139,20 @@ def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: It
     title : str
         The title of the plot
     """
+    if not isinstance(time, np.ndarray):
+        raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
+    if not all(isinstance(sensor, np.ndarray) for sensor in sensors):
+        raise TypeError(f"Input value 'sensors' type is {type(sensors)}, but expected Iterable[np.ndarray].")
+    if not all(isinstance(label, str) for label in labels):
+        raise TypeError(f"Input value 'labels' type is {type(labels)}, but expected Iterable[str].")
+    if not all(isinstance(style, str) for style in styles):
+        raise TypeError(f"Input value 'styles' type is {type(styles)}, but expected Iterable[str].")
+    if ylabel is not None and not isinstance(ylabel, str):
+        raise TypeError(f"Input value 'ylabel' type is {type(ylabel)}, but expected str.")
+    if xlabel is not None and not isinstance(xlabel, str):
+        raise TypeError(f"Input value 'xlabel' type is {type(xlabel)}, but expected str.")
+    if title is not None and not isinstance(title, str):
+        raise TypeError(f"Input value 'title' type is {type(title)}, but expected str.")
 
     for sensor, label, style in zip(sensors, labels, styles):
         ax.plot(time, sensor, style, label=label)
@@ -150,6 +181,13 @@ def normalised_mse(x: np.ndarray, y: np.ndarray) -> float:
     float
         The normalised mean squared error
     """
+    if not isinstance(x, np.ndarray):
+        raise TypeError(f"Input value 'x' type is {type(x)}, but expected np.ndarray.")
+    if not isinstance(y, np.ndarray):
+        raise TypeError(f"Input value 'y' type is {type(y)}, but expected np.ndarray.")
+    if not x.shape == y.shape:
+        raise ShapeError(f"Input values 'x' and 'y' shapes are {x.shape} and {y.shape}, but expected to be equal.")
+    
     return np.mean((x-y)**2) / np.mean(np.maximum(x**2, y**2))
 
 def validate_pass(car: h5py.Group, threshold: float, verbose: bool = False) -> None:
@@ -166,7 +204,13 @@ def validate_pass(car: h5py.Group, threshold: float, verbose: bool = False) -> N
     verbose : bool
         Whether to plot the data for visual inspection
     """
-
+    if not isinstance(car, h5py.Group) and not isinstance(car, h5py.File):
+        raise TypeError(f"Input value 'car' type is {type(car)}, but expected h5py.File.")
+    if not isinstance(threshold, float):
+        raise TypeError(f"Input value 'threshold' type is {type(threshold)}, but expected float.")
+    if not isinstance(verbose, bool):
+        raise TypeError(f"Input value 'verbose' type is {type(verbose)}, but expected bool.")
+    
     # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
     def custom_formatwarning(msg, *args, **kwargs):
         # ignore everything except the message
