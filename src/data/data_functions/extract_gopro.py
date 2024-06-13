@@ -19,7 +19,6 @@ from pathlib import Path
 # ========================================================================================================================
 #           Hardcoded GoPro functions
 # ========================================================================================================================
-
 def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str, raw_folder: str = "data/raw/gopro") -> None:
     """
     Saves the GoPro data to a csv file for each trip
@@ -34,12 +33,17 @@ def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str, 
         The car number
     """
     # assert
-    assert type(car_trip) == str, f"Input value 'car_trip' type is {type(car_trip)}, but expected str."
-    assert type(go_pro_names) == list, f"Input value 'go_pro_names' type is {type(go_pro_names)}, but expected list."
-    assert type(car_number) == str, f"Input value 'car_number' type is {type(car_number)}, but expected str."
-    assert type(raw_folder) == str, f"Input value 'raw_folder' type is {type(raw_folder)}, but expected str."
+    if not isinstance(car_trip, str):
+        raise TypeError(f"Input value 'car_trip' type is {type(car_trip)}, but expected str.")
+    if not isinstance(go_pro_names, list):
+        raise TypeError(f"Input value 'go_pro_names' type is {type(go_pro_names)}, but expected list.")
+    if not all(isinstance(name, str) for name in go_pro_names):
+        raise TypeError(f"Input value 'go_pro_names' contains elements that are not str.")
+    if not isinstance(car_number, str):
+        raise TypeError(f"Input value 'car_number' type is {type(car_number)}, but expected str.")
+    if not isinstance(raw_folder, str):
+        raise TypeError(f"Input value 'raw_folder' type is {type(raw_folder)}, but expected str.")
     assert Path(raw_folder).exists(), f"Path '{raw_folder}' does not exist. Ensure gopro data is in the correct folder structure."
-    
     
     # Load all the gopro data 
     for measurement in ['accl', 'gps5', 'gyro']:
@@ -70,7 +74,8 @@ def preprocess_gopro_data(folder: str = "data/raw/gopro") -> None:
 
     NOTE: This function is hardcoded for the three trips in the CPH1 dataset
     """
-    assert type(folder) == str, f"Input value 'folder' type is {type(folder)}, but expected str."
+    if not isinstance(folder, str):
+        raise TypeError(f"Input value 'folder' type is {type(folder)}, but expected str.")
     assert Path(folder).exists(), f"Path '{folder}' does not exist. Ensure gopro data is in the correct folder structure."
 
     # Create gopro data for the three trips

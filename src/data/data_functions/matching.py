@@ -20,6 +20,21 @@ def match_data(
     """
     Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
     """
+    if not isinstance(aran_hh, str):
+        raise TypeError(f"Input value 'aran_hh' type is {type(aran_hh)}, but expected str.")
+    assert Path(aran_hh).exists(), f"Path '{aran_hh}' does not exist."
+    
+    if not isinstance(aran_vh, str):
+        raise TypeError(f"Input value 'aran_vh' type is {type(aran_vh)}, but expected str.")
+    assert Path(aran_vh).exists(), f"Path '{aran_vh}' does not exist."
+    
+    if not isinstance(p79_hh, str):
+        raise TypeError(f"Input value 'p79_hh' type is {type(p79_hh)}, but expected str.")
+    assert Path(p79_hh).exists(), f"Path '{p79_hh}' does not exist."
+    
+    if not isinstance(p79_vh, str):
+        raise TypeError(f"Input value 'p79_vh' type is {type(p79_vh)}, but expected str.")
+    assert Path(p79_vh).exists(), f"Path '{p79_vh}' does not exist."
 
     prefix = aran_hh.split("data/")[0]
 
@@ -73,12 +88,12 @@ def match_data(
 
             # Match to ARAN data
             aran_match = find_best_start_and_end_indeces_by_lonlat(aran_dir[["Lon", "Lat"]].values, segment_lonlat)
-            aran_segment = cut_dataframe_by_indeces(aran_dir, *aran_match)
+            aran_segment = cut_dataframe_by_indices(aran_dir, *aran_match)
             save_hdf5(aran_segment, prefix + 'data/interim/aran/segments.hdf5', segment_id=i, attributes=segment.attrs)
 
             # Match to P79 data
             p79_match = find_best_start_and_end_indeces_by_lonlat(p79_dir[["Lon", "Lat"]].values, segment_lonlat)
-            p79_segment = cut_dataframe_by_indeces(p79_dir, *p79_match)
+            p79_segment = cut_dataframe_by_indices(p79_dir, *p79_match)
             save_hdf5(p79_segment, prefix + 'data/interim/p79/segments.hdf5', segment_id=i, attributes=segment.attrs)
                 
             # gopro is a little different.. (These trips do not have any corresponding gopro data, so we skip them)
@@ -109,7 +124,10 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
     section : np.ndarray
         The longitudal and lattitudal coordinates of the section
     """
-
+    if not isinstance(trip, np.ndarray):
+        raise TypeError(f"Input value 'trip' type is {type(trip)}, but expected np.ndarray.")
+    if not isinstance(section, np.ndarray):
+        raise TypeError(f"Input value 'section' type is {type(section)}, but expected np.ndarray.")
     # Find the start and end indeces of the section data that are closest to the trip data
     lon_a, lat_a = trip[:,0], trip[:,1]
     lon_b, lat_b = section[:,0], section[:,1]
@@ -131,7 +149,10 @@ def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, go
     gopro_time : np.ndarray
         The time data from the GoPro
     """
-
+    if not isinstance(current_segment_time, np.ndarray):
+        raise TypeError(f"Input value 'current_segment_time' type is {type(current_segment_time)}, but expected np.ndarray.")
+    if not isinstance(gopro_time, np.ndarray):
+        raise TypeError(f"Input value 'gopro_time' type is {type(gopro_time)}, but expected np.ndarray.")
     # Find the start and end indeces of the section data based on time
     current_segment_start_time = current_segment_time[0, 0]
     current_segment_end_time = current_segment_time[-1, 0]
@@ -148,5 +169,29 @@ def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, go
     return start_index, end_index, start_diff, end_diff
 
 
-def cut_dataframe_by_indeces(df: pd.DataFrame, start: int, end: int) -> pd.DataFrame:
+def cut_dataframe_by_indices(df: pd.DataFrame, start: int, end: int) -> pd.DataFrame:
+    """
+    Cut the dataframe by the start and end indeces
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe to cut
+    start : int
+        The start index
+    end : int
+        The end index
+    
+    Returns
+    -------
+    pd.DataFrame
+        The cut dataframe
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(f"Input value 'df' type is {type(df)}, but expected pd.DataFrame.")
+    if not isinstance(start, int):
+        raise TypeError(f"Input value 'start' type is {type(start)}, but expected int.")
+    if not isinstance(end, int):
+        raise TypeError(f"Input value 'end' type is {type(end)}, but expected int.")
+    # Cut the dataframe by the start and end indeces
     return df.iloc[start:end]
