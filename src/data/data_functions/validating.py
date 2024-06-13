@@ -1,10 +1,12 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import h5py
+import os
+import warnings
 from scipy.interpolate import PchipInterpolator
 from tqdm import tqdm
 from typing import Iterable
-import matplotlib.pyplot as plt
 
-from .hdf5_utils import unpack_hdf5
 
 
 # ========================================================================================================================
@@ -87,18 +89,16 @@ def validate(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh: str
     verbose : bool (default False)
         Whether to plot the data for visual inspection
     """
-    # Save gm data with converted values
-    autopi_hh = unpack_hdf5(hh)
-    autopi_vh = unpack_hdf5(vh)
 
-    iterator = tqdm([autopi_hh, autopi_vh])
+    for file in [hh, vh]:
+        with h5py.File(file, 'r+') as f:
+            for trip_name, trip in (pbar := tqdm(f['GM'].items())):
+                for pass_name, pass_ in trip.items():
+                    pbar.set_description(f"File: {os.path.basename(file)}, Validating {trip_name}, {pass_name}")
+                    validate_pass(pass_, threshold, verbose)
+        
 
-    # Validate the trips
-    for file in iterator:
-        for trip_name, trip in file['GM'].items():
-            for pass_name, pass_ in trip.items():
-                iterator.set_description(f"Validating {trip_name}/{pass_name}")
-                validate_pass(pass_, threshold, verbose)
+
 
 def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: Iterable[str], \
                  styles: Iterable[str], ylabel: str = None, xlabel: str = None, title: str = None) -> None:
@@ -135,20 +135,27 @@ def plot_sensors(ax, time: np.ndarray, sensors: Iterable[np.ndarray], labels: It
         ax.set_title(title)
 
 
-def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
+def validate_pass(car: h5py.Group, threshold: float, verbose: bool = False) -> None:
     """
     Main validation function for validating the data by comparing the AutoPi data and the CAN data (car sensors).
     NOTE: This function is a translation of the MATLAB code from PLATOON_SENSOR_VAL.m by Asmus Skar.
 
     Parameters
     ----------
-    car : dict
+    car : h5py.Group
         The car data to validate
     threshold : float
         The threshold for the correlation between the AutoPi and CAN data
     verbose : bool
         Whether to plot the data for visual inspection
     """
+
+    # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
+    def custom_formatwarning(msg, *args, **kwargs):
+        # ignore everything except the message
+        return '\n' + str(msg) + '\n'
+
+    warnings.formatwarning = custom_formatwarning
     
     fs = 10 # Sampling frequency
 
@@ -194,42 +201,59 @@ def validate_pass(car: dict, threshold: float, verbose: bool = False) -> None:
     lat_100hz   = clean_int(tgps-time_start_max, lat, time)
     odo_100hz   = clean_int(todo-time_start_max, odo, time)
 
-    # Reorient accelerations
-    alon = axcan_100hz.copy()
-    atrans = aycan_100hz.copy()
-    axpn = axrpi_100hz * 9.81
-    aypn = ayrpi_100hz * 9.81
-    azpn = azrpi_100hz * 9.81
+    # # Reorient accelerations
+    # alon = axcan_100hz.copy()
+    # atrans = aycan_100hz.copy()
+    # axpn = axrpi_100hz * 9.81
+    # aypn = ayrpi_100hz * 9.81
+    # azpn = azrpi_100hz * 9.81
 
-    # Calculate correlation with CAN accelerations
-    pcxl = np.corrcoef(axpn, alon)[0, 1]
-    pcyl = np.corrcoef(aypn, alon)[0, 1]
+    # # Calculate correlation with CAN accelerations
+    # pcxl = np.corrcoef(axpn, alon)[0, 1]
+    # pcyl = np.corrcoef(aypn, alon)[0, 1]
 
-    pcxt = np.corrcoef(axpn, atrans)[0, 1]
-    pcyt = np.corrcoef(aypn, atrans)[0, 1]
+    # pcxt = np.corrcoef(axpn, atrans)[0, 1]
+    # pcyt = np.corrcoef(aypn, atrans)[0, 1]
     
-    # Determine the orientation of the sensors
-    if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
-        if pcxt < 0:
-            axrpi_100hz = aypn
-            ayrpi_100hz = -axpn
-        else:
-            axrpi_100hz = aypn
-            ayrpi_100hz = axpn
-    else:
-        if pcyt < 0:
-            axrpi_100hz = axpn
-            ayrpi_100hz = -aypn
-        else:
-            axrpi_100hz = axpn
-            ayrpi_100hz = aypn
-    
-    # Update the acceleration sensors with the reoriented values
-    axcan_100hz = alon
-    aycan_100hz = atrans
-    azrpi_100hz = azpn
+    # # Determine the orientation of the sensors
+    # # NOTE: Here we also alter the entries in the original converted data if necessary!
+    # if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
+    #     if pcxt < 0:
+    #         axrpi_100hz = aypn
+    #         ayrpi_100hz = -axpn
 
+    #         # Update the car: h5py.Group to reflect the reorientation
+    #         warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, -x, z)")
+    #         y_acc = car['acc.xyz'][:, 2]                    
+    #         car['acc.xyz'][:, 2] = -car['acc.xyz'][:, 1]    # y = -x
+    #         car['acc.xyz'][:, 1] = y_acc                    # x = y
+
+    #     else:
+    #         axrpi_100hz = aypn
+    #         ayrpi_100hz = axpn
+
+    #         # Update the car: h5py.Group to reflect the reorientation
+    #         warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, x, z)")
+    #         y_acc = car['acc.xyz'][:, 2]
+    #         car['acc.xyz'][:, 2] = car['acc.xyz'][:, 1]    # y = x
+    #         car['acc.xyz'][:, 1] = y_acc                   # x = y
+    # else:
+    #     if pcyt < 0:
+    #         axrpi_100hz = axpn
+    #         ayrpi_100hz = -aypn
+
+    #         # Update the car: h5py.Group to reflect the reorientation
+    #         warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (x, -y, z)")
+    #         car['acc.xyz'][:, 2] = -car['acc.xyz'][:, 2]    # y = -y
+
+    #     else:
+    #         axrpi_100hz = axpn
+    #         ayrpi_100hz = aypn
     
+    # # Update the acceleration sensors with the reoriented values
+    # axcan_100hz = alon
+    # aycan_100hz = atrans
+    # azrpi_100hz = azpn
 
     # ACCELERATION MEASURE
     #   x-acceleration
