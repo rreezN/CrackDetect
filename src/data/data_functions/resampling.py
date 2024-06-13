@@ -14,17 +14,36 @@ from .matching import find_best_start_and_end_indeces_by_lonlat
 
 def interpolate(x: np.ndarray, y: np.ndarray, x_new: np.ndarray) -> np.ndarray:
     # Interpolate y values for x_new using x and y
+    if not isinstance(x, np.ndarray):
+        raise TypeError(f"Input value 'x' type is {type(x)}, but expected np.ndarray.")
+    if not isinstance(y, np.ndarray):
+        raise TypeError(f"Input value 'y' type is {type(y)}, but expected np.ndarray.")
+    if not isinstance(x_new, np.ndarray):
+        raise TypeError(f"Input value 'x_new' type is {type(x_new)}, but expected np.ndarray.")
+    
     return np.interp(x_new, x, y)
 
 
 def remove_duplicates(time: np.ndarray, value: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     # Remove duplicate timestamps
+    if not isinstance(time, np.ndarray):
+        raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
+    if not isinstance(value, np.ndarray):
+        raise TypeError(f"Input value 'value' type is {type(value)}, but expected np.ndarray.")
+    
     time_mask = np.concatenate((np.array([True]), np.diff(time) > 0))
     return time[time_mask], value[time_mask]
 
 
-def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: int = 1) -> np.ndarray:
+def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: float = 1) -> np.ndarray:
     # Calculate the distance from the time and speed measurements
+    if not isinstance(time, np.ndarray):
+        raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
+    if not isinstance(speed, np.ndarray):
+        raise TypeError(f"Input value 'speed' type is {type(speed)}, but expected np.ndarray.")
+    if not isinstance(conversion_factor, float | int):
+        raise TypeError(f"Input value 'conversion_factor' type is {type(conversion_factor)}, but expected float or int.")
+
     distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / conversion_factor)
     distance = np.insert(distance, 0, 0)
     return distance
@@ -46,7 +65,11 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
     new_section : dict[str, np.ndarray]
         The resampled section data
     """
-
+    if not isinstance(section, h5py.Group | h5py.File):
+        raise TypeError(f"Input value 'section' type is {type(section)}, but expected h5py.Group or h5py.File.")
+    if not isinstance(frequency, int):
+        raise TypeError(f"Input value 'frequency' type is {type(frequency)}, but expected int.")
+    
     # Calculate the distance between each point
     time, speed = remove_duplicates(
         section['spd_veh'][()][:, 0],
@@ -100,6 +123,10 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray) -> dict
     new_section : dict[str, np.ndarray]
         The resampled section data
     """
+    if not isinstance(section, h5py.Group | h5py.File):
+        raise TypeError(f"Input value 'section' type is {type(section)}, but expected h5py.Group or h5py.File.")
+    if not isinstance(resampled_distances, np.ndarray):
+        raise TypeError(f"Input value 'resampled_distances' type is {type(resampled_distances)}, but expected np.ndarray.")
 
     gps5 = section["gps5"]
     gps5_time, gps5_speed = gps5["date"][()], gps5["GPS (3D speed) [m_s]"][()]
@@ -148,6 +175,13 @@ def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndar
     bit_data : np.ndarray
         The 1 second bit data
     """
+    if not isinstance(segment, h5py.Group | h5py.File):
+        raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
+    if not isinstance(start, int):
+        raise TypeError(f"Input value 'start' type is {type(start)}, but expected int.")
+    if not isinstance(end, int):
+        raise TypeError(f"Input value 'end' type is {type(end)}, but expected int.")
+
     bit_data = np.zeros((end - start, len(segment.keys())))
     bit_attributes = {}
     for i, (key, value) in enumerate(segment.items()):
@@ -171,6 +205,28 @@ def resample(
     verbose : bool
         Whether to plot the resampled 1 second bits for visual inspection
     """
+    if not isinstance(gm_file, str):
+        raise TypeError(f"Input value 'gm_file' type is {type(gm_file)}, but expected str.")
+    if not Path(gm_file).exists():
+        raise FileNotFoundError(f"Input value 'gm_file' does not exist.")
+    
+    if not isinstance(gopro_file, str):
+        raise TypeError(f"Input value 'gopro_file' type is {type(gopro_file)}, but expected str.")
+    if not Path(gopro_file).exists():
+        raise FileNotFoundError(f"Input value 'gopro_file' does not exist.")
+    
+    if not isinstance(aran_file, str):
+        raise TypeError(f"Input value 'aran_file' type is {type(aran_file)}, but expected str.")
+    if not Path(aran_file).exists():
+        raise FileNotFoundError(f"Input value 'aran_file' does not exist.")
+    
+    if not isinstance(p79_file, str):
+        raise TypeError(f"Input value 'p79_file' type is {type(p79_file)}, but expected str.")
+    if not Path(p79_file).exists():
+        raise FileNotFoundError(f"Input value 'p79_file' does not exist.")
+    
+    if not isinstance(verbose, bool):
+        raise TypeError(f"Input value 'verbose' type is {type(verbose)}, but expected bool.")
 
     frequency = 250
     seconds_per_step = 1
@@ -289,7 +345,22 @@ def resample(
 
 def verbose_resample_plot(bit_lonlat: np.ndarray, aran_segment_lonlat: np.ndarray, aran_match_bit: tuple[int, int], p79_segment_lonlat: np.ndarray, p79_match_bit: tuple[int, int]) -> None:
     """ Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data """
-
+    if not isinstance(bit_lonlat, np.ndarray):
+        raise TypeError(f"Input value 'bit_lonlat' type is {type(bit_lonlat)}, but expected np.ndarray.")
+    if not isinstance(aran_segment_lonlat, np.ndarray):
+        raise TypeError(f"Input value 'aran_segment_lonlat' type is {type(aran_segment_lonlat)}, but expected np.ndarray.")
+    if not isinstance(aran_match_bit, tuple):
+        raise TypeError(f"Input value 'aran_match_bit' type is {type(aran_match_bit)}, but expected tuple.")
+    if not all(isinstance(i, int) for i in aran_match_bit):
+        raise TypeError(f"Input value 'aran_match_bit' elements type is {type(aran_match_bit[0])}, but expected int.")
+    if not isinstance(p79_segment_lonlat, np.ndarray):
+        raise TypeError(f"Input value 'p79_segment_lonlat' type is {type(p79_segment_lonlat)}, but expected np.ndarray.")
+    if not isinstance(p79_match_bit, tuple):
+        raise TypeError(f"Input value 'p79_match_bit' type is {type(p79_match_bit)}, but expected tuple.")
+    if not all(isinstance(i, int) for i in p79_match_bit):
+        raise TypeError(f"Input value 'p79_match_bit' elements type is {type(p79_match_bit[0])}, but expected int.")
+    
+    
     fig, ax = plt.subplots()
     ax.plot(bit_lonlat[:, 0], bit_lonlat[:, 1], label='GM', c='k')
     # Extract ARAN and P79 with n extra points on each side for better visualization

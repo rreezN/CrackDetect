@@ -22,19 +22,31 @@ def match_data(
     """
     if not isinstance(aran_hh, str):
         raise TypeError(f"Input value 'aran_hh' type is {type(aran_hh)}, but expected str.")
-    assert Path(aran_hh).exists(), f"Path '{aran_hh}' does not exist."
+    if not Path(aran_hh).exists():
+        raise FileNotFoundError(f"Path '{aran_hh}' does not exist.")
+    if not Path(aran_hh).suffix == '.csv':
+        raise ValueError(f"File '{aran_hh}' is not a csv file. Expected .csv file.")
     
     if not isinstance(aran_vh, str):
         raise TypeError(f"Input value 'aran_vh' type is {type(aran_vh)}, but expected str.")
-    assert Path(aran_vh).exists(), f"Path '{aran_vh}' does not exist."
-    
+    if not Path(aran_vh).exists():
+        raise FileNotFoundError(f"Path '{aran_vh}' does not exist.")
+    if not Path(aran_vh).suffix == '.csv':
+        raise ValueError(f"File '{aran_vh}' is not a csv file. Expected .csv file.")
+
     if not isinstance(p79_hh, str):
         raise TypeError(f"Input value 'p79_hh' type is {type(p79_hh)}, but expected str.")
-    assert Path(p79_hh).exists(), f"Path '{p79_hh}' does not exist."
-    
+    if not Path(p79_hh).exists():
+        raise FileNotFoundError(f"Path '{p79_hh}' does not exist.")
+    if not Path(p79_hh).suffix == '.csv':
+        raise ValueError(f"File '{p79_hh}' is not a csv file. Expected .csv file.")
+
     if not isinstance(p79_vh, str):
         raise TypeError(f"Input value 'p79_vh' type is {type(p79_vh)}, but expected str.")
-    assert Path(p79_vh).exists(), f"Path '{p79_vh}' does not exist."
+    if not Path(p79_vh).exists():
+        raise FileNotFoundError(f"Path '{p79_vh}' does not exist.")
+    if not Path(p79_vh).suffix == '.csv':
+        raise ValueError(f"File '{p79_vh}' is not a csv file. Expected .csv file.")
 
     prefix = aran_hh.split("data/")[0]
 
