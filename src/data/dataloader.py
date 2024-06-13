@@ -33,18 +33,15 @@ class Platoon(torch.utils.data.Dataset):
                 permutations.append((key_val, sec_val))
 
         # Create indices for train, test and validation
-        train_indices, test_indices, _, _ = train_test_split(permutations, permutations, test_size=0.2, random_state=random_state)
-        train_indices, val_indices, _, _ = train_test_split(train_indices, train_indices, test_size=0.1, random_state=random_state)
+        train_indices, test_indices, _, _ = train_test_split(permutations, permutations, test_size=0.15, random_state=random_state)
         
         # Set the indices based on the data type
         if data_type == 'train':
             self.indices = train_indices
         elif data_type == 'test':
             self.indices = test_indices
-        elif data_type == 'val':
-            self.indices = val_indices
         else:
-            raise ValueError('data_type must be either "train", "test" or "val"')
+            raise ValueError('data_type must be either "train" or "test"')
         
         # Store the mean and std of the training data for normalization
         data_per_segment = len(self.segments['0']['2']['gm'])

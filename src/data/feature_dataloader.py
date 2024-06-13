@@ -14,6 +14,7 @@ class Features(torch.utils.data.Dataset):
         data_type (str): The type of data to load (train, val, test).
         kpi_window (int): The size of the KPI window (1 or 2 seconds).
         feature_transform (callable): The transform function to apply to the features.
+        fold (int): The cross-validation fold to load the data from. Default is -1 (no cross-validation).
     """
     
     def __init__(self, 
@@ -21,16 +22,19 @@ class Features(torch.utils.data.Dataset):
                  feature_extractors: list[str] = ['MultiRocket_50000', 'Hydra_2'], 
                  name_identifier: str = '', 
                  data_type:str = 'train', 
-                 kpi_window: int = 1):
+                 kpi_window: int = 1,
+                 fold: int = -1):
         
         assert kpi_window in [1, 2], 'The kpi window size must be 1 or 2 seconds'
+        assert data_type in ['train', 'val', 'test'], 'The data type must be either "train", "val" or "test"'
         
         self.data_path = data_path
         self.feature_extractors = feature_extractors
         self.name_identifier = name_identifier
         self.kpi_window_size = str(kpi_window)
-        
         self.data_type = data_type
+        self.fold = fold
+        
         
         self.data = h5py.File(self.data_path, 'r')
         
@@ -41,18 +45,28 @@ class Features(torch.utils.data.Dataset):
         self.feature_maxs = []
         self.feature_means = []
         self.feature_stds = []
+        
         for i in range(len(feature_extractors)):
             name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
-            self.feature_mins.append(torch.tensor(self.data['train']['statistics'][name]['min'][()]))
-            self.feature_maxs.append(torch.tensor(self.data['train']['statistics'][name]['max'][()]))
-            self.feature_means.append(torch.tensor(self.data['train']['statistics'][name]['mean'][()]))
-            self.feature_stds.append(torch.tensor(self.data['train']['statistics'][name]['std'][()]))
+            if self.fold != -1:
+                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
+            else:
+                data_tree_path = self.data['train']['statistics'][name]
+            self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
+            self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
+            self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
+            self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
         
         # Load the KPI statistics
-        self.kpi_means = self.data['train']['statistics']['kpis'][str(kpi_window)]['mean'][()]
-        self.kpi_stds = self.data['train']['statistics']['kpis'][str(kpi_window)]['std'][()]
-        self.kpi_mins = self.data['train']['statistics']['kpis'][str(kpi_window)]['min'][()]
-        self.kpi_maxs = self.data['train']['statistics']['kpis'][str(kpi_window)]['max'][()]
+        if self.fold != -1:
+            data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
+        else:
+            data_tree_path = self.data['train']['statistics']['kpis'][str(kpi_window)]
+        
+        self.kpi_means = data_tree_path['mean'][()]
+        self.kpi_stds = data_tree_path['std'][()]
+        self.kpi_mins = data_tree_path['min'][()]
+        self.kpi_maxs = data_tree_path['max'][()]
         
         # Unfold the data to (segment, second)
         permutations = []
@@ -87,7 +101,12 @@ class Features(torch.utils.data.Dataset):
         segment_index = str(self.indices[idx][0])
         second_index = str(self.indices[idx][1])
         
-        data = self.data[self.data_type]['segments'][segment_index][second_index]
+        # Load the data from the HDF5 file based on fold (and if fold is -1, no cross-validation is used)
+        if self.fold != -1:
+            data = self.data[self.data_type][f'fold_{self.fold}']['segments'][segment_index][second_index]
+        else:
+            data = self.data[self.data_type]['segments'][segment_index][second_index]
+            
         features = torch.tensor([])
         
         # Concatenate the features from all feature extractors (as done in the Hydra paper for HydraMultiRocket)
