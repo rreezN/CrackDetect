@@ -180,11 +180,10 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     
     # Specify iterator based on verbose
     if verbose:
-        pbar = tqdm(total=get_total_subgroups(original_file))
+        pbar = tqdm(total=get_total_subgroups(original_file) + 1)
     iterator = original_file.keys()
 
     # Convert the data in the original AutoPi CAN file to the converted file
-    is_leaf_group = True
     for key in iterator:
         if pbar is not None:
             pbar.set_description(f"Converting {original_file.name}/{key}")
@@ -193,7 +192,6 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         if isinstance(original_file[key], h5py.Group):
             subgroup = converted_file.create_group(key)
             convert_autopi_can(original_file[key], subgroup, pbar=pbar)
-            is_leaf_group = False
 
         # Convert the data
         else:
