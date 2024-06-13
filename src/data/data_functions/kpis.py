@@ -14,7 +14,6 @@ import h5py
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from pathlib import Path
 
 
 # ========================================================================================================================
@@ -137,8 +136,8 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     np.ndarray
         The KPIs for the given second.
     """
-    if not isinstance(segment, h5py.Group) or not isinstance(segment, h5py.File):
-        raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
+    # if not isinstance(segment, h5py.Group) or not isinstance(segment, h5py.File):
+    #     raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
     if not isinstance(second_index, int):
         raise TypeError(f"Input value 'second_index' type is {type(second_index)}, but expected int.")
     if not isinstance(window_size, int):

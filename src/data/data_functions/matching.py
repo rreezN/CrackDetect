@@ -135,10 +135,10 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
     start_index = np.argmin(np.linalg.norm(np.column_stack((lon_a, lat_a)) - np.array([lon_b[0], lat_b[0]]), axis=1))
     end_index = np.argmin(np.linalg.norm(np.column_stack((lon_a, lat_a)) - np.array([lon_b[-1], lat_b[-1]]), axis=1))
 
-    return start_index, end_index+1
+    return start_index.item(), end_index.item()+1
 
 
-def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, gopro_time: np.ndarray) -> tuple[int, int, float, float]:
+def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, gopro_time: pd.Series) -> tuple[int, int, float, float]:
     """
     Find the start and end indeces of the section data based on time
 
@@ -146,13 +146,13 @@ def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, go
     ----------
     current_segment : np.ndarray
         The time data from the current segment
-    gopro_time : np.ndarray
+    gopro_time : pd.Series
         The time data from the GoPro
     """
     if not isinstance(current_segment_time, np.ndarray):
         raise TypeError(f"Input value 'current_segment_time' type is {type(current_segment_time)}, but expected np.ndarray.")
-    if not isinstance(gopro_time, np.ndarray):
-        raise TypeError(f"Input value 'gopro_time' type is {type(gopro_time)}, but expected np.ndarray.")
+    if not isinstance(gopro_time, pd.Series):
+        raise TypeError(f"Input value 'gopro_time' type is {type(gopro_time)}, but expected pd.Series.")
     # Find the start and end indeces of the section data based on time
     current_segment_start_time = current_segment_time[0, 0]
     current_segment_end_time = current_segment_time[-1, 0]

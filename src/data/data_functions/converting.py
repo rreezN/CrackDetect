@@ -178,12 +178,11 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     
     # Specify iterator based on verbose
     if verbose:
-        iterator = tqdm(original_file.keys())
-        pbar = iterator
-    else:
-        iterator = original_file.keys()
+        pbar = tqdm(total=get_total_subgroups(original_file))
+    iterator = original_file.keys()
 
     # Convert the data in the original AutoPi CAN file to the converted file
+    is_leaf_group = True
     for key in iterator:
         if pbar is not None:
             pbar.set_description(f"Converting {original_file.name}/{key}")
@@ -192,6 +191,7 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         if isinstance(original_file[key], h5py.Group):
             subgroup = converted_file.create_group(key)
             convert_autopi_can(original_file[key], subgroup, pbar=pbar)
+            is_leaf_group = False
 
         # Convert the data
         else:
@@ -204,6 +204,8 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
             # Save the data to the converted file
             converted_file.create_dataset(key, data=data)
 
+    if pbar is not None:
+        pbar.update(1)
 
 def reorient_autopi_can(converted_file: h5py.Group) -> None:
     """
@@ -305,6 +307,28 @@ def reorient_pass(pass_group: h5py.Group) -> None:
         else:
             # No reorientation needed
             pass
+
+
+def get_total_subgroups(group: h5py.Group) -> int:
+    """
+    Get the total number of subgroups in the group.
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The group to get the total number of subgroups from
+
+    Returns
+    -------
+    int
+        The total number of subgroups in the group
+    """
+    sub_groups = 0
+    for key in group.keys():
+        if isinstance(group[key], h5py.Group):
+            sub_groups += 1
+            sub_groups += get_total_subgroups(group[key])
+    return sub_groups
 
 
 def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5') -> None:
