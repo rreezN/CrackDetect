@@ -56,7 +56,7 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
     dict
         The unpacked data
     """
-    assert type(group) == h5py.Group, f"Input value 'group' type is {type(group)}, but expected h5py.Group."
+    assert (type(group) == h5py.Group or type(group) == h5py.File), f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File."
     
     data = {}
     for key in group.keys():
@@ -84,7 +84,6 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: Optional[str] = None, attr
     segment_id : str
         The segment id to save the data to. If None, the data is saved to the root of the hdf5 file
     """
-    assert Path(hdf5_file).exists(), f"Path '{hdf5_file}' does not exist."
     assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
 
     if segment_id is None:

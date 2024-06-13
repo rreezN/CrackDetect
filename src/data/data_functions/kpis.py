@@ -59,8 +59,6 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     # Assert that data exists
     assert Path(wo_path).exists(), f"Path '{wo_path}' does not exist."
     assert Path(wo_path).suffix == '.hdf5', f"File '{wo_path}' is not a hdf5 file."
-    assert Path(w_path).exists(), f"Path '{w_path}' does not exist."
-    assert Path(w_path).suffix == '.hdf5', f"File '{w_path}' is not a hdf5 file."
     
     # Load processed data    
     with h5py.File(wo_path, 'r') as f:
@@ -135,7 +133,7 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     np.ndarray
         The KPIs for the given second.
     """
-    assert type(segment) == h5py.Group, f"Input value 'segment' type is {type(segment)}, but expected h5py.Group."
+    assert (type(segment) == h5py.Group or type(segment) == h5py.File), f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File."
     assert type(second_index) == int, f"Input value 'second_index' type is {type(second_index)}, but expected int."
     assert type(window_size) == int, f"Input value 'window_size' type is {type(window_size)}, but expected int."
     

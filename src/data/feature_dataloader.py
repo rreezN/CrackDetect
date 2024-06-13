@@ -16,8 +16,12 @@ class Features(torch.utils.data.Dataset):
         feature_transform (callable): The transform function to apply to the features.
     """
     
-    def __init__(self, data_path: str = 'data/processed/features.hdf5', feature_extractors: list[str] = ['MultiRocket_50000', 'Hydra_2'], name_identifier: str = '', 
-                 data_type:str = 'train', kpi_window: int = 1):
+    def __init__(self, 
+                 data_path: str = 'data/processed/features.hdf5', 
+                 feature_extractors: list[str] = ['MultiRocket_50000', 'Hydra_2'], 
+                 name_identifier: str = '', 
+                 data_type:str = 'train', 
+                 kpi_window: int = 1):
         
         assert kpi_window in [1, 2], 'The kpi window size must be 1 or 2 seconds'
         
@@ -104,7 +108,7 @@ class Features(torch.utils.data.Dataset):
             # If std = 0, set nan to 0 (no information in the feature)
             # This happens to the MultiRocket features in some cases
             # The authors of the MultiRocket paper also set the transformed features to 0 in these cases
-            feats = torch.nan_to_num(feats)
+            feats = torch.nan_to_num(feats, posinf=0, neginf=0)
             
             features = torch.cat((features, feats))
             

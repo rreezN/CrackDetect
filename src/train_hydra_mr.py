@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from models.hydramr import HydraMRRegressor
 from models.regressor import Regressor
 from data.feature_dataloader import Features
+import os
 
 
 def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 10, lr: float = 0.001):
@@ -97,14 +98,16 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
         x = np.arange(1, epoch+2, step=1)
         plt.plot(x, epoch_train_losses, label="Train loss")
         plt.plot(x, epoch_val_losses, label="Val loss")
-        plt.xticks(x)
+        # plt.xticks(x)
         plt.title('Loss per epoch')
         plt.ylim(0, min(5, max(max(epoch_train_losses), max(epoch_val_losses))+1))
         plt.ylabel('Loss')
         plt.xlabel('Epoch')
         plt.legend()
+        plt.grid()
         plt.tight_layout()
-        plt.savefig(f'reports/figures/model_results/{model.name}_loss.pdf')
+        os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
+        plt.savefig(f'reports/figures/model_results/{model.name}/loss.pdf')
         plt.close()
     
     torch.save(model.state_dict(), f'models/{model.name}.pt')
@@ -129,6 +132,7 @@ if __name__ == '__main__':
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
     feature_extractors = args.feature_extractors
+    # feature_extractors = ['HydraMV_8_64']
     
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
@@ -145,7 +149,7 @@ if __name__ == '__main__':
     
     # Create model
     # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-    model = HydraMRRegressor(input_shape[0], target_shape[0]) 
+    model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
     
     # Train
     train(model, train_loader, val_loader)

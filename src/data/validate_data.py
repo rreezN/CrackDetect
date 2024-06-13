@@ -208,6 +208,106 @@ def distributions_of_sensors_in_gm(segments, cols=['acc.xyz_0', 'acc.xyz_1', 'ac
     plt.rcParams['patch.linewidth'] = 1
     plt.rcParams['patch.edgecolor'] = 'black'
 
+
+import numpy as np
+
+from scipy.interpolate import interp1d
+
+def upsample_gyroscope(gyroscope, new_length):
+    # gyroscope is a numpy array of shape (n, 3)
+    # new_length is the desired length of the upsampled data
+
+    # create an array of the current indices
+    old_indices = np.linspace(0, gyroscope.shape[0]-1, gyroscope.shape[0])
+
+    # create an array of the new indices
+    new_indices = np.linspace(0, gyroscope.shape[0]-1, new_length)
+
+    # create a new empty array for the upsampled data
+    upsampled_gyroscope = np.empty((new_length, 3))
+
+    # iterate over each dimension
+    for i in range(3):
+        # create an interpolation function for this dimension
+        f = interp1d(old_indices, gyroscope[:, i])
+
+        # use the interpolation function to compute the upsampled data
+        upsampled_gyroscope[:, i] = f(new_indices)
+
+    return upsampled_gyroscope
+
+
+def rotate_acceleration(acceleration, gyroscope):
+    # acceleration and gyroscope are numpy arrays of shape (n, 3)
+    # acceleration is measured in m/s^2
+    # gyroscope is measured in rad/s
+
+    # create an empty array to store the rotated acceleration
+    rotated_acceleration = np.empty_like(acceleration)
+
+    # iterate over each acceleration and gyroscope measurement
+    for i in range(acceleration.shape[0]):
+        # get the current acceleration and gyroscope measurement
+        acc = acceleration[i]
+        gyro = gyroscope[i]
+        
+        # Based on the euler angles of the gopro camera, we have an intrisic rotation of the gyroscope
+        # https://www.wikiwand.com/en/Rotation_matrix
+        alpha = gyro[0]
+        beta = gyro[1]
+        gamma = gyro[2]
+        # create the rotation matrices
+        Rx = np.array([[1, 0, 0],
+                       [0, np.cos(alpha), -np.sin(alpha)],
+                       [0, np.sin(alpha), np.cos(alpha)]])
+        
+        Ry = np.array([[np.cos(beta), 0, np.sin(beta)],
+                       [0, 1, 0],
+                       [-np.sin(beta), 0, np.cos(beta)]])
+        
+        Rz = np.array([[np.cos(gamma), -np.sin(gamma), 0],
+                       [np.sin(gamma), np.cos(gamma), 0],
+                       [0, 0, 1]])
+
+        # rotate the acceleration
+        rotated_acceleration[i] = (Rz @ Ry @ Rx) @ acc
+
+    return rotated_acceleration
+
+def plot_z_acceleration_between_gm_and_gopro(segments: h5py.File, smooth_go_pro: bool = False):
+    import statsmodels.api as sm
+    gyro_cols = ['Gyroscope (x) [rad_s]', 'Gyroscope (y) [rad_s]', 'Gyroscope (z) [rad_s]']
+    gopro_cols = ['Accelerometer (x) [m_s2]', 'Accelerometer (y) [m_s2]', 'Accelerometer (z) [m_s2]']
+    
+    for segment in tqdm(segments.values()):
+        for i, seconds in segment.items():
+            gm = seconds['gm']
+            gopro = seconds['gopro']
+            
+            gyro = np.stack([gopro[()][:, gopro.attrs[i]] for i in gyro_cols]).T
+            
+            gm_z_acc = gm[()][:, gm.attrs['acc.xyz_2']]
+            
+            x = np.arange(gm_z_acc.shape[0])
+            gopro_acc = np.stack([gopro[()][:, gopro.attrs[i]] / 9.81 for i in gopro_cols]).T
+            go_pro_rotated_accelerations = rotate_acceleration(gopro_acc, gyro)            
+            gopro_z_acc = go_pro_rotated_accelerations[:, 2]
+            
+            if smooth_go_pro:
+                gopro_z_acc = sm.nonparametric.lowess(gopro_z_acc, x, frac=0.5, is_sorted=True, return_sorted=False)
+            
+            fig, ax = plt.subplots()
+            ax.plot(x, gm_z_acc, label='GM')
+            ax.plot(x, gopro_acc[:,2], label='GoPro before rotation')
+            ax.plot(x, gopro_z_acc, label='GoPro after rotation')
+            ax.set_xlabel("Time Index")
+            ax.set_ylabel("Z Acceleration")
+            ax.legend()
+            ax.set_title(f"Z Acceleration for {segment.attrs['trip_name']} at {i} seconds")
+            plt.show()  
+
+
+
 if __name__=='__main__':
 
     # trainset = Platoon(data_type='train', pm_windowsize=2)
@@ -219,4 +319,7 @@ if __name__=='__main__':
     with h5py.File('data/processed/w_kpis/segments.hdf5', 'r') as segments:
         # plot_number_of_reference_points_vs_avg_speed(segments)
         # plot_number_of_reference_points_vs_normalised_second_idx(segments)
-        plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
+        # plot_mean_lon_lat_distance_vs_normalised_second_idx(segments)
+        plot_z_acceleration_between_gm_and_gopro(segments)
+        
+    

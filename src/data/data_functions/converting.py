@@ -29,7 +29,7 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005},
+    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005}, # NOTE Måske den ikke skal smoothes?
     'spd_veh':       {'kind': 'lowess', 'frac': 0.005},
     'acc_long':      {'kind': 'lowess', 'frac': 0.005},
     'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
@@ -119,7 +119,7 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     # parameter
     assert "kind" in parameter, f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values."
     assert "frac" in parameter, f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values."
-    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict
+    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict."
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
@@ -151,9 +151,9 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         The progress bar to use
     """
     # original_file
-    assert type(original_file) == h5py.Group, f"Original file type is {type(original_file)}, but expected h5py.Group"
+    assert (type(original_file) == h5py.Group or type(original_file) == h5py.File), f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File."
     # converted_file
-    assert type(converted_file) == h5py.Group, f"Converted file type is {type(converted_file)}, but expected h5py.Group"
+    assert (type(converted_file) == h5py.Group or type(converted_file) == h5py.File), f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File."
     # verbose
     assert type(verbose) == bool, f"Verbose type is {type(verbose)}, but expected bool"
     # pbar
