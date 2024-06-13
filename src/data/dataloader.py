@@ -23,6 +23,7 @@ class Platoon(torch.utils.data.Dataset):
         self.segments = h5py.File(self.data_path, 'r')
         self.gm_cols = gm_cols
         self.gm_cols_indices = [self.segments['0']['2']['gm'].attrs[col] for col in gm_cols]
+        self.gm_cols_indices.sort()
         self.kpi_names = kpi_names
         self.kpi_names_indices = [self.segments['0']['2']['kpis'][str(self.windowsize)].attrs[col] for col in kpi_names]
 
@@ -50,7 +51,7 @@ class Platoon(torch.utils.data.Dataset):
             segment_nr = str(idx[0])
             second_nr = str(idx[1])
             data = self.segments[segment_nr][second_nr]
-            train = data['gm'][:,tuple(self.gm_cols_indices)]
+            train = data['gm'][:, tuple(self.gm_cols_indices)]
             train_data[i*data_per_segment:i*data_per_segment+data_per_segment] = train
         
         self.train_mean = np.mean(train_data, axis=0)
