@@ -32,10 +32,10 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005}, # NOTE Måske den ikke skal smoothes?
-    'spd_veh':       {'kind': 'lowess', 'frac': 0.005},
-    'acc_long':      {'kind': 'lowess', 'frac': 0.005},
-    'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
+    'acc.xyz':       {'kind': 'lowess', 'frac': [0.005, 0.005, 0.001]}, # NOTE Måske den ikke skal smoothes?
+    'spd_veh':       {'kind': 'lowess', 'frac': [0.005]},
+    'acc_long':      {'kind': 'lowess', 'frac': [0.005]},
+    'acc_trans':     {'kind': 'lowess', 'frac': [0.005]}
 }
 
 
@@ -127,6 +127,8 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     # parameter
     if not isinstance(parameter, dict):
         raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+    if not len(parameter['frac']) == data.shape[1]-1:
+        raise ValueError(f"Parameter 'frac' length is not equal to the number of columns in the data (excluding the time column).")
     if "kind" not in parameter:
         raise KeyError(f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values.")
     if "frac" not in parameter:
@@ -139,7 +141,7 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     frac = parameter["frac"]
     for i in range(1, data.shape[1]):
         if kind == "lowess":
-            data[:,i] = sm.nonparametric.lowess(data[:,i], x, frac=frac, is_sorted=True, return_sorted=False)
+            data[:,i] = sm.nonparametric.lowess(data[:,i], x, frac=frac[i-1], is_sorted=True, return_sorted=False)
         else:
             raise NotImplementedError(f"Smoothing method {kind} not implemented")
     return data
