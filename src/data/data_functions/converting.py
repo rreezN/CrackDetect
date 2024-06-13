@@ -165,10 +165,10 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         The progress bar to use
     """
     # original_file
-    if not isinstance(original_file, h5py.Group) and not isinstance(original_file, h5py.File):
+    if not isinstance(original_file, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'original_file' type is {type(original_file)}, but expected h5py.Group or h5py.File.")
     # converted_file
-    if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
+    if not isinstance(converted_file, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'converted_file' type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
     # verbose
     if not isinstance(verbose, bool):
@@ -218,7 +218,7 @@ def reorient_autopi_can(converted_file: h5py.Group) -> None:
     converted_file : h5py.Group
         The converted AutoPi and CAN data to reorient
     """
-    if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
+    if not isinstance(converted_file, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'converted_file' type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
     
     # Go through all the trips and passes in the converted file
@@ -238,7 +238,7 @@ def reorient_pass(pass_group: h5py.Group) -> None:
     pass_group : h5py.Group
         The pass group containing the converted AutoPi and CAN data to reorient
     """
-    if not isinstance(pass_group, h5py.Group) and not isinstance(pass_group, h5py.File):
+    if not isinstance(pass_group, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'pass_group' type is {type(pass_group)}, but expected h5py.Group or h5py.File.")
     
     # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
@@ -331,7 +331,7 @@ def get_total_subgroups(group: h5py.Group) -> int:
     int
         The total number of subgroups in the group
     """
-    if not isinstance(group, h5py.Group) and not isinstance(group, h5py.File):
+    if not isinstance(group, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
     
     sub_groups = 0

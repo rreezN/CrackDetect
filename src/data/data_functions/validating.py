@@ -204,7 +204,7 @@ def validate_pass(car: h5py.Group, threshold: float, verbose: bool = False) -> N
     verbose : bool
         Whether to plot the data for visual inspection
     """
-    if not isinstance(car, h5py.Group) and not isinstance(car, h5py.File):
+    if not isinstance(car, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'car' type is {type(car)}, but expected h5py.File.")
     if not isinstance(threshold, float):
         raise TypeError(f"Input value 'threshold' type is {type(threshold)}, but expected float.")

@@ -36,7 +36,10 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     """
     if not isinstance(segment_path, str):
         raise TypeError(f"Input value 'segment_path' type is {type(segment_path)}, but expected str.")
-    assert Path(segment_path).exists(), f"Path '{segment_path}' does not exist."
+    if not Path(segment_path).exists():
+        raise FileNotFoundError(f"Path '{segment_path}' does not exist.")
+    if not Path(segment_path).suffix == '.hdf5':
+        raise ValueError(f"File '{segment_path}' is not a hdf5 file.")
 
     if not isinstance(window_sizes, list):
         raise TypeError(f"Input value 'window_sizes' type is {type(window_sizes)}, but expected list.")
@@ -58,11 +61,7 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     segment_path = Path(w_path)
     if segment_path.exists():
         segment_path.unlink()
-    
-    # Assert that data exists
-    assert Path(wo_path).exists(), f"Path '{wo_path}' does not exist."
-    assert Path(wo_path).suffix == '.hdf5', f"File '{wo_path}' is not a hdf5 file."
-    
+       
     # Load processed data    
     with h5py.File(wo_path, 'r') as f:
         # Open final processed segments file
@@ -136,7 +135,7 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     np.ndarray
         The KPIs for the given second.
     """
-    if not isinstance(segment, h5py.Group) and not isinstance(segment, h5py.File):
+    if not isinstance(segment, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
     if not isinstance(second_index, int):
         raise TypeError(f"Input value 'second_index' type is {type(second_index)}, but expected int.")

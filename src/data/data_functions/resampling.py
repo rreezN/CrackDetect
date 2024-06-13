@@ -35,14 +35,14 @@ def remove_duplicates(time: np.ndarray, value: np.ndarray) -> tuple[np.ndarray, 
     return time[time_mask], value[time_mask]
 
 
-def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: float = 1.0) -> np.ndarray:
+def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: float = 1) -> np.ndarray:
     # Calculate the distance from the time and speed measurements
     if not isinstance(time, np.ndarray):
         raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
     if not isinstance(speed, np.ndarray):
         raise TypeError(f"Input value 'speed' type is {type(speed)}, but expected np.ndarray.")
-    if not isinstance(conversion_factor, float):
-        raise TypeError(f"Input value 'conversion_factor' type is {type(conversion_factor)}, but expected float.")
+    if not isinstance(conversion_factor, float | int):
+        raise TypeError(f"Input value 'conversion_factor' type is {type(conversion_factor)}, but expected float or int.")
 
     distance = np.cumsum(speed[:-1] * (time[1:] - time[:-1]) / conversion_factor)
     distance = np.insert(distance, 0, 0)
@@ -65,7 +65,7 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
     new_section : dict[str, np.ndarray]
         The resampled section data
     """
-    if not isinstance(section, h5py.Group) and not isinstance(section, h5py.File):
+    if not isinstance(section, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'section' type is {type(section)}, but expected h5py.Group or h5py.File.")
     if not isinstance(frequency, int):
         raise TypeError(f"Input value 'frequency' type is {type(frequency)}, but expected int.")
@@ -123,7 +123,7 @@ def resample_gopro(section: h5py.Group, resampled_distances: np.ndarray) -> dict
     new_section : dict[str, np.ndarray]
         The resampled section data
     """
-    if not isinstance(section, h5py.Group) and not isinstance(section, h5py.File):
+    if not isinstance(section, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'section' type is {type(section)}, but expected h5py.Group or h5py.File.")
     if not isinstance(resampled_distances, np.ndarray):
         raise TypeError(f"Input value 'resampled_distances' type is {type(resampled_distances)}, but expected np.ndarray.")
@@ -175,7 +175,7 @@ def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndar
     bit_data : np.ndarray
         The 1 second bit data
     """
-    if not isinstance(segment, h5py.Group) and not isinstance(segment, h5py.File):
+    if not isinstance(segment, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
     if not isinstance(start, int):
         raise TypeError(f"Input value 'start' type is {type(start)}, but expected int.")
