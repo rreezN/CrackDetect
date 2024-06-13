@@ -128,6 +128,8 @@ def train(model: HydraMRRegressor,
         plt.close()
     
     torch.save(model.state_dict(), f'models/{model.name}.pt')
+
+    return epoch_train_losses, epoch_val_losses
     
 
 def get_args():
@@ -156,6 +158,9 @@ if __name__ == '__main__':
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
     name_identifier = args.name_identifier
+
+    train_losses = []
+    val_losses = []
     
     for fold in range(args.folds):
         print(f"Training fold {fold+1}/{args.folds}")
@@ -178,6 +183,28 @@ if __name__ == '__main__':
 
         # Train
         # TODO: Modify train function to return best_model, best_val_loss, and training curves
-        train(model, train_loader, val_loader, fold=fold)
+        k_fold_train_losses, k_fold_val_losses = train(model, train_loader, val_loader, fold=fold)
     
+        train_losses.append(k_fold_train_losses)
+        val_losses.append(k_fold_val_losses)
+    
+    # plot training curves
+    for i in range(args.folds):
+        x = np.arange(1, args.epochs+1, step=1)
+        plt.plot(x, train_losses[i], c="b", alpha=0.2)
+        plt.plot(x, val_losses[i], linestyle='--', c="r", alpha=0.2)
+
+    plt.plot(x, np.mean(train_losses, axis=0), label="Train loss", c="b")
+    plt.plot(x, np.mean(val_losses, axis=0), label="Val loss", c="r", linestyle='--')
+    plt.ylim(0, min(7, max(max(train_losses), max(val_losses))+1))
+    plt.title('Loss per epoch')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
+    plt.savefig(f'reports/figures/model_results/{model.name}/loss_combined.pdf')
+    plt.close()
+
     wandb.finish()
