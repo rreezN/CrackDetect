@@ -21,7 +21,7 @@ Repository containing code for the project Machine-learning approach for real-ti
 8. See results in ```reports/figures/model_results```
 
 # Table of Contents
-- [crackdetect (Predicting Road Pavement Condition Based On Real In-Vehicle Data)](#crackdetect-predicting-road-pavement-condition-based-on-real-in-vehicle-data)
+- [crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
 - [Results](#results)
 - [Quickstart](#quickstart)
 - [Table of Contents](#table-of-contents)
@@ -98,10 +98,10 @@ To run all preprocessing steps
 python src/data/make_dataset.py all
 ```
 
-A single step can be run by changing `all` to the desired step (e.g. `matching`). You can also run from a step to the end by calling, e.g. from `validate`:
+A single step can be run by changing `all` to the desired step (e.g. `matching`). You can also run from a step to the end by calling, e.g. from (including) `validate`:
 
 ```
-python src/data/make_dataset.py validate --begin_from
+python src/data/make_dataset.py --begin_from validate 
 ```
 
 ## Feature extraction
