@@ -36,8 +36,10 @@ def unpack_hdf5(hdf5_file: str) -> dict:
     """
     if not isinstance(hdf5_file, str):
         raise TypeError(f"Input value 'hdf5_file' type is {type(hdf5_file)}, but expected str.")
-    assert Path(hdf5_file).exists(), f"Path '{hdf5_file}' does not exist."
-    assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
+    if not Path(hdf5_file).exists():
+        raise FileNotFoundError(f"File '{hdf5_file}' does not exist.")
+    if not Path(hdf5_file).suffix == '.hdf5':
+        raise ValueError(f"File '{hdf5_file}' is not a hdf5 file.")
     
     with h5py.File(hdf5_file, 'r') as f:
         data = unpack_hdf5_(f)
@@ -57,7 +59,7 @@ def unpack_hdf5_(group: h5py.Group) -> dict:
     dict
         The unpacked data
     """
-    if not isinstance(group, h5py.Group) and not isinstance(group, h5py.File):
+    if not isinstance(group, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
 
     data = {}
@@ -86,7 +88,8 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: Optional[str] = None, attr
     segment_id : str
         The segment id to save the data to. If None, the data is saved to the root of the hdf5 file
     """
-    assert Path(hdf5_file).suffix == '.hdf5', f"File '{hdf5_file}' is not a hdf5 file."
+    if not Path(hdf5_file).suffix == '.hdf5':
+        raise ValueError(f"File '{hdf5_file}' is not a hdf5 file.")
 
     if segment_id is None:
         with h5py.File(hdf5_file, 'w') as f:
@@ -109,6 +112,9 @@ def save_hdf5_(data: dict, group: h5py.Group) -> None:
     group : h5py.Group
         The hdf5 group to save the data to
     """
+    if not isinstance(group, h5py.Group | h5py.File):
+        raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
+    
     for key, value in data.items():
         key = key.replace('/', '_')
         if isinstance(value, dict):

@@ -43,7 +43,8 @@ def csv_files_together(car_trip: str, go_pro_names: list[str], car_number: str, 
         raise TypeError(f"Input value 'car_number' type is {type(car_number)}, but expected str.")
     if not isinstance(raw_folder, str):
         raise TypeError(f"Input value 'raw_folder' type is {type(raw_folder)}, but expected str.")
-    assert Path(raw_folder).exists(), f"Path '{raw_folder}' does not exist. Ensure gopro data is in the correct folder structure."
+    if not Path(raw_folder).exists():
+        raise FileNotFoundError(f"Path '{raw_folder}' does not exist. Ensure gopro data is in the correct folder structure.")
     
     # Load all the gopro data 
     for measurement in ['accl', 'gps5', 'gyro']:
@@ -76,7 +77,8 @@ def preprocess_gopro_data(folder: str = "data/raw/gopro") -> None:
     """
     if not isinstance(folder, str):
         raise TypeError(f"Input value 'folder' type is {type(folder)}, but expected str.")
-    assert Path(folder).exists(), f"Path '{folder}' does not exist. Ensure gopro data is in the correct folder structure."
+    if not Path(folder).exists():
+        raise FileNotFoundError(f"Path '{folder}' does not exist. Ensure gopro data is in the correct folder structure.")
 
     # Create gopro data for the three trips
     car_trips = ["16011", "16009", "16006"]

@@ -143,10 +143,14 @@ def segment(hh: str = 'data/interim/gm/converted_platoon_CPH1_HH.hdf5', vh : str
     """
     if not isinstance(hh, str):
         raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
-    assert Path(hh).exists(), f"Path '{hh}' does not exist."
+    if not Path(hh).exists():
+        raise FileNotFoundError(f"Path '{hh}' does not exist.")
+    
     if not isinstance(vh, str):
         raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
-    assert Path(vh).exists(), f"Path '{vh}' does not exist."
+    if not Path(vh).exists():
+        raise FileNotFoundError(f"Path '{vh}' does not exist.")
+    
     if not isinstance(speed_threshold, float | int):
         raise TypeError(f"Input value 'speed_threshold' type is {type(speed_threshold)}, but expected float or int.")
     if not isinstance(time_threshold, float | int):
