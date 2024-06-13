@@ -229,6 +229,7 @@ if __name__ == '__main__':
         start = time.time()
         iterator.set_description(f'Index: {i}, Avg Time: {np.mean(duration):.3f}.')
     print(f'Mean duration: {np.mean(durations):.5f}')
+    
     # Print example statistics of the last batch
     print(f'Last data shape: {features.shape}')
     print(f'Last target shape: {targets.shape}') 
