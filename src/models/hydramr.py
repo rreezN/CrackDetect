@@ -48,7 +48,7 @@ class HydraMRRegressor(torch.nn.Module):
         # TODO: Find a proper way to do this 
         # Scale output for now...
         # Targets lie in range [-5, 10] (after standardization)
-        x = self.tanh(x)
-        x = x * 10
+        # x = self.tanh(x)
+        # x = x * 10
         
         return x
