@@ -180,11 +180,12 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
     
     # Specify iterator based on verbose
     if verbose:
-        pbar = tqdm(total=get_total_subgroups(original_file))
+        pbar = tqdm(total=get_total_leaf_groups(original_file))
+
     iterator = original_file.keys()
 
-    # Convert the data in the original AutoPi CAN file to the converted file
     is_leaf_group = True
+    # Convert the data in the original AutoPi CAN file to the converted file
     for key in iterator:
         if pbar is not None:
             pbar.set_description(f"Converting {original_file.name}/{key}")
@@ -206,7 +207,7 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
             # Save the data to the converted file
             converted_file.create_dataset(key, data=data)
 
-    if pbar is not None:
+    if pbar is not None and is_leaf_group:
         pbar.update(1)
 
 def reorient_autopi_can(converted_file: h5py.Group) -> None:
@@ -317,7 +318,7 @@ def reorient_pass(pass_group: h5py.Group) -> None:
             pass
 
 
-def get_total_subgroups(group: h5py.Group) -> int:
+def get_total_leaf_groups(group: h5py.Group) -> int:
     """
     Get the total number of subgroups in the group.
 
@@ -334,12 +335,13 @@ def get_total_subgroups(group: h5py.Group) -> int:
     if not isinstance(group, h5py.Group | h5py.File):
         raise TypeError(f"Input value 'group' type is {type(group)}, but expected h5py.Group or h5py.File.")
     
-    sub_groups = 0
+    leaf_groups = 0
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
-            sub_groups += 1
-            sub_groups += get_total_subgroups(group[key])
-    return sub_groups
+            leaf_groups += get_total_leaf_groups(group[key])
+    if leaf_groups == 0:
+        leaf_groups = 1
+    return leaf_groups
 
 
 def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5') -> None:
