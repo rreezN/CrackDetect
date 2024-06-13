@@ -11,6 +11,10 @@ from torch.utils.data import DataLoader
 
 from models.hydramr import HydraMRRegressor
 from data.feature_dataloader import Features
+from src.util.utils import set_all_seeds
+
+# Set seed for reproducibility
+set_all_seeds(42)
 
 
 def train(model: HydraMRRegressor, 
