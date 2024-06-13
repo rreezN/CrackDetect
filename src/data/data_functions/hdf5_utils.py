@@ -88,8 +88,6 @@ def save_hdf5(data: dict, hdf5_file: str, segment_id: Optional[str] = None, attr
     segment_id : str
         The segment id to save the data to. If None, the data is saved to the root of the hdf5 file
     """
-    if not Path(hdf5_file).exists():
-        raise FileNotFoundError(f"File '{hdf5_file}' does not exist.")
     if not Path(hdf5_file).suffix == '.hdf5':
         raise ValueError(f"File '{hdf5_file}' is not a hdf5 file.")
 
