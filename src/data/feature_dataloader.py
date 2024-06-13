@@ -70,7 +70,10 @@ class Features(torch.utils.data.Dataset):
         
         # Unfold the data to (segment, second)
         permutations = []
-        segments = self.data[data_type]['segments']
+        if self.fold != -1:
+            segments = self.data[data_type][f'fold_{self.fold}']['segments']
+        else:
+            segments = self.data[data_type]['segments']
         for key_val in segments.keys():
             for sec_val in segments[key_val].keys():
                 permutations.append((key_val, sec_val))
