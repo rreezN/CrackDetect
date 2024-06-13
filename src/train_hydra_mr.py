@@ -13,7 +13,13 @@ from data.feature_dataloader import Features
 import os
 
 
-def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 10, lr: float = 0.001):
+def train(model: HydraMRRegressor, 
+          train_loader: DataLoader, 
+          val_loader: DataLoader,
+          fold: int,
+          epochs: int = 10, 
+          lr: float = 0.001,
+          ):
     """Training loop for the Hydra-MR model.
     
     This function trains the Hydra-MR model using the provided training data and validation data loaders.
@@ -69,7 +75,7 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
                 train_iterator.set_description(f"Training Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}")
 
         mean_train_loss = np.mean(train_losses)
-        wandb.log({"epoch": epoch+1, "train_loss": mean_train_loss})
+        wandb.log({f"epoch_{fold}": epoch+1, f"train_loss_{fold}": mean_train_loss})
         epoch_train_losses.append(mean_train_loss)
         
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
@@ -100,10 +106,10 @@ def train(model: HydraMRRegressor, train_loader: DataLoader, val_loader: DataLoa
             torch.save(model.state_dict(), f'models/best_{model.name}.pt')
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1}")
             # Note to windows users: you may need to run the script as administrator to save the model
-            wandb.save(f'models/best_{model.name}.pt')
+            wandb.save(f'models/best_{model.name}_{fold}.pt')
             
         mean_val_loss = np.mean(val_losses)
-        wandb.log({"epoch": epoch+1, "val_loss": mean_val_loss})
+        wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
         epoch_val_losses.append(mean_val_loss)
 
         x = np.arange(1, epoch+2, step=1)
@@ -131,6 +137,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer.')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
+    parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     
     return parser.parse_args()
 
@@ -150,23 +157,27 @@ if __name__ == '__main__':
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
     name_identifier = args.name_identifier
     
-    # Load data
-    trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier)
-    train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    
-    valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier)
-    val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-    
-    input_shape, target_shape = trainset.get_data_shape()
-    
-    # Create model
-    # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-    model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_HydraMV_8_64_100_latent_dim') 
-    
-    wandb.watch(model, log='all')
-    wandb.config.update({"model": model.name})
+    for fold in range(args.folds):
+        print(f"Training fold {fold+1}/{args.folds}")
+        
+        # Load data
+        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+        
+        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+        
+        input_shape, target_shape = trainset.get_data_shape()
+        
+        # Create model
+        # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
+        model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
+        
+        wandb.watch(model, log='all')
+        wandb.config.update({f"model_{fold}": model.name})
 
-    # Train
-    train(model, train_loader, val_loader)
+        # Train
+        # TODO: Modify train function to return best_model, best_val_loss, and training curves
+        train(model, train_loader, val_loader, fold=fold)
     
     wandb.finish()

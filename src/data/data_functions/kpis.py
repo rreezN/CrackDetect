@@ -14,7 +14,6 @@ import h5py
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from pathlib import Path
 
 
 # ========================================================================================================================
@@ -35,11 +34,15 @@ def compute_kpis(segment_path: str = 'data/processed/wo_kpis/segments.hdf5', win
     window_sizes : list[int]
         The window sizes to compute KPIs for. Default is [1, 2]. 
     """
-    assert type(segment_path) == str, f"Input value 'segment_path' type is {type(segment_path)}, but expected str."
+    if not isinstance(segment_path, str):
+        raise TypeError(f"Input value 'segment_path' type is {type(segment_path)}, but expected str.")
     assert Path(segment_path).exists(), f"Path '{segment_path}' does not exist."
-    assert type(window_sizes) == list, f"Input value 'window_sizes' type is {type(window_sizes)}, but expected list."
-    assert all([type(i) == int for i in window_sizes]), f"Input value 'window_sizes' contains non-integers."
-    
+
+    if not isinstance(window_sizes, list):
+        raise TypeError(f"Input value 'window_sizes' type is {type(window_sizes)}, but expected list.")
+
+    if not all(isinstance(i, int) for i in window_sizes):
+        raise TypeError(f"Input value 'window_sizes' contains elements that are not int.")    
     
     path_split = segment_path.split('w_kpis')
     if len(path_split) == 1:
@@ -133,9 +136,12 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     np.ndarray
         The KPIs for the given second.
     """
-    assert (type(segment) == h5py.Group or type(segment) == h5py.File), f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File."
-    assert type(second_index) == int, f"Input value 'second_index' type is {type(second_index)}, but expected int."
-    assert type(window_size) == int, f"Input value 'window_size' type is {type(window_size)}, but expected int."
+    # if not isinstance(segment, h5py.Group) or not isinstance(segment, h5py.File):
+    #     raise TypeError(f"Input value 'segment' type is {type(segment)}, but expected h5py.Group or h5py.File.")
+    if not isinstance(second_index, int):
+        raise TypeError(f"Input value 'second_index' type is {type(second_index)}, but expected int.")
+    if not isinstance(window_size, int):
+        raise TypeError(f"Input value 'window_size' type is {type(window_size)}, but expected int.")
     
     
     # Extract ARAN data for all seconds within the window
@@ -184,9 +190,10 @@ def damage_index(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The damage index for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
-    
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
 
     crackingsum = cracking_sum(windowed_aran_data, aran_attrs)
     alligatorsum = alligator_sum(windowed_aran_data, aran_attrs)
@@ -211,8 +218,10 @@ def cracking_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The cracking sum for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     LCS = windowed_aran_data[:, aran_attrs['Revner På Langs Små (m)']]
     LCM = windowed_aran_data[:, aran_attrs['Revner På Langs Middelstore (m)']]
@@ -239,8 +248,10 @@ def alligator_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Att
     float
         The alligator sum for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     ACS = windowed_aran_data[:, aran_attrs['Krakeleringer Små (m²)']]
     ACM = windowed_aran_data[:, aran_attrs['Krakeleringer Middelstore (m²)']]
@@ -264,8 +275,10 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attri
     float
         The pothole sum for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     PAS = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Low (mm)']]
     PAM = windowed_aran_data[:, aran_attrs['Slaghuller Max Depth Medium (mm)']]
@@ -290,8 +303,10 @@ def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The rutting mean for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     # TODO: FIGURE OUT WHICH ONE TO USE
     if rut == 'straight-edge':
@@ -319,8 +334,10 @@ def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attribut
     float
         The IRI mean for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
     IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
@@ -342,8 +359,10 @@ def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py._hl.attrs.Attr
     float
         The patching sum for the given window.
     """
-    assert type(windowed_aran_data) == np.ndarray, f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray."
-    assert type(aran_attrs) == h5py._hl.attrs.AttributeManager, f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager."
+    if not isinstance(windowed_aran_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
+    if not isinstance(aran_attrs, h5py._hl.attrs.AttributeManager):
+        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py._hl.attrs.AttributeManager.")    
     
     LCSe = windowed_aran_data[:, aran_attrs['Revner På Langs Sealed (m)']]
     TCSe = windowed_aran_data[:, aran_attrs['Transverse Sealed (m)']]

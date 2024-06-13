@@ -12,10 +12,13 @@
 
 import h5py
 import numpy as np
+import statsmodels.api as sm
+import warnings
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
-import statsmodels.api as sm
+
+from .validating import clean_int
 
 
 CONVERT_PARAMETER_DICT = {
@@ -29,10 +32,10 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':       {'kind': 'lowess', 'frac': 0.005}, # NOTE Måske den ikke skal smoothes?
-    'spd_veh':       {'kind': 'lowess', 'frac': 0.005},
-    'acc_long':      {'kind': 'lowess', 'frac': 0.005},
-    'acc_trans':     {'kind': 'lowess', 'frac': 0.005}
+    'acc.xyz':       {'kind': 'lowess', 'frac': [0.005, 0.005, 0.001]}, # NOTE Måske den ikke skal smoothes?
+    'spd_veh':       {'kind': 'lowess', 'frac': [0.005]},
+    'acc_long':      {'kind': 'lowess', 'frac': [0.005]},
+    'acc_trans':     {'kind': 'lowess', 'frac': [0.005]}
 }
 
 
@@ -69,18 +72,24 @@ def convertdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     np.ndarray
         The converted data
     """
-    # We assert that the input data is as expected
     # data
+    if not isinstance(data, np.ndarray):
+        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
     assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
     assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
-    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
-    # parameter
-    assert "bstar" in parameter, f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values."
-    assert "rstar" in parameter, f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values."
-    assert "b" in parameter, f"Parameter does not contain 'b'. Check the parameter dictionary for missing values."
-    assert "r" in parameter, f"Parameter does not contain 'r'. Check the parameter dictionary for missing values."
-    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict"
-       
+    # parameter  
+    if not isinstance(parameter, dict):
+        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+    if "bstar" not in parameter:
+        raise KeyError(f"Parameter does not contain 'bstar'. Check the parameter dictionary for missing values.")
+    if "rstar" not in parameter:
+        raise KeyError(f"Parameter does not contain 'rstar'. Check the parameter dictionary for missing values.")
+    if "b" not in parameter:
+        raise KeyError(f"Parameter does not contain 'b'. Check the parameter dictionary for missing values.")
+    if "r" not in parameter:
+        raise KeyError(f"Parameter does not contain 'r'. Check the parameter dictionary for missing values.")
+    
+    # We extract the parameters from the parameter dictionary
     bstar = parameter['bstar']
     rstar = parameter['rstar']
     b = parameter['b']
@@ -113,13 +122,18 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     
     # We assert that the input data is as expected
     # data
-    assert len(data.shape) == 2, f"Data shape is {data.shape}, but expected (n, 2)" 
-    assert data.shape[1] == 2, f"Data shape is {data.shape}, but expected (n, 2)"
-    assert type(data) == np.ndarray, f"Data type is {type(data)}, but expected np.ndarray"
+    if not isinstance(data, np.ndarray):
+        raise TypeError(f"Data type is {type(data)}, but expected np.ndarray")
     # parameter
-    assert "kind" in parameter, f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values."
-    assert "frac" in parameter, f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values."
-    assert type(parameter) == dict, f"Parameter type is {type(parameter)}, but expected dict."
+    if not isinstance(parameter, dict):
+        raise TypeError(f"Parameter type is {type(parameter)}, but expected dict.")
+    if not len(parameter['frac']) == data.shape[1]-1:
+        raise ValueError(f"Parameter 'frac' length is not equal to the number of columns in the data (excluding the time column).")
+    if "kind" not in parameter:
+        raise KeyError(f"Parameter does not contain 'kind'. Check the parameter dictionary for missing values.")
+    if "frac" not in parameter:
+        raise KeyError(f"Parameter does not contain 'frac'. Check the parameter dictionary for missing values.")
+
 
     # We only smooth data in the second column at idx 1 (wrt. 0-indexing), as the first column is time
     x = data[:,0]
@@ -127,7 +141,7 @@ def smoothdata(data: np.ndarray, parameter: dict) -> np.ndarray:
     frac = parameter["frac"]
     for i in range(1, data.shape[1]):
         if kind == "lowess":
-            data[:,i] = sm.nonparametric.lowess(data[:,i], x, frac=frac, is_sorted=True, return_sorted=False)
+            data[:,i] = sm.nonparametric.lowess(data[:,i], x, frac=frac[i-1], is_sorted=True, return_sorted=False)
         else:
             raise NotImplementedError(f"Smoothing method {kind} not implemented")
     return data
@@ -151,24 +165,26 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         The progress bar to use
     """
     # original_file
-    assert (type(original_file) == h5py.Group or type(original_file) == h5py.File), f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File."
+    if not isinstance(original_file, h5py.Group) and not isinstance(original_file, h5py.File):
+        raise TypeError(f"Original file type is {type(original_file)}, but expected h5py.Group or h5py.File.")
     # converted_file
-    assert (type(converted_file) == h5py.Group or type(converted_file) == h5py.File), f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File."
+    if not isinstance(converted_file, h5py.Group) and not isinstance(converted_file, h5py.File):
+        raise TypeError(f"Converted file type is {type(converted_file)}, but expected h5py.Group or h5py.File.")
     # verbose
-    assert type(verbose) == bool, f"Verbose type is {type(verbose)}, but expected bool"
+    if not isinstance(verbose, bool):
+        raise TypeError(f"Verbose type is {type(verbose)}, but expected bool")
     # pbar
     if pbar is not None:
-        assert type(pbar) == tqdm, f"Progress bar type is {type(pbar)}, but expected tqdm"
-    
+        if not isinstance(pbar, tqdm):
+            raise TypeError(f"Progress bar type is {type(pbar)}, but expected tqdm.")    
     
     # Specify iterator based on verbose
     if verbose:
-        iterator = tqdm(original_file.keys())
-        pbar = iterator
-    else:
-        iterator = original_file.keys()
+        pbar = tqdm(total=get_total_subgroups(original_file))
+    iterator = original_file.keys()
 
     # Convert the data in the original AutoPi CAN file to the converted file
+    is_leaf_group = True
     for key in iterator:
         if pbar is not None:
             pbar.set_description(f"Converting {original_file.name}/{key}")
@@ -177,6 +193,7 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
         if isinstance(original_file[key], h5py.Group):
             subgroup = converted_file.create_group(key)
             convert_autopi_can(original_file[key], subgroup, pbar=pbar)
+            is_leaf_group = False
 
         # Convert the data
         else:
@@ -188,6 +205,133 @@ def convert_autopi_can(original_file: h5py.Group, converted_file: h5py.Group, ve
             
             # Save the data to the converted file
             converted_file.create_dataset(key, data=data)
+
+    if pbar is not None:
+        pbar.update(1)
+
+def reorient_autopi_can(converted_file: h5py.Group) -> None:
+    """
+    Reorient the acceleration sensors in the converted AutoPi and CAN data.
+
+    Parameters
+    ----------
+    converted_file : h5py.Group
+        The converted AutoPi and CAN data to reorient
+    """
+    # Go through all the trips and passes in the converted file
+    for trip_name, trip in (pbar := tqdm(converted_file['GM'].items())):
+        for pass_name, pass_ in trip.items():
+            pbar.set_description(f"Orienting: {pass_.name}")
+            reorient_pass(pass_)
+
+
+def reorient_pass(pass_group: h5py.Group) -> None:
+    """
+    Reorient the acceleration sensors in the pass, and update the pass group in place.
+    The reorientation is done based on the correlation between the CAN accelerations and the AutoPi accelerations.
+
+    Parameters
+    ----------
+    pass_group : h5py.Group
+        The pass group containing the converted AutoPi and CAN data to reorient
+    """
+    # Create custom warn message (Used to tell the user that the sensors are reoriented without interrupting tqdm progress bar)
+    def custom_formatwarning(msg, *args, **kwargs):
+        # ignore everything except the message
+        return '\n' + str(msg) + '\n'
+
+    warnings.formatwarning = custom_formatwarning
+    
+    fs = 10 # Sampling frequency
+
+    # Speed distance
+    tspd = pass_group['spd_veh'][:, 0]
+    dspd = np.cumsum(pass_group['spd_veh'][1:, 1]*np.diff(pass_group['spd_veh'][:, 0]))/3.6
+    dspd = np.insert(dspd, 0, 0)
+
+    # GPS data
+    tgps = pass_group['gps'][:, 0]
+
+    # Normalize accelerations
+    taccrpi = pass_group['acc.xyz'][:, 0]
+    xaccrpi = pass_group['acc.xyz'][:, 1] - np.mean(pass_group['acc.xyz'][:, 1])
+    yaccrpi = pass_group['acc.xyz'][:, 2] - np.mean(pass_group['acc.xyz'][:, 2])
+
+    tatra = pass_group['acc_trans'][:, 0]
+    atra = pass_group['acc_trans'][:, 1] - np.mean(pass_group['acc_trans'][:, 1])
+    talon = pass_group['acc_long'][:, 0]
+    alon = pass_group['acc_long'][:, 1] - np.mean(pass_group['acc_long'][:, 1])
+
+    # Resample to 100Hz
+    time_start_max = np.max([taccrpi[0], tatra[0], talon[0], tgps[0], tspd[0]])
+    time_end_min = np.min([taccrpi[-1], tatra[-1], talon[-1], tgps[-1], tspd[-1]])
+    tend = time_end_min - time_start_max
+    time = np.arange(0, tend, 1/fs)
+
+    # Interpolate
+    axrpi_100hz = clean_int(taccrpi-time_start_max, xaccrpi, time)
+    ayrpi_100hz = clean_int(taccrpi-time_start_max, yaccrpi, time)
+    aycan_100hz = clean_int(tatra-time_start_max, atra, time)
+    axcan_100hz = clean_int(talon-time_start_max, alon, time)
+
+    # Reorient accelerations
+    alon = axcan_100hz.copy()
+    atrans = aycan_100hz.copy()
+    axpn = axrpi_100hz * 9.81
+    aypn = ayrpi_100hz * 9.81
+
+    # Calculate correlation with CAN accelerations
+    pcxl = np.corrcoef(axpn, alon)[0, 1]
+    pcyl = np.corrcoef(aypn, alon)[0, 1]
+
+    pcxt = np.corrcoef(axpn, atrans)[0, 1]
+    pcyt = np.corrcoef(aypn, atrans)[0, 1]
+    
+    # Determine the orientation of the sensors
+    # NOTE: Here we also alter the entries in the original converted data if necessary!
+    if (abs(pcxl) < abs(pcxt)) and (abs(pcyl) > abs(pcyt)):
+        if pcxt < 0:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, -x, z)")
+            y_acc = pass_group['acc.xyz'][:, 2]                    
+            pass_group['acc.xyz'][:, 2] = -pass_group['acc.xyz'][:, 1]    # y = -x
+            pass_group['acc.xyz'][:, 1] = y_acc                    # x = y
+
+        else:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (y, x, z)")
+            y_acc = pass_group['acc.xyz'][:, 2]
+            pass_group['acc.xyz'][:, 2] = pass_group['acc.xyz'][:, 1]    # y = x
+            pass_group['acc.xyz'][:, 1] = y_acc                   # x = y
+
+    else:
+        if pcyt < 0:
+            warnings.warn("NOTE: Reorienting the autopi acceleration sensors as (x, y, z) -> (x, -y, z)")
+            pass_group['acc.xyz'][:, 2] = -pass_group['acc.xyz'][:, 2]    # y = -y
+        else:
+            # No reorientation needed
+            pass
+
+
+def get_total_subgroups(group: h5py.Group) -> int:
+    """
+    Get the total number of subgroups in the group.
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The group to get the total number of subgroups from
+
+    Returns
+    -------
+    int
+        The total number of subgroups in the group
+    """
+    sub_groups = 0
+    for key in group.keys():
+        if isinstance(group[key], h5py.Group):
+            sub_groups += 1
+            sub_groups += get_total_subgroups(group[key])
+    return sub_groups
+
 
 def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5') -> None:
     """
@@ -207,11 +351,13 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
     """
     
     # hh
-    assert type(hh) == str, f"Input value 'hh' type is {type(hh)}, but expected str."
+    if not isinstance(hh, str):
+        raise TypeError(f"Input value 'hh' type is {type(hh)}, but expected str.")
     # ensure the path exists
     assert Path(hh).exists(), f"Path '{hh}' does not exist."
     # vh
-    assert type(vh) == str, f"Input value 'vh' type is {type(vh)}, but expected str."
+    if not isinstance(vh, str):
+        raise TypeError(f"Input value 'vh' type is {type(vh)}, but expected str.")
     assert Path(vh).exists(), f"Path '{vh}' does not exist."
     
     prefix = hh.split("data/")[0]
@@ -227,3 +373,4 @@ def convert(hh: str = 'data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5', vh: str = 'dat
         with h5py.File(file, 'r') as f:
             with h5py.File(interim_gm / f"converted_{file.name}", 'w') as converted_file:
                 convert_autopi_can(f, converted_file, verbose=True)
+                reorient_autopi_can(converted_file)
