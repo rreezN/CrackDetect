@@ -185,12 +185,13 @@ def get_args():
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
     parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
+    parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = get_args()
     
-    model = HydraMRRegressor(in_features=5120)  # MultiRocket+Hydra 49728+5120
+    model = HydraMRRegressor(in_features=5120, hidden_dim=args.hidden_dim)  # MultiRocket+Hydra 49728+5120
     model.load_state_dict(torch.load(args.model))
     
     # Load data
