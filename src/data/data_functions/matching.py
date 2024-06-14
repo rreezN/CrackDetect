@@ -19,6 +19,17 @@ def match_data(
         ) -> None:
     """
     Match the AutoPi data with the reference data (ARAN and P79) and the GoPro data into segments
+
+    Parameters
+    ----------
+    aran_hh : str
+        The path to the ARAN data for the HH direction
+    aran_vh : str
+        The path to the ARAN data for the VH direction
+    p79_hh : str
+        The path to the P79 data for the HH direction
+    p79_vh : str
+        The path to the P79 data for the VH direction
     """
     if not isinstance(aran_hh, str):
         raise TypeError(f"Input value 'aran_hh' type is {type(aran_hh)}, but expected str.")
@@ -135,6 +146,11 @@ def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndar
         The longitudal and lattitudal coordinates of the trip data
     section : np.ndarray
         The longitudal and lattitudal coordinates of the section
+
+    Returns
+    -------
+    tuple[int, int]
+        The start and end indeces of the section data
     """
     if not isinstance(trip, np.ndarray):
         raise TypeError(f"Input value 'trip' type is {type(trip)}, but expected np.ndarray.")
@@ -160,6 +176,11 @@ def find_best_start_and_end_indeces_by_time(current_segment_time: np.ndarray, go
         The time data from the current segment
     gopro_time : pd.Series
         The time data from the GoPro
+
+    Returns
+    -------
+    tuple[int, int, float, float]
+        The start and end indeces of the section data based on time
     """
     if not isinstance(current_segment_time, np.ndarray):
         raise TypeError(f"Input value 'current_segment_time' type is {type(current_segment_time)}, but expected np.ndarray.")
