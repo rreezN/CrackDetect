@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from models.hydramr import HydraMRRegressor
 from data.feature_dataloader import Features
-from src.util.utils import set_all_seeds
+from util.utils import set_all_seeds
 
 # Set seed for reproducibility
 set_all_seeds(42)
@@ -111,7 +111,7 @@ def train(model: HydraMRRegressor,
             end = time.time()
             best_val_loss = np.mean(val_losses)
             torch.save(model.state_dict(), f'models/best_{model.name}.pt')
-            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-time:.2f}s)")
+            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-start:.2f}s)")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
             
