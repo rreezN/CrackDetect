@@ -11,13 +11,18 @@ class HydraMRRegressor(torch.nn.Module):
         out_features: number of output features
     
     """
-    def __init__(self, in_features: int = 49728+5120, out_features: int = 4, hidden_dim: int = 100, name: str = 'HydraMRRegressor') -> None:
+    def __init__(self, 
+                 in_features: int = 49728+5120, 
+                 out_features: int = 4, 
+                 hidden_dim: int = 100,
+                 dropout: float = 0.5,
+                 name: str = 'HydraMRRegressor') -> None:
         super(HydraMRRegressor, self).__init__()
         
         self.name = name
         
         self.input_layer = torch.nn.Linear(in_features, hidden_dim)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
         self.hidden = torch.nn.Linear(hidden_dim, hidden_dim)
         self.r = torch.nn.ReLU()
         self.tanh = torch.nn.Tanh()
