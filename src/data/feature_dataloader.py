@@ -47,37 +47,62 @@ class Features(torch.utils.data.Dataset):
         self.feature_means = []
         self.feature_stds = []
         
-        for i in range(len(feature_extractors)):
-            name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+        if self.data_type != 'test':
+            for i in range(len(feature_extractors)):
+                name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+                if self.fold != -1:
+                    data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
+                else:
+                    data_tree_path = self.data['train']['statistics'][name]
+                self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
+                self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
+                self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
+                self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
+            
+            # Load the KPI statistics
             if self.fold != -1:
-                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
+                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
             else:
-                data_tree_path = self.data['train']['statistics'][name]
-            self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
-            self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
-            self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
-            self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
-        
-        # Load the KPI statistics
-        if self.fold != -1:
-            data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
-        else:
-            data_tree_path = self.data['train']['statistics']['kpis'][str(kpi_window)]
-        
-        self.kpi_means = data_tree_path['mean'][()]
-        self.kpi_stds = data_tree_path['std'][()]
-        self.kpi_mins = data_tree_path['min'][()]
-        self.kpi_maxs = data_tree_path['max'][()]
-        
-        # Unfold the data to (segment, second)
-        permutations = []
-        if self.fold != -1:
-            segments = self.data[data_type][f'fold_{self.fold}']['segments']
-        else:
+                data_tree_path = self.data['train']['statistics']['kpis'][str(kpi_window)]
+            
+            self.kpi_means = data_tree_path['mean'][()]
+            self.kpi_stds = data_tree_path['std'][()]
+            self.kpi_mins = data_tree_path['min'][()]
+            self.kpi_maxs = data_tree_path['max'][()]
+            
+            # Unfold the data to (segment, second)
+            permutations = []
+            if self.fold != -1:
+                segments = self.data[data_type][f'fold_{self.fold}']['segments']
+            else:
+                segments = self.data[data_type]['segments']
+            for key_val in segments.keys():
+                for sec_val in segments[key_val].keys():
+                    permutations.append((key_val, sec_val))
+                    
+        elif self.data_type == 'test':
+            for i in range(len(feature_extractors)):
+                name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+                data_tree_path = self.data['train'][f'{self.fold}']['statistics'][name]
+                self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
+                self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
+                self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
+                self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
+            
+            # Load the KPI statistics
+            data_tree_path = self.data['train'][f'{self.fold}']['statistics']['kpis'][str(kpi_window)]
+            
+            self.kpi_means = data_tree_path['mean'][()]
+            self.kpi_stds = data_tree_path['std'][()]
+            self.kpi_mins = data_tree_path['min'][()]
+            self.kpi_maxs = data_tree_path['max'][()]
+            
+            # Unfold the data to (segment, second)
+            permutations = []
             segments = self.data[data_type]['segments']
-        for key_val in segments.keys():
-            for sec_val in segments[key_val].keys():
-                permutations.append((key_val, sec_val))
+            for key_val in segments.keys():
+                for sec_val in segments[key_val].keys():
+                    permutations.append((key_val, sec_val))
         
         # Set the indices to the permutations
         # This will be used to fetch the data samples
