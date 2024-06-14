@@ -2,6 +2,7 @@
 ### General options 
 ### -- specify queue -- 
 #BSUB -q gpuv100
+#BSUB -gpu "num=1:mode=exclusive_process"
 ### -- set the job Name -- 
 #BSUB -J Sweep
 ### -- ask for number of cores (default: 1) -- 
