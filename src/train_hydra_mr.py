@@ -66,6 +66,7 @@ def train(model: HydraMRRegressor,
         model.train()
         train_losses = []
         for data, target in train_iterator:
+            data, target = data.to(device), target.to(device)
             output = model(data)
 
             loss = loss_fn(output, target)
@@ -92,6 +93,7 @@ def train(model: HydraMRRegressor,
         # bad_max_idx = []
         # bad_min_idx = []
         for val_data, target in val_iterator:
+            val_data, target = val_data.to(device), target.to(device)
             output = model(val_data)
             val_loss = loss_fn(output, target)
 
@@ -151,19 +153,24 @@ def get_args():
     parser.add_argument('--weight_decay', type=float, default=0.0, help='Weight decay for the optimizer. Default is 0.0')
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
     parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
+    parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = get_args()
-    
+    print(args)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on device: {device}.")
+ 
+
     wandb.init(project=args.project_name, entity='fleetyeet')
     wandb.config.update(args)
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
     feature_extractors = args.feature_extractors
-    # feature_extractors = ['HydraMV_8_64']
     
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
@@ -177,17 +184,25 @@ if __name__ == '__main__':
         print(f"Training fold {fold+1}/{args.folds}")
         
         # Load data
-        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+        if args.feature_extractors == ['MultiRocketMV_50000+HydraMV_8_64']:
+            trainset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier=name_identifier, fold=fold, verbose=False)
+            valset = Features(data_type='val', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier=name_identifier, fold=fold, verbose=False)
+        else:
+            trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+            valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+
         train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-        
-        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
         val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
         
         input_shape, target_shape = trainset.get_data_shape()
         
         # Create model
         # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-        model = HydraMRRegressor(input_shape[0], target_shape[0], args.hidden_dim, name=args.model_name) 
+        model = HydraMRRegressor(in_features=input_shape[0], 
+                                 out_features=target_shape[0], 
+                                 hidden_dim=args.hidden_dim, 
+                                 dropout=args.dropout,
+                                 name=args.model_name).to(device)
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
@@ -200,9 +215,11 @@ if __name__ == '__main__':
         val_losses.append(k_fold_val_losses)
         best_val_losses.append(best_val_loss)
     
-    print(f"Mean best validation loss: {np.mean(best_val_losses):.3f}")
-    print(f"Standard deviation of best validation loss: {np.std(best_val_losses):.3f}")
-    wandb.log({"mean_best_val_loss": np.mean(best_val_losses), "std_best_val_loss": np.std(best_val_losses)})
+    mean_best_val_loss = np.mean(best_val_losses)
+    std_best_val_loss = np.std(best_val_losses)
+    print(f"Mean best validation loss: {mean_best_val_loss:.3f}")
+    print(f"Standard deviation of best validation loss: {std_best_val_loss:.3f}")
+    wandb.log({"mean_best_val_loss": mean_best_val_loss, "std_best_val_loss": std_best_val_loss})
 
     # plot training curves
     for i in range(args.folds):

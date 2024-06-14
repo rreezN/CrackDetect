@@ -1,6 +1,9 @@
 (insert picture here)
 # crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
-[badges here maybe ?](shields.io)
+
+[<img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">]()
+[<img src="https://img.shields.io/badge/Weights_&_Biases-FFBE00?style=for-the-badge&logo=WeightsAndBiases&logoColor=white">]()
+[<img src="https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue">]()
 
 (Maybe put abstract from report here)
 
