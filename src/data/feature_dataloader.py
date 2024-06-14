@@ -83,14 +83,14 @@ class Features(torch.utils.data.Dataset):
         elif self.data_type == 'test':
             for i in range(len(feature_extractors)):
                 name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
-                data_tree_path = self.data['train'][f'{self.fold}']['statistics'][name]
+                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
                 self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
                 self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
                 self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
                 self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
             
             # Load the KPI statistics
-            data_tree_path = self.data['train'][f'{self.fold}']['statistics']['kpis'][str(kpi_window)]
+            data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
             
             self.kpi_means = data_tree_path['mean'][()]
             self.kpi_stds = data_tree_path['std'][()]
@@ -132,9 +132,12 @@ class Features(torch.utils.data.Dataset):
         second_index = str(self.indices[idx][1])
         
         # Load the data from the HDF5 file based on fold (and if fold is -1, no cross-validation is used)
-        if self.fold != -1:
-            data = self.data[self.data_type][f'fold_{self.fold}']['segments'][segment_index][second_index]
-        else:
+        if self.data_type != 'test':
+            if self.fold != -1:
+                data = self.data[self.data_type][f'fold_{self.fold}']['segments'][segment_index][second_index]
+            else:
+                data = self.data[self.data_type]['segments'][segment_index][second_index]
+        elif self.data_type == 'test':
             data = self.data[self.data_type]['segments'][segment_index][second_index]
             
         features = torch.tensor([])
