@@ -149,6 +149,7 @@ def get_args():
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='Weight decay for the optimizer. Default is 0.0')
+    parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
     
     return parser.parse_args()
 
@@ -186,7 +187,7 @@ if __name__ == '__main__':
         
         # Create model
         # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-        model = HydraMRRegressor(input_shape[0], target_shape[0], name=args.model_name) 
+        model = HydraMRRegressor(input_shape[0], target_shape[0], args.hidden_dim, name=args.model_name) 
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
