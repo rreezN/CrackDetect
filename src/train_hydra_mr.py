@@ -141,12 +141,13 @@ def train(model: HydraMRRegressor,
 
 def get_args():
     parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train.')
-    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features).')
-    parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer.')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
-    parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
+    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train. Default 10')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
+    parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
+    parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors. Default is empty.')
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
+    parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
     
     return parser.parse_args()
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         
         # Create model
         # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-        model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
+        model = HydraMRRegressor(input_shape[0], target_shape[0], name=args.model_name) 
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
@@ -203,7 +204,7 @@ if __name__ == '__main__':
 
     plt.plot(x, np.mean(train_losses, axis=0), label="Train loss", c="b")
     plt.plot(x, np.mean(val_losses, axis=0), label="Val loss", c="r", linestyle='--')
-    plt.ylim(0, min(7, max(max(train_losses), max(val_losses))+1))
+    plt.ylim(0, min(7, max(np.max(train_losses), np.max(val_losses))+1))
     plt.title('Loss per epoch')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
