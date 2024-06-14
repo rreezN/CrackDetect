@@ -150,14 +150,14 @@ def get_args():
     parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='Weight decay for the optimizer. Default is 0.0')
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
-    
+    parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = get_args()
     
-    wandb.init(project='All features', entity='fleetyeet')
+    wandb.init(project=args.project_name, entity='fleetyeet')
     wandb.config.update(args)
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
