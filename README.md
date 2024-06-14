@@ -105,7 +105,7 @@ python src/data/make_dataset.py --begin_from validate
 ```
 
 ## Feature extraction
-[(Notebook)](notebooks/link_to_notebook.ipynb) [(Back to top)](#table-of-contents)
+[(Notebook)](notebooks/feature_extraction.ipynb) [(Back to top)](#table-of-contents)
 
 There are two feature extractors implemented in this repository: [HYDRA](https://arxiv.org/abs/2203.13652) and [MultiRocket](https://arxiv.org/abs/2102.00457). They are found in [src/models/hydra](src/models/hydra/) and [src/models/multirocket](src/models/multirocket/). 
 
