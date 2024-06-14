@@ -1,0 +1,19 @@
+program: src/train_hydra_mr.py
+name: sweeptest
+method: random
+metric:
+  goal: minimize
+  name: mean_best_val_loss
+parameters:
+  lr:
+    values: [1e-3, 1e-4, 1e-5, 1e-6]
+  batch_size:
+    values: [16, 32, 64]
+  feature_extractors:
+    values: [MultiRocketMV_50000, HydraMV_8_64, MultiRocketMV_50000 HydraMV_8_64]
+  weight_decay:
+    values: [0.0, 1e-3, 1e-4, 1e-5]
+  hidden_dim:
+    values: [32, 64, 128, 256, 512]
+  dropout:
+    values: [0.0, 0.2, 0.4, 0.6]

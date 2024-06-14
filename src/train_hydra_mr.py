@@ -211,9 +211,11 @@ if __name__ == '__main__':
         val_losses.append(k_fold_val_losses)
         best_val_losses.append(best_val_loss)
     
-    print(f"Mean best validation loss: {np.mean(best_val_losses):.3f}")
-    print(f"Standard deviation of best validation loss: {np.std(best_val_losses):.3f}")
-    wandb.log({"mean_best_val_loss": np.mean(best_val_losses), "std_best_val_loss": np.std(best_val_losses)})
+    mean_best_val_loss = np.mean(best_val_losses)
+    std_best_val_loss = np.std(best_val_losses)
+    print(f"Mean best validation loss: {mean_best_val_loss:.3f}")
+    print(f"Standard deviation of best validation loss: {std_best_val_loss:.3f}")
+    wandb.log({"mean_best_val_loss": mean_best_val_loss, "std_best_val_loss": std_best_val_loss})
 
     # plot training curves
     for i in range(args.folds):
