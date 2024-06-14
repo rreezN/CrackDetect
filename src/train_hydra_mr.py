@@ -47,7 +47,7 @@ def train(model: HydraMRRegressor,
         epochs = args.epochs
     
     # Set optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
     
     # Set loss function
     loss_fn = nn.MSELoss()
@@ -145,6 +145,7 @@ def get_args():
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors. Default is empty.')
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
+    parser.add_argument('--weight_decay', type=float, default=0.0, help='Weight decay for the optimizer. Default is 0.0')
     
     return parser.parse_args()
 
