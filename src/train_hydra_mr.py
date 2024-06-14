@@ -66,6 +66,7 @@ def train(model: HydraMRRegressor,
         model.train()
         train_losses = []
         for data, target in train_iterator:
+            data, target = data.to(device), target.to(device)
             output = model(data)
 
             loss = loss_fn(output, target)
@@ -92,6 +93,7 @@ def train(model: HydraMRRegressor,
         # bad_max_idx = []
         # bad_min_idx = []
         for val_data, target in val_iterator:
+            val_data, target = val_data.to(device), target.to(device)
             output = model(val_data)
             val_loss = loss_fn(output, target)
 
@@ -157,7 +159,11 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
-    
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on device: {device}.")
+ 
+
     wandb.init(project=args.project_name, entity='fleetyeet')
     wandb.config.update(args)
     # Define feature extractors
@@ -192,7 +198,7 @@ if __name__ == '__main__':
                                  out_features=target_shape[0], 
                                  hidden_dim=args.hidden_dim, 
                                  dropout=args.dropout,
-                                 name=args.model_name) 
+                                 name=args.model_name).to(device)
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
