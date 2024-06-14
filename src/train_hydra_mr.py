@@ -11,6 +11,10 @@ from torch.utils.data import DataLoader
 
 from models.hydramr import HydraMRRegressor
 from data.feature_dataloader import Features
+from src.util.utils import set_all_seeds
+
+# Set seed for reproducibility
+set_all_seeds(42)
 
 
 def train(model: HydraMRRegressor, 
@@ -124,7 +128,7 @@ def train(model: HydraMRRegressor,
         plt.grid()
         plt.tight_layout()
         os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
-        plt.savefig(f'reports/figures/model_results/{model.name}/loss.pdf')
+        plt.savefig(f'reports/figures/model_results/{model.name}/loss_{fold}.pdf')
         plt.close()
     
     torch.save(model.state_dict(), f'models/{model.name}.pt')
@@ -197,7 +201,7 @@ if __name__ == '__main__':
 
     plt.plot(x, np.mean(train_losses, axis=0), label="Train loss", c="b")
     plt.plot(x, np.mean(val_losses, axis=0), label="Val loss", c="r", linestyle='--')
-    plt.ylim(0, min(7, max(max(train_losses), max(val_losses))+1))
+    plt.ylim(0, min(7, max(np.max(train_losses), np.max(val_losses))+1))
     plt.title('Loss per epoch')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
