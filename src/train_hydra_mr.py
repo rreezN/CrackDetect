@@ -180,7 +180,7 @@ if __name__ == '__main__':
         
         # Create model
         # As a baseline, MultiRocket_50000 will output 49728 features, Hydra_8_64 will output 5120 features, and there are 4 KPIs (targets)
-        model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_MultiRocketMV_50000_HydraMV_8_64_50_latent_dim') 
+        model = HydraMRRegressor(input_shape[0], target_shape[0], name=f'HydraMRRegressor_HydraMV_8_64_100_latent_dim') 
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
@@ -200,7 +200,7 @@ if __name__ == '__main__':
 
     plt.plot(x, np.mean(train_losses, axis=0), label="Train loss", c="b")
     plt.plot(x, np.mean(val_losses, axis=0), label="Val loss", c="r", linestyle='--')
-    plt.ylim(0, min(7, max(max(train_losses), max(val_losses))+1))
+    plt.ylim(0, min(7, max(np.max(train_losses), np.max(val_losses))+1))
     plt.title('Loss per epoch')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
