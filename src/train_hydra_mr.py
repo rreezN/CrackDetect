@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 
 from models.hydramr import HydraMRRegressor
 from data.feature_dataloader import Features
-from src.util.utils import set_all_seeds
+from util.utils import set_all_seeds
 
 # Set seed for reproducibility
 set_all_seeds(42)
@@ -46,8 +46,8 @@ def train(model: HydraMRRegressor,
     if args.epochs != 10:
         epochs = args.epochs
     
-    # Set optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    # Set optimizer with weight decay
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     
     # Set loss function
     loss_fn = nn.MSELoss()
@@ -107,7 +107,7 @@ def train(model: HydraMRRegressor,
         # save best model
         if np.mean(val_losses) < best_val_loss:
             best_val_loss = np.mean(val_losses)
-            torch.save(model.state_dict(), f'models/best_{model.name}.pt')
+            torch.save(model.state_dict(), f'models/best_{model.name}_{fold}.pt')
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1}")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
@@ -133,7 +133,7 @@ def train(model: HydraMRRegressor,
     
     torch.save(model.state_dict(), f'models/{model.name}.pt')
 
-    return epoch_train_losses, epoch_val_losses
+    return epoch_train_losses, epoch_val_losses, best_val_loss
     
 
 def get_args():
@@ -152,7 +152,7 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
     
-    wandb.init(project='hydra_mr_test', entity='fleetyeet')
+    wandb.init(project='All features', entity='fleetyeet')
     wandb.config.update(args)
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
@@ -166,15 +166,16 @@ if __name__ == '__main__':
 
     train_losses = []
     val_losses = []
+    best_val_losses = []
     
     for fold in range(args.folds):
         print(f"Training fold {fold+1}/{args.folds}")
         
         # Load data
-        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
         train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
         
-        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
+        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
         val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
         
         input_shape, target_shape = trainset.get_data_shape()
@@ -188,11 +189,16 @@ if __name__ == '__main__':
 
         # Train
         # TODO: Modify train function to return best_model, best_val_loss, and training curves
-        k_fold_train_losses, k_fold_val_losses = train(model, train_loader, val_loader, fold=fold)
+        k_fold_train_losses, k_fold_val_losses, best_val_loss = train(model, train_loader, val_loader, fold=fold)
     
         train_losses.append(k_fold_train_losses)
         val_losses.append(k_fold_val_losses)
+        best_val_losses.append(best_val_loss)
     
+    print(f"Mean best validation loss: {np.mean(best_val_losses):.3f}")
+    print(f"Standard deviation of best validation loss: {np.std(best_val_losses):.3f}")
+    wandb.log({"mean_best_val_loss": np.mean(best_val_losses), "std_best_val_loss": np.std(best_val_losses)})
+
     # plot training curves
     for i in range(args.folds):
         x = np.arange(1, args.epochs+1, step=1)
@@ -201,7 +207,7 @@ if __name__ == '__main__':
 
     plt.plot(x, np.mean(train_losses, axis=0), label="Train loss", c="b")
     plt.plot(x, np.mean(val_losses, axis=0), label="Val loss", c="r", linestyle='--')
-    plt.ylim(0, min(7, max(np.max(train_losses), np.max(val_losses))+1))
+    plt.ylim(0, min(7, max(np.max(train_losses), np.max(val_losses))+0.2))
     plt.title('Loss per epoch')
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
@@ -210,6 +216,8 @@ if __name__ == '__main__':
     plt.tight_layout()
     os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
     plt.savefig(f'reports/figures/model_results/{model.name}/loss_combined.pdf')
+    # log the plot to wandb
+    wandb.log({"loss_combined": wandb.Image(plt)})
     plt.close()
 
     wandb.finish()

@@ -23,7 +23,8 @@ class Features(torch.utils.data.Dataset):
                  name_identifier: str = '', 
                  data_type:str = 'train', 
                  kpi_window: int = 1,
-                 fold: int = -1):
+                 fold: int = -1,
+                 verbose: bool = True):
         
         assert kpi_window in [1, 2], 'The kpi window size must be 1 or 2 seconds'
         assert data_type in ['train', 'val', 'test'], 'The data type must be either "train", "val" or "test"'
@@ -83,7 +84,8 @@ class Features(torch.utils.data.Dataset):
         # The indices are tuples of (segment, second)
         self.indices = permutations
         
-        self.print_arguments()
+        if verbose:
+            self.print_arguments()
         
     
     def __len__(self):
