@@ -3,6 +3,7 @@ import torch
 import wandb
 import numpy as np
 import torch.nn as nn
+import time
 
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -60,6 +61,7 @@ def train(model: HydraMRRegressor,
     
     # Iterate over segments of data (each segment is a time series where the minimum speed is above XX km/h)
     for i, epoch in enumerate(range(epochs)):
+        start = time.time()
         train_iterator = tqdm(train_loader, unit="batch", position=0, leave=False)
         model.train()
         train_losses = []
@@ -106,9 +108,10 @@ def train(model: HydraMRRegressor,
         
         # save best model
         if np.mean(val_losses) < best_val_loss:
+            end = time.time()
             best_val_loss = np.mean(val_losses)
             torch.save(model.state_dict(), f'models/best_{model.name}.pt')
-            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1}")
+            print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-time:.2f}s)")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
             
