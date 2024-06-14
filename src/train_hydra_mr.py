@@ -159,6 +159,7 @@ def get_args():
 
 if __name__ == '__main__':
     args = get_args()
+    print(args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}.")
@@ -170,7 +171,6 @@ if __name__ == '__main__':
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
     feature_extractors = args.feature_extractors
-    # feature_extractors = ['HydraMV_8_64']
     
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
@@ -184,10 +184,14 @@ if __name__ == '__main__':
         print(f"Training fold {fold+1}/{args.folds}")
         
         # Load data
-        trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+        if args.feature_extractors == ['MultiRocketMV_50000+HydraMV_8_64']:
+            trainset = Features(data_type='train', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier=name_identifier, fold=fold, verbose=False)
+            valset = Features(data_type='val', feature_extractors=['MultiRocketMV_50000', 'HydraMV_8_64'], name_identifier=name_identifier, fold=fold, verbose=False)
+        else:
+            trainset = Features(data_type='train', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+            valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
+
         train_loader = DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0)
-        
-        valset = Features(data_type='val', feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold, verbose=False)
         val_loader = DataLoader(valset, batch_size=args.batch_size, shuffle=True, num_workers=0)
         
         input_shape, target_shape = trainset.get_data_shape()

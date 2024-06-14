@@ -10,7 +10,7 @@ parameters:
   batch_size:
     values: [16, 32, 64]
   feature_extractors:
-    values: [MultiRocketMV_50000, HydraMV_8_64, MultiRocketMV_50000 HydraMV_8_64]
+    values: [MultiRocketMV_50000, HydraMV_8_64, MultiRocketMV_50000+HydraMV_8_64]
   weight_decay:
     values: [0.0, 1e-3, 1e-4, 1e-5]
   hidden_dim:
