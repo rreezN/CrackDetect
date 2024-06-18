@@ -1,7 +1,6 @@
 import h5py
 import torch
 import numpy as np
-import pandas as pd
 import torch.nn as nn
 import numpy.typing as npt
 
@@ -12,11 +11,11 @@ from torch.utils.data import Subset
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
 
-from data.dataloader import Platoon
-from models.hydra.hydra import Hydra
+from src.data.dataloader import Platoon
+from src.models.hydra.hydra import Hydra
 from src.util.utils import set_all_seeds
 from src.models.multirocket.multirocket import MultiRocket
-from models.hydra.hydra_multivariate import HydraMultivariate
+from src.models.hydra.hydra_multivariate import HydraMultivariate
 from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
 
 """

@@ -74,6 +74,12 @@ def preprocess_gopro_data(folder: str = "data/raw/gopro") -> None:
     Preprocess the GoPro data by combining the data from the three GoPro cameras into one csv file for each trip
 
     NOTE: This function is hardcoded for the three trips in the CPH1 dataset
+
+    Parameters
+    ----------
+    folder : str
+        The path to the folder containing the GoPro data
+
     """
     if not isinstance(folder, str):
         raise TypeError(f"Input value 'folder' type is {type(folder)}, but expected str.")

@@ -13,6 +13,26 @@ from .matching import find_best_start_and_end_indeces_by_lonlat
 # ========================================================================================================================
 
 def interpolate(x: np.ndarray, y: np.ndarray, x_new: np.ndarray) -> np.ndarray:
+    """
+    One-dimensional linear interpolation for monotonically increasing sample points.
+    
+        (x, y) evaluated in x_new
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The x values
+    y : np.ndarray
+        The y values
+    x_new : np.ndarray
+        The new x values to interpolate y values for
+
+    Returns
+    -------
+    np.ndarray
+        The interpolated y values for x_new
+    """
+
     # Interpolate y values for x_new using x and y
     if not isinstance(x, np.ndarray):
         raise TypeError(f"Input value 'x' type is {type(x)}, but expected np.ndarray.")
@@ -20,11 +40,25 @@ def interpolate(x: np.ndarray, y: np.ndarray, x_new: np.ndarray) -> np.ndarray:
         raise TypeError(f"Input value 'y' type is {type(y)}, but expected np.ndarray.")
     if not isinstance(x_new, np.ndarray):
         raise TypeError(f"Input value 'x_new' type is {type(x_new)}, but expected np.ndarray.")
-    
     return np.interp(x_new, x, y)
 
 
 def remove_duplicates(time: np.ndarray, value: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Remove duplicate timestamps from the time and value arrays
+
+    Parameters
+    ----------
+    time : np.ndarray
+        The time array
+    value : np.ndarray
+        The value array
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        The time and value arrays without duplicate timestamps
+    """
     # Remove duplicate timestamps
     if not isinstance(time, np.ndarray):
         raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
@@ -36,6 +70,23 @@ def remove_duplicates(time: np.ndarray, value: np.ndarray) -> tuple[np.ndarray, 
 
 
 def calculate_distance_from_time_and_speed(time: np.ndarray, speed: np.ndarray, conversion_factor: float = 1) -> np.ndarray:
+    """
+    Based on the time and speed measurements, calculate the distance travelled
+
+    Parameters
+    ----------
+    time : np.ndarray
+        The time measurements
+    speed : np.ndarray
+        The speed measurements
+    conversion_factor : float
+        The conversion factor from speed to distance
+    
+    Returns
+    -------
+    np.ndarray
+        The distance travelled
+    """
     # Calculate the distance from the time and speed measurements
     if not isinstance(time, np.ndarray):
         raise TypeError(f"Input value 'time' type is {type(time)}, but expected np.ndarray.")
