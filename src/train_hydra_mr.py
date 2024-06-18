@@ -88,23 +88,11 @@ def train(model: HydraMRRegressor,
         val_iterator = tqdm(val_loader, unit="batch", position=0, leave=False)
         model.eval()
         val_losses = []
-        # bad_predictions = 0
-        # bad_data = []
-        # bad_max_idx = []
-        # bad_min_idx = []
         for val_data, target in val_iterator:
             val_data, target = val_data.to(device), target.to(device)
             output = model(val_data)
             val_loss = loss_fn(output, target)
 
-            # TODO: Fix insane predictions in validation, and then switch to MSE
-            # Validation losses explodeeeeee
-            if val_loss > 100:
-                # bad_predictions += 1
-                # bad_data.append([val_data[val_data > 10], val_data[val_data < -10]])
-                # bad_max_idx.append((val_data == torch.max(val_data)).nonzero())
-                # bad_min_idx.append((val_data == torch.min(val_data)).nonzero())
-                print(f"Val loss: {val_loss}")
             val_losses.append(val_loss.item())
             val_iterator.set_description(f"Validating Epoch {epoch+1}/{epochs}, Train loss: {loss.item():.3f}, Last epoch train loss: {epoch_train_losses[i-1]:.3f}, Val loss: {val_loss:.3f}, Mean Val Loss: {np.mean(val_losses):.3f}")
         
@@ -143,7 +131,7 @@ def train(model: HydraMRRegressor,
 
 def get_args():
     parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
-    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train. Default 10')
+    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train. Default 10')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
@@ -209,7 +197,7 @@ if __name__ == '__main__':
                                  batch_norm=args.batch_norm
                                  ).to(device)
         
-        wandb.watch(model, log='all')
+        # wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
 
         # Train

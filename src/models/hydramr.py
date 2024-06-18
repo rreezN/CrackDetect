@@ -23,24 +23,30 @@ class HydraMRRegressor(torch.nn.Module):
         super(HydraMRRegressor, self).__init__()
         
         self.name = name
+        self.tanh = torch.nn.Tanh()
         
+        # Input layer 
         self.input_layer = torch.nn.Linear(in_features, hidden_dim)
         self.dropout = nn.Dropout(dropout)
         self.r = torch.nn.ReLU()
-        self.tanh = torch.nn.Tanh()
         self.linear = nn.Linear(hidden_dim, out_features)
-        
         layers = [self.input_layer]
         if batch_norm:
             layers.append(torch.nn.BatchNorm1d(hidden_dim))
         layers.append(self.r)
         layers.append(self.dropout)
+        
+        # Hidden layers
         for _ in range(model_depth):
             if batch_norm:
-                layers.extend([torch.nn.Linear(hidden_dim, hidden_dim), torch.nn.BatchNorm1d(hidden_dim), self.r, self.dropout])  # self.bn is the batch norm layer for hidden layers
+                layers.extend([torch.nn.Linear(hidden_dim, hidden_dim), torch.nn.BatchNorm1d(hidden_dim), self.r, self.dropout])
             else:
                 layers.extend([torch.nn.Linear(hidden_dim, hidden_dim), self.r, self.dropout])
+        
+        # Output layer
         layers.append(self.linear)
+        
+        # Create the network
         self.net = nn.Sequential(*layers)
 
         # Permutation test on the 30 raw signals. 
