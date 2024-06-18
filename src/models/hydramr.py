@@ -16,19 +16,33 @@ class HydraMRRegressor(torch.nn.Module):
                  out_features: int = 4, 
                  hidden_dim: int = 100,
                  dropout: float = 0.5,
-                 name: str = 'HydraMRRegressor') -> None:
+                 name: str = 'HydraMRRegressor',
+                 model_depth: int = 1,
+                 batch_norm: bool = False
+                 ) -> None:
         super(HydraMRRegressor, self).__init__()
         
         self.name = name
         
         self.input_layer = torch.nn.Linear(in_features, hidden_dim)
         self.dropout = nn.Dropout(dropout)
-        self.hidden = torch.nn.Linear(hidden_dim, hidden_dim)
         self.r = torch.nn.ReLU()
         self.tanh = torch.nn.Tanh()
         self.linear = nn.Linear(hidden_dim, out_features)
-        # TODO add a hidden layer. 500 might be to big!
-        # regularization is needed
+        
+        layers = [self.input_layer]
+        if batch_norm:
+            layers.append(torch.nn.BatchNorm1d(hidden_dim))
+        layers.append(self.r)
+        layers.append(self.dropout)
+        for _ in range(model_depth):
+            if batch_norm:
+                layers.extend([torch.nn.Linear(hidden_dim, hidden_dim), torch.nn.BatchNorm1d(hidden_dim), self.r, self.dropout])  # self.bn is the batch norm layer for hidden layers
+            else:
+                layers.extend([torch.nn.Linear(hidden_dim, hidden_dim), self.r, self.dropout])
+        layers.append(self.linear)
+        self.net = nn.Sequential(*layers)
+
         # Permutation test on the 30 raw signals. 
         
     
@@ -44,11 +58,7 @@ class HydraMRRegressor(torch.nn.Module):
             Output tensor with shape [N,out_features]
 
         """
-        x = self.r(self.input_layer(x))
-        x = self.dropout(x)  # Apply dropout after activation
-        x = self.r(self.hidden(x))  # Pass through hidden layer
-        x = self.dropout(x)  # Apply dropout after hidden layer
-        x = self.linear(x)
+        x = self.net(x)
        
         # TODO: Find a proper way to do this 
         # Scale output for now...

@@ -146,7 +146,7 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train. Default 10')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors. Default is empty.')
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
@@ -154,6 +154,8 @@ def get_args():
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
     parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
+    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 1')
+    parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
     return parser.parse_args()
 
 
@@ -202,13 +204,15 @@ if __name__ == '__main__':
                                  out_features=target_shape[0], 
                                  hidden_dim=args.hidden_dim, 
                                  dropout=args.dropout,
-                                 name=args.model_name).to(device)
+                                 name=args.model_name,
+                                 model_depth=args.model_depth,
+                                 batch_norm=args.batch_norm
+                                 ).to(device)
         
         wandb.watch(model, log='all')
         wandb.config.update({f"model_{fold}": model.name})
 
         # Train
-        # TODO: Modify train function to return best_model, best_val_loss, and training curves
         k_fold_train_losses, k_fold_val_losses, best_val_loss = train(model, train_loader, val_loader, fold=fold)
     
         train_losses.append(k_fold_train_losses)
