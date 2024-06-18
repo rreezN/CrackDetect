@@ -143,7 +143,7 @@ def train(model: HydraMRRegressor,
 
 def get_args():
     parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train. Default 10')
+    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train. Default 10')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
@@ -168,7 +168,7 @@ if __name__ == '__main__':
  
 
     wandb.init(project=args.project_name, entity='fleetyeet')
-    wandb.config.update(args)
+    wandb.config.update(args, allow_val_change=True)
     # Define feature extractors
     # These are the names of the stored models/features (in features.hdf5)
     # e.g. ['MultiRocketMV_50000', 'HydraMV_8_64'] you can check the available features with check_hdf5.py
