@@ -1,21 +1,22 @@
 import h5py
 import torch
 import numpy as np
-import pandas as pd
 import torch.nn as nn
 import numpy.typing as npt
 
+from time import time
 from tqdm import tqdm
+from argparse import ArgumentParser
 from torch.utils.data import Subset
 from torch.utils.data import DataLoader
-from argparse import ArgumentParser
-from time import time
+from sklearn.model_selection import KFold
 
-from models.hydra.hydra import Hydra
-from models.hydra.hydra_multivariate import HydraMultivariate
-from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
+from src.data.dataloader import Platoon
+from src.models.hydra.hydra import Hydra
+from src.util.utils import set_all_seeds
 from src.models.multirocket.multirocket import MultiRocket
-from data.dataloader import Platoon
+from src.models.hydra.hydra_multivariate import HydraMultivariate
+from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
 
 """
 Example of features.hdf5 file structure 
@@ -60,7 +61,11 @@ Example of features.hdf5 file structure
 #               Feature extraction from all data loaders and feature extractors
 # ======================================================================================================================
 
-def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
+def extract_all_train_features(feature_extractors: list[nn.Module], 
+                               data_loaders: list[DataLoader], 
+                               segment_file: h5py.File, 
+                               cross_validation_fold: int = -1,
+                               calculate_statistics: list[bool] = [True, False]):
     """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
     
     Parameters:
@@ -68,21 +73,46 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
         feature_extractors (list[nn.Module]): List of feature extractors to use [multi_rocket, hydra]
         data_loaders (list[DataLoader]): List of data loaders to extract features from [train, test, val]
         segment_file (h5py.File): File to store the extracted features and targets
+        cross_validation_fold (int): The cross-validation fold to extract features for. Default -1 (no cross-validation)
     """
     
     
     with h5py.File('data/processed/features.hdf5', 'a') as f:
-        for data_loader in data_loaders:
-            data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
-            segments_subgroup = data_loader_subgroup.require_group("segments")
+        # go into data_loader
+        # go into fold
+        # go into segments
+        # go into second
+        # go into feature_extractor
+        # save data
+        for i, data_loader in enumerate(data_loaders):
+            data_type = 'train' if calculate_statistics[i] else 'val'
+            data_loader_subgroup = f.require_group(data_type)
+            
+            # Check if we are cross validating
+            # If so, create a segment subgroup for the fold
+            # Else, create a subgroup for the data_loader
+            if cross_validation_fold != -1:
+                fold_subgroup = data_loader_subgroup.require_group(f"fold_{cross_validation_fold}")
+                segments_subgroup = fold_subgroup.require_group("segments")  
+            else:
+                segments_subgroup = data_loader_subgroup.require_group("segments")
             
             for feature_extractor in feature_extractors:
-                mean, sample_variance, running_min, running_max, all_targets, s = extract_features_from_extractor(feature_extractor, data_loader, segments_subgroup, segment_file)
+                mean, sample_variance, running_min, running_max, all_targets, s = extract_features_from_extractor(feature_extractor, 
+                                                                                                                  data_loader, 
+                                                                                                                  segments_subgroup, 
+                                                                                                                  segment_file,
+                                                                                                                  calculate_statistics[i]
+                                                                                                                  )
                 
-                if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
+                # Skip if we are not calculating statistics (train, test)
+                if not calculate_statistics[i]:
                     continue
                 
-                statistics_subgroup = data_loader_subgroup.require_group("statistics")
+                if cross_validation_fold != -1:
+                    statistics_subgroup = fold_subgroup.require_group("statistics")
+                else:
+                    statistics_subgroup = data_loader_subgroup.require_group("statistics")
                 
                 # Save feature and target statistics from training data
                 name = feature_extractor.name + f"_{args.name_identifier}" if args.name_identifier != '' else feature_extractor.name
@@ -119,6 +149,26 @@ def extract_all_features(feature_extractors: list[nn.Module], data_loaders: list
                     target_2_subgroup.create_dataset("min", data=min)
                     target_2_subgroup.create_dataset("max", data=max)
                 
+
+def extract_all_test_features(feature_extractors: list[nn.Module], data_loaders: list[DataLoader], segment_file: h5py.File):
+    """Extracts features from all data loaders using all feature extractors and saves them to a hdf5 file.
+    
+    Parameters:
+    ----------
+        feature_extractors (list[nn.Module]): List of feature extractors to use [multi_rocket, hydra]
+        data_loaders (list[DataLoader]): List of data loaders to extract features from [train, test, val]
+        segment_file (h5py.File): File to store the extracted features and targets
+    """
+    
+    
+    with h5py.File('data/processed/features.hdf5', 'a') as f:
+        for data_loader in data_loaders:
+            data_loader_subgroup = f.require_group(data_loader.dataset.data_type)
+            segments_subgroup = data_loader_subgroup.require_group("segments")
+            
+            for feature_extractor in feature_extractors:
+                mean, sample_variance, running_min, running_max, all_targets, s = extract_features_from_extractor(feature_extractor, data_loader, segments_subgroup, segment_file)
+
 
 # ======================================================================================================================
 #               Functions for computing statistics on the fly
@@ -184,7 +234,8 @@ def finalize(existing_aggregate: tuple[int, torch.Tensor, torch.Tensor]) -> tupl
 def extract_features_from_extractor(feature_extractor: nn.Module, 
                                     data_loader: DataLoader, 
                                     subgroup: h5py.Group, 
-                                    segment_file: h5py.File
+                                    segment_file: h5py.File,
+                                    calculate_statistics: bool = False
                                     ) -> tuple[torch.Tensor, 
                                                torch.Tensor, 
                                                torch.Tensor, 
@@ -196,7 +247,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
     Additionally, an std correction factor 's' is returned for hydra features to avoid division by zero. 
     Lastly, all targets are returned for KPI statistics.
 
-    If the val_loader or test_loader is used, empty tensors and ndarrays are returned for all values.
+    If calculate_statistics is false, empty tensors and ndarrays are returned for all values.
 
     Statistics and computed on the fly using Welford's online algorithm to avoid storing all features in memory, thus
     speeding up the feature extraction process.
@@ -223,7 +274,8 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
     all_targets = np.array([])
     
     iterator = tqdm(data_loader, unit="batch", position=0, leave=False, total=args.subset if args.subset is not None else len(data_loader))
-    iterator.set_description(f"Extracting {data_loader.dataset.data_type} features from {feature_extractor.name}")
+    data_type = 'train' if calculate_statistics else 'val/test'
+    iterator.set_description(f"Extracting {data_type} features from {feature_extractor.name}")
     iteration = 0
     
     running_mean = None
@@ -232,7 +284,12 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
     zeros_array = None
     n = 0
     
+    segments =[]
+    seconds = []
+    
     for data, segment_nr, second_nr in iterator:
+        segments.append(segment_nr[0])
+        seconds.append(second_nr[0])
         if args.subset is not None and iteration >= args.subset:
             break
         
@@ -242,7 +299,8 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
             data = data.numpy()
         elif isinstance(feature_extractor, HydraMultivariate) or isinstance(feature_extractor, Hydra):
             data = data.type(torch.FloatTensor)
-            
+        
+        # Create subgroup for segment and second
         segment_nr = segment_nr[0]
         second_nr = second_nr[0]
         
@@ -251,13 +309,13 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
         
         segment_subgroup = subgroup[segment_nr]
         
+        if not second_nr in segment_subgroup.keys():
+            segment_subgroup.require_group(second_nr)
+            
         # Add direction, trip name and pass name as attr to segment subgroup
         segment_subgroup.attrs['direction'] = segment_file[segment_nr].attrs['direction']
         segment_subgroup.attrs['trip_name'] = segment_file[segment_nr].attrs['trip_name']
         segment_subgroup.attrs['pass_name'] = segment_file[segment_nr].attrs['pass_name']
-        
-        if not second_nr in segment_subgroup.keys():
-            segment_subgroup.require_group(second_nr)
         
         # Copy the KPIs to the second subgroup if they are not already there
         second_subgroup = segment_subgroup[second_nr]
@@ -265,7 +323,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
             copy_hdf5_(data={"kpis":segment_file[segment_nr][second_nr]["kpis"]}, group=second_subgroup)
         
         # If using univariate data, squeeze the data to remove the channel dimension
-        if len(args.cols) == 1:
+        if len(args.cols) == 1 and args.all_cols == False:
             data = data.squeeze(1)
         
         # Extract features
@@ -286,7 +344,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
         second_subgroup.create_dataset(name, data=features)
 
         # We only need to compute statistics for the training data
-        if data_loader.dataset.data_type == 'train':
+        if calculate_statistics:
             new_value = features
 
             if running_mean is None:
@@ -317,7 +375,7 @@ def extract_features_from_extractor(feature_extractor: nn.Module,
             
         iteration += 1
 
-    if data_loader.dataset.data_type == 'val' or data_loader.dataset.data_type == 'test':
+    if not calculate_statistics:
         return torch.tensor, torch.tensor, torch.tensor, torch.tensor, np.array, torch.tensor
 
     # See https://github.com/angus924/hydra/issues/9 for why this transform is necessary
@@ -353,6 +411,22 @@ def copy_hdf5_(data: dict[str, h5py.Group], group: h5py.Group):
             for k, v in value.attrs.items():
                 dataset.attrs[k] = v
 
+class SubsetSampler(torch.utils.data.Sampler):
+    """Samples elements from the given indices sequentially, always in the same order.
+    
+    Parameters:
+    ----------
+        indices (list): A list of indices to sample from
+    """
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
 
 def get_args():
     """Parses the arguments from the command line.
@@ -363,10 +437,13 @@ def get_args():
     """
     parser = ArgumentParser(description='Hydra-MR')
     parser.add_argument('--cols', default=['acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2'], nargs='+')
+    parser.add_argument('--all_cols', action='store_true', help='Use all columns (signals) in the dataset')
     parser.add_argument('--mr_num_features', type=int, default=50000)
     parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
     parser.add_argument('--subset', type=int, default=None)
     parser.add_argument('--name_identifier', type=str, default='')
+    parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation, Default 5')
+    parser.add_argument('--seed', type=int, default=42, help='Seed for reproducibility')
     
     return parser.parse_args()
 
@@ -376,34 +453,69 @@ if __name__ == '__main__':
 
     args = get_args()
     
+    set_all_seeds(args.seed)
+    
     data_path = 'data/processed/w_kpis/segments.hdf5'
     
-    # Load data
-    print(f"Loading data from {data_path}")
-    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=args.cols)
-    val_data = Platoon(data_path=data_path, data_type='val', feature_extraction=True, gm_cols=args.cols)
-    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=args.cols)
+    if args.all_cols:
+        cols = ['gps_0', 'gps_1',                                               # Latitute and longitude
+                'acc.xyz_0', 'acc.xyz_1', 'acc.xyz_2',                          # Acceleration in x, y, z
+                'spd_veh',                                                      # Vehicle speed
+                'odo',                                                          # Odometer
+                'acc_long', 'acc_trans', 'acc_yaw',                             # Longitudinal, transversal, and yaw acceleration
+                'strg_acc', 'strg_pos',                                         # Steering acceleration and position
+                'rpm', 'rpm_fl', 'rpm_fr', 'rpm_rl', 'rpm_rr',                  # RPM for each wheel
+                'whl_prs_fl', 'whl_prs_fr', 'whl_prs_rl', 'whl_prs_rr',         # Wheel tire pressure for each wheel
+                'whl_trq_est',                                                  # Estimated wheel torque                          
+                'trac_cons',                                                    # Traction power
+                'brk_trq_elec',                                                 # Brake torque
+                ]
+    else:
+        cols = args.cols
     
-    # Create dataloaders
-    # NOTE: Must use batch_size=1, to avoid errors when extracting features
-    print("Creating dataloaders")
-    train_loader = DataLoader(train_data, batch_size=1, shuffle=False, num_workers=0)
-    val_loader = DataLoader(val_data, batch_size=1, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_data, batch_size=1, shuffle=False, num_workers=0)
+    # Load data
+    print(f"Loading train data from {data_path}")
+    train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=cols)
     
     # Create feature extractors
-    if len(args.cols) == 1:
+    if len(cols) == 1:
         multi_rocket_transformer = MultiRocket(args.mr_num_features)
         hydra_transformer = Hydra(args.hydra_input_length)
     else:
         multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
-        hydra_transformer = HydraMultivariate(args.hydra_input_length, len(args.cols))
+        hydra_transformer = HydraMultivariate(args.hydra_input_length, len(cols))
     
     print(f"Extracting features from {multi_rocket_transformer.name} and {hydra_transformer.name}")
     
-    with h5py.File(data_path, 'r') as f:
-        extract_all_features([multi_rocket_transformer, hydra_transformer], [train_loader, val_loader, test_loader], f)
+    # Split into K folds
+    kfold = KFold(n_splits=args.folds, shuffle=True, random_state=args.seed)
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(train_data)):
+        # Create dataloaders
+        # NOTE: Must use batch_size=1, to avoid errors when extracting features
+        train_loader = DataLoader(train_data, 
+                                  batch_size=1, 
+                                  sampler=SubsetSampler(train_idx),
+                                  )
+        val_loader = DataLoader(train_data, 
+                                batch_size=1, 
+                                sampler=SubsetSampler(val_idx),
+                                )
+        
+        # Extract features from train and val data for each fold
+        with h5py.File(data_path, 'r') as f:
+            print(f'Extracting features for fold {fold+1}/{args.folds}')
+            # TODO: This is where the feature extraction happens, might need to be changed to allow arguments
+            extract_all_train_features([multi_rocket_transformer, hydra_transformer], [train_loader, val_loader], f, fold, [True, False])
     
+    # Extract features from test data
+    print("Loading test data")
+    test_data = Platoon(data_path=data_path, data_type='test', feature_extraction=True, gm_cols=cols)
+    test_loader = DataLoader(test_data, batch_size=1)
+    print("Extracting features from test data")
+    with h5py.File(data_path, 'r') as f:
+        extract_all_test_features([multi_rocket_transformer, hydra_transformer], [test_loader], f)
+    
+    # Report time
     extraction_time = time() - start
     minutes = int(extraction_time / 60)
     seconds = int(extraction_time % 60)

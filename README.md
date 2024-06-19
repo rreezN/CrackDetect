@@ -1,6 +1,9 @@
 (insert picture here)
 # crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
-[badges here maybe ?](shields.io)
+
+[<img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">]()
+[<img src="https://img.shields.io/badge/Weights_&_Biases-FFBE00?style=for-the-badge&logo=WeightsAndBiases&logoColor=white">]()
+[<img src="https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue">]()
 
 (Maybe put abstract from report here)
 
@@ -21,7 +24,7 @@ Repository containing code for the project Machine-learning approach for real-ti
 8. See results in ```reports/figures/model_results```
 
 # Table of Contents
-- [crackdetect (Predicting Road Pavement Condition Based On Real In-Vehicle Data)](#crackdetect-predicting-road-pavement-condition-based-on-real-in-vehicle-data)
+- [crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
 - [Results](#results)
 - [Quickstart](#quickstart)
 - [Table of Contents](#table-of-contents)
@@ -98,14 +101,14 @@ To run all preprocessing steps
 python src/data/make_dataset.py all
 ```
 
-A single step can be run by changing `all` to the desired step (e.g. `matching`). You can also run from a step to the end by calling, e.g. from `validate`:
+A single step can be run by changing `all` to the desired step (e.g. `matching`). You can also run from a step to the end by calling, e.g. from (including) `validate`:
 
 ```
-python src/data/make_dataset.py validate --begin_from
+python src/data/make_dataset.py --begin_from validate 
 ```
 
 ## Feature extraction
-[(Notebook)](notebooks/link_to_notebook.ipynb) [(Back to top)](#table-of-contents)
+[(Notebook)](notebooks/feature_extraction.ipynb) [(Back to top)](#table-of-contents)
 
 There are two feature extractors implemented in this repository: [HYDRA](https://arxiv.org/abs/2203.13652) and [MultiRocket](https://arxiv.org/abs/2102.00457). They are found in [src/models/hydra](src/models/hydra/) and [src/models/multirocket](src/models/multirocket/). 
 

@@ -23,14 +23,14 @@ def delete_model(file_path: str, keys: list[str]):
                             print(f'Deleted {key} from {data_type}/{segment}/{second}')
 
 
-def h5_tree(val, pre: str = '', max_items: int = 10):
+def h5_tree(val, pre: str = '', max_items: int = 3):
     """Recursively print the hdf5 file structure.
 
     Parameters:
     -----------
         val (h5py.File): The hdf5 file.
         pre (str, optional): The pre-fix of the file (determines the level to call the function at). Defaults to ''.
-        max_items (int, optional): The maximum number of items to print at each level. Defaults to 10.
+        max_items (int, optional): The maximum number of items to print at each level. Defaults to 3.
     """
     items = len(val)
     for i, (key, val) in enumerate(val.items()):
@@ -72,37 +72,41 @@ def summary(file_path: str):
             raise ValueError('The hdf5 file does not contain the expected keys.')
         
         print('\nCalculating summary...')
-        nr_segments = len(f['train']['segments'].keys()) + len(f['test']['segments'].keys()) + len(f['val']['segments'].keys())
+        nr_segments = len(f['train'][f'fold_0']['segments'].keys()) + len(f['test']['segments'].keys()) + len(f['val']['fold_0']['segments'].keys())
         nr_seconds = 0
         
         for data_type in ['train', 'test', 'val']:
-            for key in f[data_type]['segments'].keys():
-                nr_seconds += len(f['train']['segments'][key].keys())
+            if data_type != 'test':
+                for key in f[data_type][f'fold_0']['segments'].keys():
+                    nr_seconds += len(f[data_type][f'fold_0']['segments'][key].keys())
+            else:
+                for key in f[data_type]['segments'].keys():
+                    nr_seconds += len(f[data_type]['segments'][key].keys())
         
-        first_segment = list(f['train']['segments'].keys())[0]
-        first_second = list(f['train']['segments'][first_segment].keys())[0]
-        nr_models = len(f['train']['segments'][first_segment][first_second].keys()) - 1
+        first_segment = list(f['train']['fold_0']['segments'].keys())[0]
+        first_second = list(f['train']['fold_0']['segments'][first_segment].keys())[0]
+        nr_models = len(f['train']['fold_0']['segments'][first_segment][first_second].keys()) - 1
         
         print('\n    ---### SUMMARY ###---\n')
         print(f'Segments: {nr_segments}')
         print(f'Seconds: {nr_seconds}')
         print(f'Models: {nr_models}')
         models = []
-        for model in f['train']['segments'][first_segment][first_second].keys():
+        for model in f['train']['fold_0']['segments'][first_segment][first_second].keys():
             if model != 'kpis':
-                print(f'  - {model}: {f["train"]["segments"][first_segment][first_second][model].shape}')
+                print(f'  - {model}: {f["train"]["fold_0"]["segments"][first_segment][first_second][model].shape}')
                 models += [model]
         print(f'\nStatistics:')
         for model in models:
             print(f'  - {model}')
-            for key in f['train']['statistics'][model].keys():
-                data = f['train']['statistics'][model][key][()]
+            for key in f['train']['fold_0']['statistics'][model].keys():
+                data = f['train']['fold_0']['statistics'][model][key][()]
                 if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
                     data = np.round(np.array(data), 3)
                 print(f'    - {key}: {data}, shape: {data.shape}')
         print(f'  - KPIs:')
-        for key in f['train']['statistics']['kpis']['1'].keys():
-            data = f['train']['statistics']['kpis']['1'][key][()]
+        for key in f['train']['fold_0']['statistics']['kpis']['1'].keys():
+            data = f['train']['fold_0']['statistics']['kpis']['1'][key][()]
             if isinstance(data[0], np.float32) or isinstance(data[0], np.int32) or isinstance(data[0], np.float64) or isinstance(data[0], np.int64):
                 data = np.round(np.array(data), 3)
             print(f'    - {key}: {data}, shape: {data.shape}')
@@ -113,7 +117,7 @@ def summary(file_path: str):
 def get_args():
     parser = ArgumentParser(description='Check the hdf5 file structure.')
     parser.add_argument('--file_path', type=str, default='data/processed/features.hdf5', help='The path to the hdf5 file.')
-    parser.add_argument('--limit', type=int, default=5, help='The maximum number of items to print at each level.')
+    parser.add_argument('--limit', type=int, default=3, help='The maximum number of items to print at each level. Default 3')
     parser.add_argument('--summary', action='store_true', help='Print a summary of the hdf5 file. NOTE: Only works for features.hdf5 files created with the feature_extractor.py script.')
     parser.add_argument('--delete_model', nargs='+', default=[], help='Delete models from the hdf5 file, example: --delete_model model1 model2')
     return parser.parse_args()

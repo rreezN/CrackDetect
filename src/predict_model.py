@@ -1,11 +1,13 @@
+import os
 import torch
 import torch.nn as nn
 import numpy as np
 from argparse import ArgumentParser
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from pathlib import Path
 
-from models.hydramr import HydraMRRegressor
+from models.hydramr import HydraMRRegressor, HydraMRRegressor_old
 from data.feature_dataloader import Features
 from torch.utils.data import DataLoader
 
@@ -108,9 +110,9 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
     """Plot the predictions against the targets. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
-        predictions (_type_): _description_
-        targets (_type_): _description_
-        test_losses (_type_): _description_
+        predictions (torch.Tensor): _description_
+        targets (torch.Tensor): _description_
+        test_losses (np.ndarray): _description_
         show (bool, optional): _description_. Defaults to False.
     """
     
@@ -141,8 +143,8 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         axes[i].legend()
         
     plt.suptitle(f'{args.data_type} Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout
-    plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions.pdf')
+    plt.tight_layout()
+    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
     if show:
         plt.show()
     plt.close()
@@ -167,8 +169,8 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         axes[i].legend()
         
     plt.suptitle(f'Zoomed {args.data_type} Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout
-    plt.savefig(f'reports/figures/model_results/{args.data_type}_predictions_zoomed.pdf')
+    plt.tight_layout()
+    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions_zoomed.pdf')
     if show:
         plt.show()
     plt.close()
@@ -183,19 +185,28 @@ def get_args():
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
     parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
+    parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
+    parser.add_argument('--fold', type=int, default=-1, help='Fold to use for prediction.')
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = get_args()
     
-    model = HydraMRRegressor()
-    model.load_state_dict(torch.load(args.model))
-    
     # Load data
-    testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier)
+    testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
+    input_shape, target_shape = testset.get_data_shape()
+    
+    model = HydraMRRegressor_old(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=args.hidden_dim)  # MultiRocket+Hydra 49728+5120
+    model.load_state_dict(torch.load(args.model))
+    
     predictions, targets, test_losses = predict(model, test_loader)
+    
+    path_to_model = Path(args.model).stem
+    if path_to_model.startswith('best_'):
+        path_to_model = path_to_model[5:]
+    os.makedirs(f'reports/figures/model_results/{path_to_model}', exist_ok=True)
     
     plot_predictions(predictions, targets, test_losses)
     

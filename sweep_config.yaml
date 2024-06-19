@@ -1,0 +1,21 @@
+program: src/train_hydra_mr.py
+name: all_features_only_hydra
+method: bayes
+metric:
+  goal: minimize
+  name: mean_best_val_loss
+parameters:
+  lr:
+    values: [1e-5, 1e-4, 1e-3, 1e-2]
+  batch_size:
+    values: [16, 32, 64]
+  weight_decay:
+    values: [0.0, 1e-5, 1e-4, 1e-3]
+  hidden_dim:
+    values: [16, 32, 64, 128, 256]
+  dropout:
+    values: [0.0, 0.2, 0.4, 0.6]
+  model_depth:
+    values: [0, 1, 2, 3, 4, 5]
+  batch_norm:
+    values: [True, False]

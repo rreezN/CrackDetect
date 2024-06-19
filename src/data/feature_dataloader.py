@@ -1,7 +1,8 @@
 import torch
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class Features(torch.utils.data.Dataset):
     """Dataset containing the features and KPIs for the given feature extractors and KPI window size.
@@ -14,19 +15,28 @@ class Features(torch.utils.data.Dataset):
         data_type (str): The type of data to load (train, val, test).
         kpi_window (int): The size of the KPI window (1 or 2 seconds).
         feature_transform (callable): The transform function to apply to the features.
+        fold (int): The cross-validation fold to load the data from. Default is -1 (no cross-validation).
     """
     
-    def __init__(self, data_path: str = 'data/processed/features.hdf5', feature_extractors: list[str] = ['MultiRocket_50000', 'Hydra_2'], name_identifier: str = '', 
-                 data_type:str = 'train', kpi_window: int = 1):
+    def __init__(self, 
+                 data_path: str = 'data/processed/features.hdf5', 
+                 feature_extractors: list[str] = ['MultiRocket_50000', 'Hydra_2'], 
+                 name_identifier: str = '', 
+                 data_type:str = 'train', 
+                 kpi_window: int = 1,
+                 fold: int = -1,
+                 verbose: bool = True):
         
         assert kpi_window in [1, 2], 'The kpi window size must be 1 or 2 seconds'
+        assert data_type in ['train', 'val', 'test'], 'The data type must be either "train", "val" or "test"'
         
         self.data_path = data_path
         self.feature_extractors = feature_extractors
         self.name_identifier = name_identifier
         self.kpi_window_size = str(kpi_window)
-        
         self.data_type = data_type
+        self.fold = fold
+        
         
         self.data = h5py.File(self.data_path, 'r')
         
@@ -37,32 +47,71 @@ class Features(torch.utils.data.Dataset):
         self.feature_maxs = []
         self.feature_means = []
         self.feature_stds = []
-        for i in range(len(feature_extractors)):
-            name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
-            self.feature_mins.append(torch.tensor(self.data['train']['statistics'][name]['min'][()]))
-            self.feature_maxs.append(torch.tensor(self.data['train']['statistics'][name]['max'][()]))
-            self.feature_means.append(torch.tensor(self.data['train']['statistics'][name]['mean'][()]))
-            self.feature_stds.append(torch.tensor(self.data['train']['statistics'][name]['std'][()]))
         
-        # Load the KPI statistics
-        self.kpi_means = self.data['train']['statistics']['kpis'][str(kpi_window)]['mean'][()]
-        self.kpi_stds = self.data['train']['statistics']['kpis'][str(kpi_window)]['std'][()]
-        self.kpi_mins = self.data['train']['statistics']['kpis'][str(kpi_window)]['min'][()]
-        self.kpi_maxs = self.data['train']['statistics']['kpis'][str(kpi_window)]['max'][()]
-        
-        # Unfold the data to (segment, second)
-        permutations = []
-        segments = self.data[data_type]['segments']
-        for key_val in segments.keys():
-            for sec_val in segments[key_val].keys():
-                permutations.append((key_val, sec_val))
+        if self.data_type != 'test':
+            for i in range(len(feature_extractors)):
+                name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+                if self.fold != -1:
+                    data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
+                else:
+                    data_tree_path = self.data['train']['statistics'][name]
+                self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
+                self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
+                self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
+                self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
+            
+            # Load the KPI statistics
+            if self.fold != -1:
+                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
+            else:
+                data_tree_path = self.data['train']['statistics']['kpis'][str(kpi_window)]
+            
+            self.kpi_means = data_tree_path['mean'][()]
+            self.kpi_stds = data_tree_path['std'][()]
+            self.kpi_mins = data_tree_path['min'][()]
+            self.kpi_maxs = data_tree_path['max'][()]
+            
+            # Unfold the data to (segment, second)
+            permutations = []
+            if self.fold != -1:
+                segments = self.data[data_type][f'fold_{self.fold}']['segments']
+            else:
+                segments = self.data[data_type]['segments']
+            for key_val in segments.keys():
+                for sec_val in segments[key_val].keys():
+                    permutations.append((key_val, sec_val))
+                    
+        elif self.data_type == 'test':
+            for i in range(len(feature_extractors)):
+                name = feature_extractors[i] + f'_{name_identifier}' if name_identifier != '' else feature_extractors[i]
+                data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics'][name]
+                self.feature_mins.append(torch.tensor(data_tree_path['min'][()]))
+                self.feature_maxs.append(torch.tensor(data_tree_path['max'][()]))
+                self.feature_means.append(torch.tensor(data_tree_path['mean'][()]))
+                self.feature_stds.append(torch.tensor(data_tree_path['std'][()]))
+            
+            # Load the KPI statistics
+            data_tree_path = self.data['train'][f'fold_{self.fold}']['statistics']['kpis'][str(kpi_window)]
+            
+            self.kpi_means = data_tree_path['mean'][()]
+            self.kpi_stds = data_tree_path['std'][()]
+            self.kpi_mins = data_tree_path['min'][()]
+            self.kpi_maxs = data_tree_path['max'][()]
+            
+            # Unfold the data to (segment, second)
+            permutations = []
+            segments = self.data[data_type]['segments']
+            for key_val in segments.keys():
+                for sec_val in segments[key_val].keys():
+                    permutations.append((key_val, sec_val))
         
         # Set the indices to the permutations
         # This will be used to fetch the data samples
         # The indices are tuples of (segment, second)
         self.indices = permutations
         
-        self.print_arguments()
+        if verbose:
+            self.print_arguments()
         
     
     def __len__(self):
@@ -83,7 +132,15 @@ class Features(torch.utils.data.Dataset):
         segment_index = str(self.indices[idx][0])
         second_index = str(self.indices[idx][1])
         
-        data = self.data[self.data_type]['segments'][segment_index][second_index]
+        # Load the data from the HDF5 file based on fold (and if fold is -1, no cross-validation is used)
+        if self.data_type != 'test':
+            if self.fold != -1:
+                data = self.data[self.data_type][f'fold_{self.fold}']['segments'][segment_index][second_index]
+            else:
+                data = self.data[self.data_type]['segments'][segment_index][second_index]
+        elif self.data_type == 'test':
+            data = self.data[self.data_type]['segments'][segment_index][second_index]
+            
         features = torch.tensor([])
         
         # Concatenate the features from all feature extractors (as done in the Hydra paper for HydraMultiRocket)
@@ -104,7 +161,7 @@ class Features(torch.utils.data.Dataset):
             # If std = 0, set nan to 0 (no information in the feature)
             # This happens to the MultiRocket features in some cases
             # The authors of the MultiRocket paper also set the transformed features to 0 in these cases
-            feats = torch.nan_to_num(feats)
+            feats = torch.nan_to_num(feats, posinf=0, neginf=0)
             
             features = torch.cat((features, feats))
             
@@ -132,6 +189,7 @@ class Features(torch.utils.data.Dataset):
     def plot_data(self):
         """Plots the histograms of the GM data before and after transformation.
         """
+        
         # Define variable to contain the current segment data
         all_data = np.array([])
         all_data_transformed = np.array([])
@@ -206,6 +264,7 @@ if __name__ == '__main__':
         start = time.time()
         iterator.set_description(f'Index: {i}, Avg Time: {np.mean(duration):.3f}.')
     print(f'Mean duration: {np.mean(durations):.5f}')
+    
     # Print example statistics of the last batch
     print(f'Last data shape: {features.shape}')
     print(f'Last target shape: {targets.shape}') 

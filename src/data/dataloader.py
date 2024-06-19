@@ -23,6 +23,7 @@ class Platoon(torch.utils.data.Dataset):
         self.segments = h5py.File(self.data_path, 'r')
         self.gm_cols = gm_cols
         self.gm_cols_indices = [self.segments['0']['2']['gm'].attrs[col] for col in gm_cols]
+        self.gm_cols_indices.sort()
         self.kpi_names = kpi_names
         self.kpi_names_indices = [self.segments['0']['2']['kpis'][str(self.windowsize)].attrs[col] for col in kpi_names]
 
@@ -33,18 +34,15 @@ class Platoon(torch.utils.data.Dataset):
                 permutations.append((key_val, sec_val))
 
         # Create indices for train, test and validation
-        train_indices, test_indices, _, _ = train_test_split(permutations, permutations, test_size=0.2, random_state=random_state)
-        train_indices, val_indices, _, _ = train_test_split(train_indices, train_indices, test_size=0.1, random_state=random_state)
+        train_indices, test_indices, _, _ = train_test_split(permutations, permutations, test_size=0.15, random_state=random_state)
         
         # Set the indices based on the data type
         if data_type == 'train':
             self.indices = train_indices
         elif data_type == 'test':
             self.indices = test_indices
-        elif data_type == 'val':
-            self.indices = val_indices
         else:
-            raise ValueError('data_type must be either "train", "test" or "val"')
+            raise ValueError('data_type must be either "train" or "test"')
         
         # Store the mean and std of the training data for normalization
         data_per_segment = len(self.segments['0']['2']['gm'])
@@ -53,7 +51,7 @@ class Platoon(torch.utils.data.Dataset):
             segment_nr = str(idx[0])
             second_nr = str(idx[1])
             data = self.segments[segment_nr][second_nr]
-            train = data['gm'][:,tuple(self.gm_cols_indices)]
+            train = data['gm'][:, tuple(self.gm_cols_indices)]
             train_data[i*data_per_segment:i*data_per_segment+data_per_segment] = train
         
         self.train_mean = np.mean(train_data, axis=0)
