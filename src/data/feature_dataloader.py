@@ -1,7 +1,8 @@
 import torch
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 class Features(torch.utils.data.Dataset):
     """Dataset containing the features and KPIs for the given feature extractors and KPI window size.
@@ -188,6 +189,7 @@ class Features(torch.utils.data.Dataset):
     def plot_data(self):
         """Plots the histograms of the GM data before and after transformation.
         """
+        
         # Define variable to contain the current segment data
         all_data = np.array([])
         all_data_transformed = np.array([])

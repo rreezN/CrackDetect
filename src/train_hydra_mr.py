@@ -6,13 +6,13 @@ import torch.nn as nn
 import time
 
 from tqdm import tqdm
-from matplotlib import pyplot as plt
 from argparse import ArgumentParser
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader 
 
+from util.utils import set_all_seeds
 from models.hydramr import HydraMRRegressor
 from data.feature_dataloader import Features
-from util.utils import set_all_seeds
 
 # Set seed for reproducibility
 set_all_seeds(42)
@@ -134,7 +134,7 @@ def get_args():
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train. Default 10')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is MultiRocketMV_50000 and HydraMV_8_64.')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is HydraMV_8_64.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors. Default is empty.')
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation. Default is 5.')
     parser.add_argument('--model_name', type=str, default='HydraMRRegressor', help='Name of the model. Default is HydraMRRegressor.')
