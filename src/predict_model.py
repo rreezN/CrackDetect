@@ -155,8 +155,8 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
         # Plot scatter
         axes[i].scatter(targets[:, i], predictions[:, i], color='indianred', alpha=.75, label='Predicted vs Target', zorder=0)
         # axes[i].scatter(targets[:, i], np.full(len(targets), np.mean(targets[:, i])), color='goldenrod', alpha=.75, label='Mean Target (baseline)')
-        axes[i].set_xlabel('Target')
-        axes[i].set_ylabel('Prediction')
+        axes[i].set_xlabel('Target', fontsize=12)
+        axes[i].set_ylabel('Prediction', fontsize=12)
         
         # Set title
         axes[i].title = axes[i].set_title(f'{KPI[i]}\nRMSE: {rmse[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}, correlation: {correlation:.2f}')
