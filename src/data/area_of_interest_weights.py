@@ -1,15 +1,5 @@
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib import cm
 import h5py
-from scipy.interpolate import CubicSpline
-from copy import deepcopy
-from tqdm import tqdm
-import re
-import csv
-from pathlib import Path
 
 
 def load_from_hdf5(filename):
@@ -29,88 +19,106 @@ def load_from_hdf5(filename):
     return loaded_mapping
 
 
-def get_total_distance(data):
-    first_values = []
+def read_from_hdf5(filename):
+    with h5py.File(filename, 'r') as hdf_file:
+        data = {}
+        for index in hdf_file.keys():
+            group = hdf_file[index]
+            trips = []
+            for trip_name in group.keys():
+                trip = group[trip_name][:]
+                # Convert back to appropriate types if needed
+                converted_trip = []
+                for pos, item in enumerate(trip): # TODO the car name should be a string 
+                    try:
+                        if pos <= 1:
+                            item = item.decode('utf-8')
+                            converted_trip.append(item)
+                        elif pos > 1 and pos <= 3:
+                            item = item.decode('utf-8')
+                            converted_trip.append(int(float(item)))
+                        elif pos > 3:
+                            converted_trip.append(float(item))
+                    except ValueError:
+                        if isinstance(item, bytes):
+                            # Handle byte strings
+                            item = item.decode('utf-8')
+                        converted_trip.append(item)
+                trips.append(converted_trip)
+            data[int(index)] = trips
+    return data
 
-    for trip_name, passes in data.items():
-        for pass_name, segments in passes.items():
-            for segment_name, values in segments.items():
-                if segment_name in ['distance_segment_second_1', 'distance_segment_second_2']:
-                    # Extract the first value and add to the list
-                    first_values.append(values[0])
 
-    total_distance = np.sum(first_values)
-    return total_distance
-
-
-# Weight functions 
-def ln_of_ratio(values, total):
-    weight_values = -np.log(values / total)
-    norm = np.linalg.norm(weight_values)
-    unit_vector = weight_values / norm
-    return unit_vector
-
-
-def ln_of_ratio_sum_to_1(values, total):
-    weight_values = -np.log(values / total)
+def ln_of_ratio_sum_to_1(values):
+    total_values = np.sum(values)
+    weight_values = -np.log(values / total_values)
     total = np.sum(weight_values)
-    weight_values_1 = weight_values / total
-    return weight_values_1
+    weight_norms = weight_values / total
+    return weight_norms
 
 
-def inverse_of_ratio(values, total):
-    weight_values = (values / total)**(-1)
-    norm = np.linalg.norm(weight_values)
-    unit_vector = weight_values / norm
-    return unit_vector
-
-
-def inverse_of_ratio_sum_to_1(values, total):
-    weight_values = (values / total)**(-1)
-    total = np.sum(weight_values)
-    weight_values_1 = weight_values / total
-    return weight_values_1
-
-
-def calculate_weights(maps):
+def calculate_weights(mapping):
     weights_for_indexes = {}
+    indexes = np.sort([int(x) for x in mapping])
+    for index in indexes:
+        cars = []
+        passes = []
+        segments = []
+        seconds = []
+        weights_for_indexes[index] = []
+        distances = []
 
-    for mapping in maps:
-        indexes = np.sort([int(x) for x in mapping])
-        for index in indexes:
-            weights_for_indexes[index] = []
-            distances = []
-            segments = []
-            seconds = []
+        # Now go into each individual trip and segment and calculate the weight
+        for car in mapping[str(index)]:
+            for trip in mapping[str(index)][car]:
+                for distance_segment_second in mapping[str(index)][car][trip]:
+                    cars.append(car)
+                    passes.append(trip)
+                    distances.append(mapping[str(index)][car][trip][distance_segment_second][0])
+                    segments.append(mapping[str(index)][car][trip][distance_segment_second][1])
+                    seconds.append(mapping[str(index)][car][trip][distance_segment_second][2])
 
-            total_distance_for_index = get_total_distance(mapping[str(index)])
-            # Now go into each individual trip and segment and calculate the weight
-            for car in mapping[str(index)]:
-                for trip in mapping[str(index)][car]:
-                    for distance_segment_second in mapping[str(index)][car][trip]:
-                        distances.append(mapping[str(index)][car][trip][distance_segment_second][0])
-                        segments.append(mapping[str(index)][car][trip][distance_segment_second][1])
-                        seconds.append(mapping[str(index)][car][trip][distance_segment_second][2])
+        weight_ln_ratio = ln_of_ratio_sum_to_1(distances)
 
-            
-            weight_ln_ratio = ln_of_ratio_sum_to_1(distances, total_distance_for_index)
-            weight_inverse_ratio = inverse_of_ratio_sum_to_1(distances, total_distance_for_index)
-
-            for i in range(len(distances)):
-                weights_for_indexes[index].append([distances[i], segments[i], seconds[i], weight_ln_ratio[i], weight_inverse_ratio[i]])
+        for i in range(len(distances)):
+            weights_for_indexes[index].append([cars[i], passes[i], segments[i], seconds[i], weight_ln_ratio[i]])
 
     return weights_for_indexes
 
 
+def save_to_hdf5(mapping, direction):
+    name = f"AOI_weighted_mapping_{direction}.hdf5"
+    filename = f"data/AOI/{name}"
+
+    with h5py.File(filename, 'w') as hdf_file:
+        # Create the HDF5 groups and datasets
+        for index, trips in mapping.items():
+            index_group = hdf_file.create_group(str(index))
+            for trip in trips:
+                # Convert each element to string and then to numpy array
+                trip_array = np.array([str(item) for item in trip], dtype=h5py.string_dtype())
+                index_group.create_dataset(str(trip_array), data=trip_array)
+
+    print("HDF5 file has been created successfully.")
+
 
 def main():
-    # Takes about 40 seconds to load
-    mapping_with_weights_hh = load_from_hdf5("/data/AOI/mapping_hh_time_to_location.hdf5")
-    mapping_with_weights_vh = load_from_hdf5("/data/AOI/mapping_hh_time_to_location.hdf5")
+    # # Takes about 40 seconds to load
+    mapping_with_weights_hh = load_from_hdf5("data/AOI/mapping_hh_time_to_location.hdf5")
+    mapping_with_weights_vh = load_from_hdf5("data/AOI/mapping_vh_time_to_location.hdf5")
+    print("Loaded mapping")
 
-    maps = [mapping_with_weights_hh, mapping_with_weights_vh]
+    # Get weights for each index
+    weights_for_indexes_hh = calculate_weights(mapping_with_weights_hh)
+    weights_for_indexes_vh = calculate_weights(mapping_with_weights_vh)
 
-    weights_for_indexes = calculate_weights(maps)
+    # Save the weights to a file
+    save_to_hdf5(weights_for_indexes_hh, "hh")
+    save_to_hdf5(weights_for_indexes_vh, "vh")
+    
+    # Try to load the saved file
+    loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
+    loaded_weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
 
     debug = 1
 
