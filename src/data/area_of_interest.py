@@ -146,10 +146,10 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
                 current_second_lon = current_second["gm"][:,16]
                 current_second_locations = [[lon, lat] for lon, lat in zip(current_second_lon, current_second_lat)]
                 closest_sample_arg = np.argmin(np.linalg.norm(np.column_stack((current_second_lon, current_second_lat)) - np.array([real_location[0], real_location[1]]), axis=1))
-                best_at_second = current_second_locations[closest_sample_arg]
+                best_at_second = current_second_locations[closest_sample_arg] # NOTE we could use avearge of all instead
                 distance = np.linalg.norm(np.array(best_at_second) - np.array(real_location))
                 
-                # Threshold for distance is set to 1.e-04, such that we only consider locations that are close enough
+                # Threshold for distance is set to 1.e-04 (11.1 meters), such that we only consider locations that are close enough
                 threshold_distance = 1.e-04
                 if distance < threshold_distance:
 
