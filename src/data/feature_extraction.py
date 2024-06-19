@@ -505,7 +505,7 @@ if __name__ == '__main__':
         with h5py.File(data_path, 'r') as f:
             print(f'Extracting features for fold {fold+1}/{args.folds}')
             # TODO: This is where the feature extraction happens, might need to be changed to allow arguments
-            extract_all_train_features([multi_rocket_transformer, hydra_transformer], [train_loader, val_loader], f, fold, [True, False])
+            extract_all_train_features([hydra_transformer], [train_loader, val_loader], f, fold, [True, False])  # [multi_rocket_transformer, hydra_transformer]
     
     # Extract features from test data
     print("Loading test data")
@@ -513,7 +513,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(test_data, batch_size=1)
     print("Extracting features from test data")
     with h5py.File(data_path, 'r') as f:
-        extract_all_test_features([multi_rocket_transformer, hydra_transformer], [test_loader], f)
+        extract_all_test_features([hydra_transformer], [test_loader], f)  # [multi_rocket_transformer, hydra_transformer]
     
     # Report time
     extraction_time = time() - start
