@@ -1,12 +1,15 @@
 # To Do
+- [ ] Main python fil der kører det hele
+  - [ ] Skal også validere noget i forhold til om output for den der lige har kørt er korrekt i forhold til det vi har af forventninger
 
 ## Model, Training and Feature Extraction
-- [ ] Some form of logging (wandb, hydra, whatever)
+- [ ] Post processering på predictions er ok (sørg for at alle predictions under 0 er 0)
+- [X] Some form of logging (wandb, hydra, whatever)
 - [ ] Consider what we want to do wrt. KPI scaling
   - Don't scale
   - Scale between 0, 1
   - Standardize (what we do now)
-- [ ] Max_num_channels in HydraMV (????)
+- [X] Max_num_channels in HydraMV (????)
 - [ ] Don't tanh, normalize it or use raw output instead
   - [X] Don't tanh
   - [ ] Normalize it instead
@@ -21,7 +24,7 @@
 - [X] Add additional hidden layer
 - [X] Figure out which signals to extract features from
 - [X] Extract new features, using more than acc only
-  - [x] Check if this fixes std = 0 issue
+  - [X] Check if this fixes std = 0 issue
   - It does not
 - [X] Normalize inputs before feature extraction
 - [X] When training the model, validation losses are insane...
@@ -30,23 +33,24 @@
 
 ## Experiments
 - [ ] Test out various signals for feature extraction
-  - [ ] All accelerations
+  - [X] All accelerations
   - [X] Only z-acceleration
   - [X] All signals that Asmus pointed out (all signals in matlab file)
-  - [ ] Self-selected features
-- [ ] Test out various models
-  - [ ] Deep network
-  - [ ] Shallow network
-  - [ ] Large hidden layers
-  - [ ] MSE vs MAE
-  - [ ] Other ML tricks :)
-- [ ] Model using only Hydra or only MultiRocket features
-- [ ] Hyperparameter tuning (learning rate)
+  - [X] Self-selected features
+- [X] Test out various models
+  - [X] Deep network
+  - [X] Shallow network
+  - [X] Large hidden layers
+  - [X] MSE vs MAE
+  - [X] Other ML tricks :)
+- [X] Model using only Hydra or only MultiRocket features
+- [X] Hyperparameter tuning (learning rate)
 - [ ] LR Schedulers
-- [ ] Batch norm ?
+- [X] Batch norm ?
 - [X] Dropout?
 
 ## Aflevering
+- [ ] ASSERTIONS i model delen
 - [ ] Comments, comments, comments... and more comments
 - [ ] Type hints
 - [ ] NO MAGIC NUMBERS (TOMMY BLIVER KED AF DET)
