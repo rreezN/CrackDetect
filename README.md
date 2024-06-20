@@ -12,7 +12,7 @@ Repository containing code for the project Machine-learning approach for real-ti
 # Results
 Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
 <p align="center">
-  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" alt="drawing" width="350"/>
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" alt="drawing" width="500"/>
 </p>
 
 # Quickstart
