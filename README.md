@@ -10,18 +10,26 @@
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
-(INSERT SOME PICTURES OF RESULTS)
-
+<div style="text-align:center">
+    <img src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" style="width:80%">
+</div>
 
 # Quickstart
-1. Clone this repository
-2. Install requirements ```pip install -r requirements.txt```. Note this project requires python > 3.10
-3. Download the data (need to figure out how we want to share it)
-4. Create dataset with ```python src/data/make_dataset.py all```
-5. Extract features with ```python src/data/feature_extraction```
-6. Train model with ```python src/train_hydra_mr.py```
-7. Predict using trained model with ```python src/predict_model.py```
-8. See results in ```reports/figures/model_results```
+1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
+2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires python > 3.10
+3. Install requirements ```pip install -r requirements.txt```. 
+4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data))
+5. Run ```python src/main.py```
+
+This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script has all arguments that are available in each individual script, so if needed, they can be specified.
+
+Optionally, if you wish to go through each step manually, it is possible to call each script on its own:
+
+1. Create dataset with ```python src/data/make_dataset.py all```
+2. Extract features with ```python src/data/feature_extraction```
+3. Train model with ```python src/train_hydra_mr.py```
+4. Predict using trained model with ```python src/predict_model.py```
+5. See results in ```reports/figures/model_results```
 
 # Table of Contents
 - [crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
@@ -66,10 +74,11 @@ Have `python >= 3.10`
 7. ...
 8. Profit
 
-To activate venv:
+To activate venv in powershell:
 ```shell
 .\fleetenv\Scripts\Activate.ps1
 ```
+
 
 # Usage
 [(Back to top)](#table-of-contents)
@@ -78,11 +87,37 @@ There are several steps in the pipeline of this project. Detailed explanations o
 
 ## Downloading the data
 [(Back to top)](#table-of-contents)
-(HUGE PLACEHOLDER HERE)
 
-```shell
-dvc pull
-```
+The data is made available at [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&). 
+
+Once downloaded it should be unzipped and placed in the ```data/``` folder. The file structure should be as follows:
+- data
+  - raw
+    - AutoPi_CAN
+      - platoon_CPH1_HH.hdf5
+      - platoon_CPH1_VH.hdf5
+      - read_hdf5_platoon.m
+      - read_hdf5.m
+      - readme.txt
+      - visualize_hdf5.m
+    - gopro
+      - car1
+        - GH012200
+          - GH012200_HERO8 Black-ACCL.csv
+          - GH012200_HERO8 Black-GPS5.csv
+          - GH012200_HERO8 Black-GYRO.csv
+        - ...
+      - car3
+        - ...
+    - ref_data
+      - cph1_aran_hh.csv
+      - cph1_aran_vh.csv
+      - cph1_fric_hh.csv
+      - cph1_fric_vh.csv
+      - cph1_iri_mpd_rut_hh.csv
+      - cph1_iri_mpd_rut_vh.csv
+      - cph1_zp_hh.csv
+      - cph1_zp_vh.csv
 
 ## Preprocessing the data
 [(Notebook)](notebooks/make_dataset.ipynb) [(Back to top)](#table-of-contents)
