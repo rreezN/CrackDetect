@@ -33,7 +33,7 @@ CONVERT_PARAMETER_DICT = {
 }
 
 SMOOTH_PARAMETER_DICT = {
-    'acc.xyz':       {'kind': 'lowess', 'frac': [0.005, 0.005, 0.001]}, # NOTE Måske den ikke skal smoothes?
+    'acc.xyz':       {'kind': 'lowess', 'frac': [0.005, 0.005, 0.001]}, # NOTE z-axis is smoothed less to preserve the signal
     'spd_veh':       {'kind': 'lowess', 'frac': [0.005]},
     'acc_long':      {'kind': 'lowess', 'frac': [0.005]},
     'acc_trans':     {'kind': 'lowess', 'frac': [0.005]}

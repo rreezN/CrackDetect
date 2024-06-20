@@ -50,7 +50,7 @@ git clone https://github.com/rreezN/CrackDetect.git
 
 > **Note**: This project requires python > 3.10 to run
 
-There are two options for installing requirements. If you wish to setup a dedicated python virtual environment for the project, follow the steps in [Virutal environment in powershell](#virtual-environment-in-powershell). If not, then simply run the following command, and all python modules required to run the project will be installed
+There are two options for installing requirements. If you wish to setup a dedicated python virtual environment for the project, follow the steps in [Virtual environment in powershell](#virtual-environment-in-powershell). If not, then simply run the following command, and all python modules required to run the project will be installed
 ```shell
 python -m pip install -r requirements.txt
 ```
@@ -129,7 +129,7 @@ The script will automatically setup the feature extractors based on the amount o
 The structure of the HDF5 features file can be seen in (LINK OR INSERT IMAGE HERE).
 
 ## Model training
-[(Notebook)](notebooks/link_to_notebook.ipynb) [(Back to top)](#table-of-contents)
+[(Notebook)](notebooks/train_model.ipynb) [(Back to top)](#table-of-contents)
 
 A simple model has been implemented in [src/models/hydramr.py](src/models/hydramr.py). 
 The model training script is implemented in [src/train_hydra_mr.py](src/train_hydra_mr.py). It has the following arguments and default parameters
@@ -149,7 +149,7 @@ The trained model will be saved in [models](models/), along with the best model 
 Trained models will be saved based on the name in their model file scripts.
 
 ## Predicting
-[(Notebook)](notebooks/link_to_notebook.ipynb) [(Back to top)](#table-of-contents)
+[(Notebook)](notebooks/predict_model.ipynb) [(Back to top)](#table-of-contents)
 
 To predict using the trained model use the script [src/predict_model.py](src/predict_model.py). It has the following arguments and default parameters
 - `--model models/best_HydraMRRegressor.pt`
@@ -181,7 +181,7 @@ The model will predict on the specified data set, plot the predictions and save 
 **LiRA-CD: An open-source dataset for road condition modelling and research**
 > [Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari](https://orbit.dtu.dk/en/publications/lira-cd-an-open-source-dataset-for-road-condition-modelling-and-r)
 >
-> Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari. 2023. LiRA-CD: An open-source dataset for road condition modelling and research. Technical University of Denmark: Geotechnics & GeologyDepartment of Environmental and Resource Engineering, Cognitive Systems, Department of Applied Mathematics and Computer Science, Software Systems Engineering Sweco Danmark A/SDanish Road Directorate.
+> Asmus Skar, Anders M. Vestergaard, Thea Brüsch, Shahrzad Pour, Ekkart Kindler, Tommy Sonne Alstrøm, Uwe Schlotz, Jakob Elsborg Larsen, Matteo Pettinari. 2023. LiRA-CD: An open-source dataset for road condition modelling and research. Technical University of Denmark: Geotechnics & GeologyDepartment of Environmental and Resource Engineering, Cognitive Systems, Department of Applied Mathematics and Computer Science, Software Systems Engineering Sweco Danmark A/S Danish Road Directorate.
 
 
 **HYDRA: Competing convolutional kernels for fast and accurate time series classification**
