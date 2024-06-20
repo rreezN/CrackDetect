@@ -139,8 +139,12 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
             current_best_trip_1 = mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_1']
             current_best_trip_2 = mapping_to_the_two_best_seconds_for_each_pass_in_each_trip[index][current_trip_name][current_pass_name]['distance_segment_second_2']
             
-             
-            for second in segments[str(segment)].keys():
+            # Convert list of seconds to integers
+            int_list = [int(x) for x in segments[str(segment)].keys()]
+            # sort the list, remove the two smallest and two largest numbers and Convert seconds back to strings
+            relevant_seconds = [str(x) for x in sorted(int_list)[2:-2]]
+            
+            for second in relevant_seconds:                
                 current_second = segments[str(segment)][str(second)]
                 current_second_lat = current_second["gm"][:,15]
                 current_second_lon = current_second["gm"][:,16]
@@ -245,20 +249,20 @@ def save_to_hdf5(mapping, direction):
 
 def main():
     # Get the segments 
-    segments = h5py.File('data/processed/segments.hdf5', 'r')
+    segments = h5py.File('data/processed/w_kpis/segments.hdf5', 'r')
     all_trip_names, pass_lists = define_trips_and_passes(segments)
     
     # Right side data
     autopi_hh = unpack_hdf5('data/raw/AutoPi_CAN/platoon_CPH1_HH.hdf5')
-    gm_data_hh = autopi_hh['GM']['16006']['pass_1'] # pass_1 is a VH route
+    gm_data_hh = autopi_hh['GM']['16006']['pass_1'] # uneven passes are HH routes
     p79_hh = pd.read_csv('data/raw/ref_data/cph1_zp_hh.csv', sep=';', encoding='unicode_escape')
     
     # Left side data
     autopi_vh = unpack_hdf5(f'data/raw/AutoPi_CAN/platoon_CPH1_VH.hdf5')
-    gm_data_vh = autopi_vh['GM']['16006']['pass_2'] # pass_2 is a VH route
+    gm_data_vh = autopi_vh['GM']['16006']['pass_2'] # even passes are VH routes
     p79_vh = pd.read_csv('data/raw/ref_data/cph1_zp_vh.csv', sep=';', encoding='unicode_escape')   
     
-    # Go trough both sides (takes 2 hours to run on Macbook 2019 16GB RAM 2.6 GHz 6-Core Intel Core i7)
+    # Go trough both sides (takes 1 hour 15 m to run on Macbook 2019 16GB RAM 2.6 GHz 6-Core Intel Core i7)
     gm_data = [gm_data_hh, gm_data_vh] # The specific gm_data is only used to find_best_start_and_end_indeces_by_lonlat
     p79 = [p79_hh, p79_vh]
     directions = ['hh', 'vh']

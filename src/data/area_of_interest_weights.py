@@ -78,7 +78,10 @@ def calculate_weights(mapping):
                     segments.append(mapping[str(index)][car][trip][distance_segment_second][1])
                     seconds.append(mapping[str(index)][car][trip][distance_segment_second][2])
 
-        weight_ln_ratio = ln_of_ratio_sum_to_1(distances)
+        if len(distances) == 1:
+            weight_ln_ratio = [1.0]
+        else:
+            weight_ln_ratio = ln_of_ratio_sum_to_1(distances)
 
         for i in range(len(distances)):
             weights_for_indexes[index].append([cars[i], passes[i], segments[i], seconds[i], weight_ln_ratio[i]])
@@ -117,8 +120,8 @@ def main():
     save_to_hdf5(weights_for_indexes_vh, "vh")
     
     # Try to load the saved file
-    loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
-    loaded_weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
+    # loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
+    # loaded_weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
 
     debug = 1
 
