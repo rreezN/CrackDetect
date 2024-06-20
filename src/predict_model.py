@@ -251,5 +251,5 @@ if __name__ == '__main__':
         path_to_model = path_to_model[5:]
     os.makedirs(f'reports/figures/model_results/{path_to_model}', exist_ok=True)
     
-    plot_predictions(predictions, targets, test_losses)
+    plot_predictions(predictions, targets)
     
