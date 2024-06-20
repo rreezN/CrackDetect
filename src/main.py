@@ -10,6 +10,8 @@ from src.train_hydra_mr import main as train_model
 from src.train_hydra_mr import get_args as get_train_model_args
 from src.predict_model import main as predict_model
 from src.predict_model import get_args as get_predict_model_args
+from src.validate_model import main as validate_model
+from src.validate_model import get_args as get_validate_model_args
 
 
 def get_args():
@@ -19,6 +21,7 @@ def get_args():
     parser = get_feature_extraction_args(parser)
     parser = get_train_model_args(parser)
     parser = get_predict_model_args(parser)
+    parser = get_validate_model_args(parser)
     return parser.parse_args()
 
 
@@ -48,6 +51,7 @@ if __name__ == '__main__':
     args.batch_norm = True
     args.batch_size = 64
     args.model = 'models/HydraMRRegressor.pt'
+    args.save_predictions = True
     
     set_all_seeds(args.seed)
     
@@ -122,7 +126,7 @@ if __name__ == '__main__':
     print('#                                                     #')
     print('#######################################################')
     
-    # validate_model(args)
+    validate_model(args)
     
     validate_model_end_time = time() - validate_model_start_time
     print(' ----------------------------------------------------- ')

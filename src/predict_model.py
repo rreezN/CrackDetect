@@ -86,7 +86,7 @@ def calculate_errors(predictions, targets):
     
     return RMSE, baseline_RMSE
 
-def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: bool = False, args: Namespace = None, path_to_model: str = None):
+def plot_predictions(predictions, targets, show: bool = False, save: bool = True, args: Namespace = None, path_to_model: str = None):
     """Plot the predictions against teh targets in a scatter plot. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
@@ -94,8 +94,10 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
         targets (torch.Tensor): Real targets.
         show (bool, optional): Whether or not to show the plot in addition to saving it. Defaults to False.
     """
-    predictions = predictions.detach().numpy()
-    targets = targets.detach().numpy()
+    if isinstance(predictions, torch.Tensor):
+        predictions = predictions.detach().numpy()
+    if isinstance(targets, torch.Tensor):
+        targets = targets.detach().numpy()
     
     # Threshold the predictions to be minimum 0
     predictions = np.maximum(predictions, 0)
@@ -145,78 +147,8 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
     # loss: {np.mean(test_losses):.2f},
     plt.suptitle(f'{data_type_name} Predictions vs Targets\nRMSE: {np.mean(rmse):.2f}, baseline RMSE: {np.mean(baseline_rmse):.2f}. correlation: {np.mean(correlations):.2f}', fontsize=24)
     plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
-    if show:
-        plt.show()
-    plt.close()
-    
-
-
-def plot_predictions_old(predictions: torch.Tensor, targets: torch.Tensor, test_losses: np.ndarray, show: bool = False, args: Namespace = None, path_to_model: str = None):
-    """Plot the predictions against the targets. Also reports the RMSE and correlation between the predictions and the targets.
-
-    Args:
-        predictions (torch.Tensor): _description_
-        targets (torch.Tensor): _description_
-        test_losses (np.ndarray): _description_
-        show (bool, optional): _description_. Defaults to False.
-    """
-    
-    predictions = predictions.detach().numpy()
-    targets = targets.detach().numpy()
-    
-    red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
-    blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
-    KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
-    
-    # Setup plot
-    fig, axes = plt.subplots(2, 2, figsize=(20,10))
-    axes = axes.flat
-    
-    # Get errors
-    # TODO: Make sure this works... Might need to change the way errors are returned
-    # Or the way they are plotted
-    rmse, baseline_rmse, correlation = calculate_errors(predictions, targets)
-    correlations = correlation[1]
-    lags = correlation[0]
-    
-    # Plot each KPIs
-    for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse[i]:.2f}, correlation: {correlations[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}')
-        axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
-        axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
-        axes[i].plot(np.full(len(targets), np.mean(targets[:, i])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
-        axes[i].legend()
-        
-    plt.suptitle(f'{args.data_type} Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
-    if show:
-        plt.show()
-    plt.close()
-    
-    # Plot zoomed in version of each KPI
-    fig, axes = plt.subplots(2, 2, figsize=(20,10))
-    axes = axes.flat
-    start = 50
-    end = 100
-    
-    # Get zoomed in errors
-    rmse, baseline_rmse, correlation = calculate_errors(predictions[start:end], targets[start:end])
-    correlations = correlation[1]
-    lags = correlation[0]
-    
-    # Plot each KPIs
-    for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse[i]:.2f}, correlation: {correlations[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}')
-        axes[i].plot(np.arange(start, end, step=1), predictions[:, i][start:end], label="predicted", color='indianred', alpha=.75)
-        axes[i].plot(np.arange(start, end, step=1), targets[:, i][start:end], label="target", color='royalblue', alpha=.75)
-        axes[i].plot(np.arange(start, end, step=1), np.full(len(targets[start:end]), np.mean(targets[:, i][start:end])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
-        axes[i].legend()
-        
-    plt.suptitle(f'Zoomed {args.data_type} Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions_zoomed.pdf')
+    if save:
+        plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
     if show:
         plt.show()
     plt.close()
