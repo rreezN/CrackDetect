@@ -8,9 +8,6 @@ src/validation/10segmenter
 # Model results
 reports/figures/model_results/
 
-# Data files
-/data/
-
 docs/site/
 
 # Hydra
