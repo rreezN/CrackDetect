@@ -16,6 +16,8 @@ def match_data(
         aran_vh: str = "data/raw/ref_data/cph1_aran_vh.csv",
         p79_hh: str = "data/raw/ref_data/cph1_zp_hh.csv",
         p79_vh: str = "data/raw/ref_data/cph1_zp_vh.csv",
+        p79_iri_rut_hh: str = "data/raw/ref_data/cph1_iri_mpd_rut_hh.csv",
+        p79_iri_rut_vh: str = "data/raw/ref_data/cph1_iri_mpd_rut_vh.csv",
         skip_gopro: bool = False
         ) -> None:
     """
@@ -31,6 +33,10 @@ def match_data(
         The path to the P79 data for the HH direction
     p79_vh : str
         The path to the P79 data for the VH direction
+    p79_iri_rut_hh : str
+        The path to the P79 IRI and RUT data for the HH direction
+    p79_iri_rut_vh : str
+        The path to the P79 IRI and RUT data for the VH direction
     skip_gopro : bool
         Whether to skip the GoPro data or not
     """
@@ -62,6 +68,21 @@ def match_data(
     if not Path(p79_vh).suffix == '.csv':
         raise ValueError(f"File '{p79_vh}' is not a csv file. Expected .csv file.")
 
+    if not isinstance(p79_iri_rut_hh, str):
+        raise TypeError(f"Input value 'p79_iri_rut_hh' type is {type(p79_iri_rut_hh)}, but expected str.")
+    if not Path(p79_iri_rut_hh).exists():
+        raise FileNotFoundError(f"Path '{p79_iri_rut_hh}' does not exist.")
+    if not Path(p79_iri_rut_hh).suffix == '.csv':
+        raise ValueError(f"File '{p79_iri_rut_hh}' is not a csv file. Expected .csv file.")
+    
+    if not isinstance(p79_iri_rut_vh, str):
+        raise TypeError(f"Input value 'p79_iri_rut_vh' type is {type(p79_iri_rut_vh)}, but expected str.")
+    if not Path(p79_iri_rut_vh).exists():
+        raise FileNotFoundError(f"Path '{p79_iri_rut_vh}' does not exist.")
+    if not Path(p79_iri_rut_vh).suffix == '.csv':
+        raise ValueError(f"File '{p79_iri_rut_vh}' is not a csv file. Expected .csv file.")
+    
+
     if not isinstance(skip_gopro, bool):
         raise TypeError(f"Input value 'skip_gopro' type is {type(skip_gopro)}, but expected bool.")
 
@@ -80,6 +101,27 @@ def match_data(
         'hh': pd.read_csv(p79_hh, sep=';', encoding='unicode_escape'),
         'vh': pd.read_csv(p79_vh, sep=';', encoding='unicode_escape')
     }
+
+
+    p79_iri_rut = {
+        'hh': pd.read_csv(p79_iri_rut_hh, sep=';', encoding='unicode_escape'),
+        'vh': pd.read_csv(p79_iri_rut_vh, sep=';', encoding='unicode_escape')
+    }
+
+    # Now we combine the IRI and RUT information from p79_iri_rut into the p79 dataframes (used for KPIs)
+    for direction in ['hh', 'vh']:
+        iri_rut_array = np.zeros((len(p79[direction]), 4))
+        # dataframe with 4 columns: IRI (5), IRI (21), Venstre sporkøring, Højre sporkøring
+        iri_rut_df = pd.DataFrame(iri_rut_array, columns=['IRI (5) [m/km]', 'IRI (21) [m/km]', 'Venstre sporkøring [mm]', 'Højre sporkøring [mm]'])
+        for idx, row in (pbar := tqdm(p79_iri_rut[direction].iterrows())):
+            pbar.set_description(f"Combining IRI and RUT data for {direction} direction ({idx+1}/{len(p79_iri_rut[direction])}")
+            distance = row['Distance [m]']
+            mask = (p79[direction]['Distance [m]'] >= distance) & (p79[direction]['Distance [m]'] < distance+10)
+            iri_rut_df.loc[mask, 'IRI (5) [m/km]'] = row[' IRI (5) [m/km]']
+            iri_rut_df.loc[mask, 'IRI (21) [m/km]'] = row[' IRI (21) [m/km]']
+            iri_rut_df.loc[mask, 'Venstre sporkøring [mm]'] = row[' Venstre sporkøring [mm]']
+            iri_rut_df.loc[mask, 'Højre sporkøring [mm]'] = row[' Højre sporkøring [mm]']
+        p79[direction] = pd.concat([p79[direction], iri_rut_df], axis=1)
 
     # Create folders for saving
     Path(prefix + 'data/interim/aran').mkdir(parents=True, exist_ok=True)

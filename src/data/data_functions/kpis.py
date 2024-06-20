@@ -145,24 +145,28 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
     
     # Extract ARAN data for all seconds within the window
     windowed_aran_data = []
+    windowed_p79_data = []
     for i in range(second_index - window_size, second_index + window_size + 1):
         windowed_aran_data.append(segment[str(i)]['aran'][()])
+        windowed_p79_data.append(segment[str(i)]['p79'][()])
     
     # Define aran attributes for KPI-functions
     aran_attrs = segment[str(second_index)]['aran'].attrs
+    p79_attrs = segment[str(second_index)]['p79'].attrs
 
     # Stack the ARAN data
     windowed_aran_data = np.vstack(windowed_aran_data)
+    windowed_p79_data = np.vstack(windowed_p79_data)
 
     # Compute KPIs
     # damage index
     KPI_DI = damage_index(windowed_aran_data, aran_attrs)
     # rutting index
-    KPI_RUT = rutting_mean(windowed_aran_data, aran_attrs) 
+    KPI_RUT = rutting_mean(windowed_p79_data, p79_attrs) 
     # patching index
     PI = patching_sum(windowed_aran_data, aran_attrs)
     # IRI
-    IRI = iri_mean(windowed_aran_data, aran_attrs)
+    IRI = iri_mean(windowed_p79_data, p79_attrs)
     
     return np.asarray([KPI_DI, KPI_RUT, PI, IRI])
 
@@ -286,61 +290,57 @@ def pothole_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManage
     return ((5*PAS + 7*PAM +10*PAL +5*PAD)**(0.1)).mean()
 
 
-def rutting_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager, rut: str ='straight-edge') -> float:
+def rutting_mean(windowed_p79_data: np.ndarray, p79_attrs: h5py.AttributeManager) -> float:
     """
     The rutting index is computed as the average of the square root of the rut depth for each wheel track.
 
     Parameters
     ----------
-    windowed_aran_data : np.ndarray
-        The ARAN data for the window.
-    aran_attrs : h5py.AttributeManager
-        The ARAN attributes for the data.
+    windowed_p79_data : np.ndarray
+        The P79 data for the window.
+    p79_attrs : h5py.AttributeManager
+        The P79 attributes for the data.
 
     Returns
     -------
     float
         The rutting mean for the given window.
     """
-    if not isinstance(windowed_aran_data, np.ndarray):
-        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
+    if not isinstance(windowed_p79_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_p79_data' type is {type(windowed_p79_data)}, but expected np.ndarray.")
+    if not isinstance(p79_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'p79_attrs' type is {type(p79_attrs)}, but expected h5py.AttributeManager.")    
     
-    # TODO: FIGURE OUT WHICH ONE TO USE
-    if rut == 'straight-edge':
-        RDL = windowed_aran_data[:, aran_attrs['LRUT Straight Edge (mm)']]
-        RDR = windowed_aran_data[:, aran_attrs['RRUT Straight Edge (mm)']]
-    elif rut == 'wire':
-        RDL = windowed_aran_data[:, aran_attrs['LRUT Wire (mm)']]
-        RDR = windowed_aran_data[:, aran_attrs['RRUT Wire (mm)']]
-    return (((RDL +RDR)/2)**(0.5)).mean()
+    RDL = windowed_p79_data[:, p79_attrs['Venstre sporkøring [mm]']]
+    RDR = windowed_p79_data[:, p79_attrs['Højre sporkøring [mm]']]
+
+    return (((RDL + RDR)/2)**(0.5)).mean()
 
 
-def iri_mean(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
+def iri_mean(windowed_p79_data: np.ndarray, p79_attrs: h5py.AttributeManager) -> float:
     """
     The IRI is computed as the average of the square root of the IRI for the left and right wheel tracks.
 
     Parameters
     ----------
-    windowed_aran_data : np.ndarray
-        The ARAN data for the window.
-    aran_attrs : h5py.AttributeManager
-        The ARAN attributes for the data.
+    windowed_p79_data : np.ndarray
+        The P79 data for the window.
+    p79_attrs : h5py.AttributeManager
+        The P79 attributes for the data.
 
     Returns
     -------
     float
         The IRI mean for the given window.
     """
-    if not isinstance(windowed_aran_data, np.ndarray):
-        raise TypeError(f"Input value 'windowed_aran_data' type is {type(windowed_aran_data)}, but expected np.ndarray.")
-    if not isinstance(aran_attrs, h5py.AttributeManager):
-        raise TypeError(f"Input value 'aran_attrs' type is {type(aran_attrs)}, but expected h5py.AttributeManager.")    
+    if not isinstance(windowed_p79_data, np.ndarray):
+        raise TypeError(f"Input value 'windowed_p79_data' type is {type(windowed_p79_data)}, but expected np.ndarray.")
+    if not isinstance(p79_attrs, h5py.AttributeManager):
+        raise TypeError(f"Input value 'p79_attrs' type is {type(p79_attrs)}, but expected h5py.AttributeManager.")    
     
-    IRL = windowed_aran_data[:, aran_attrs['Venstre IRI (m_km)']]
-    IRR = windowed_aran_data[:, aran_attrs['Højre IRI (m_km)']]
-    return (((IRL + IRR)/2)**(0.2)).mean()
+    IRL = windowed_p79_data[:, p79_attrs['IRI (5) [m_km]']]
+    IRR = windowed_p79_data[:, p79_attrs['IRI (21) [m_km]']]
+    return (((IRL + IRR)/2)).mean()
     
 def patching_sum(windowed_aran_data: np.ndarray, aran_attrs: h5py.AttributeManager) -> float:
     """
