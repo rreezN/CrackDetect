@@ -17,11 +17,11 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     Parameters:
     ----------
         model: model to use for prediction
-        dataloader: dataloader with batches
+        testloader: dataloader to use for prediction
     
     Returns:
     -------
-        Tensor of shape [N, d] where N is the number of samples and d is the output dimension of the model
+        all_predictions (torch.Tensor), all_targets (torch.Tensor), test_losses (ndarray): predictions, targets and losses for the test set
 
     """
     model.eval()
@@ -57,7 +57,7 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     return all_predictions, all_targets, test_losses
 
 
-def calculate_errors(predictions, targets, lags: int = 10):
+def calculate_errors(predictions, targets):
     """Calculate the errors between the predictions and the targets.
     
     Parameters:
@@ -69,7 +69,6 @@ def calculate_errors(predictions, targets, lags: int = 10):
     -------
         RMSE (np.array): The Root Mean Squared Error between the predictions and the targets for each KPI.
         baseline_RMSE (np.array): The Root Mean Squared Error between the targets and the mean of the targets for each KPI.
-        best_correlation (tuple): The best correlation between the predictions and the targets for each KPI.
     """
     
     if isinstance(targets, torch.Tensor):
@@ -83,35 +82,14 @@ def calculate_errors(predictions, targets, lags: int = 10):
     # Calculate baseline RMSE between targets and predictions for each KPI
     baseline_RMSE = np.sqrt(np.mean(np.abs(targets - np.mean(targets, axis=0))**2, axis=0))
     
-    # Calculate correlation between targets and predictions for each KPI with different lags
-    correlations = []
-    for lag in range(0, lags):
-        for i in range(targets.shape[1]):
-            if lag == 0:
-                correlation = np.corrcoef(targets[:, i], predictions[:, i])[0, 1]
-            else:
-                correlation = np.corrcoef(targets[:-lag, i], predictions[lag:, i])[0, 1]
-                
-            correlations.append(correlation)
-    
-    # Save best correlation for each target
-    best_correlations = np.zeros(targets.shape[1])
-    best_lags = np.zeros(targets.shape[1])
-    
-    # find the best correlation and lag for each KPI
-    for i in range(targets.shape[1]):
-        best_correlations[i] = max(correlations[i::lags])
-        best_lags[i] = np.argmax(correlations[i::lags])
-    
-    return RMSE, baseline_RMSE, (best_lags, best_correlations)
+    return RMSE, baseline_RMSE
 
-def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_losses: np.ndarray, show: bool = False):
+def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: bool = False):
     """Plot the predictions against teh targets in a scatter plot. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
         predictions (torch.Tensor): Targets predicted by the model.
         targets (torch.Tensor): Real targets.
-        test_losses (np.ndarray): Losses for each batch.
         show (bool, optional): Whether or not to show the plot in addition to saving it. Defaults to False.
     """
     predictions = predictions.detach().numpy()
@@ -126,11 +104,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, test_loss
     axes = axes.flat
     
     # Get errors
-    # TODO: Make sure this works... Might need to change the way errors are returned
-    # Or the way they are plotted
-    rmse, baseline_rmse, _ = calculate_errors(predictions, targets)
-    # correlations = correlation[1]
-    # lags = correlation[0]
+    rmse, baseline_rmse = calculate_errors(predictions, targets)
     
     correlations = []
     # Plot each KPIs
@@ -247,7 +221,7 @@ def get_args():
     parser = ArgumentParser(description='Predict Model')
     parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
     parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv', help='Path to the data file.')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['MultiRocketMV_50000', 'HydraMV_8_64'], help='Feature extractors to use for prediction.')
+    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
