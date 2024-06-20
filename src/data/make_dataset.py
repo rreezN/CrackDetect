@@ -1,12 +1,12 @@
 from argparse import ArgumentParser, Namespace
 
-from data_functions.converting import convert
-from data_functions.extract_gopro import preprocess_gopro_data
-from data_functions.validating import validate
-from data_functions.segmenting import segment
-from data_functions.matching import match_data
-from data_functions.resampling import resample
-from data_functions.kpis import compute_kpis
+from src.data.data_functions.converting import convert
+from src.data.data_functions.extract_gopro import preprocess_gopro_data
+from src.data.data_functions.validating import validate
+from src.data.data_functions.segmenting import segment
+from src.data.data_functions.matching import match_data
+from src.data.data_functions.resampling import resample
+from src.data.data_functions.kpis import compute_kpis
 
 
 def main(args: Namespace) -> None:
@@ -54,16 +54,25 @@ def main(args: Namespace) -> None:
         compute_kpis()
 
 
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument('mode', type=str, choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+def get_args(external_parser : ArgumentParser = None) -> Namespace:
+    if external_parser is None:
+        parser = ArgumentParser()
+        parser.add_argument('mode', type=str, choices=['convert', 'validate', 'segment', 'match', 'resample', 'kpi', 'all'], help='Mode to run the script in (all runs all modes in sequence)')
+    else:
+        parser = external_parser
+        
     parser.add_argument('--begin-from', action='store_true', help='Start from specified mode (inclusive)')
     parser.add_argument('--skip-gopro', action='store_true', help='Skip GoPro data in all steps')
     parser.add_argument('--speed-threshold', type=int, default=5, help='Speed threshold for segmenting data (km/h)')
     parser.add_argument('--time-threshold', type=int, default=10, help='Time threshold for segmenting data')
     parser.add_argument('--validation-threshold', type=float, default=0.2, help='Normalised MSE threshold for validating data')
     parser.add_argument('--verbose', action='store_true', help='Print verbose output')
+    
+    if external_parser is None:
+        return parser.parse_args()
+    else:
+        return parser
 
-    args = parser.parse_args()
-
+if __name__ == '__main__':
+    args = get_args()
     main(args)

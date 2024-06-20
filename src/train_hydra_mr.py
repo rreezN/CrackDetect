@@ -6,7 +6,7 @@ import torch.nn as nn
 import time
 
 from tqdm import tqdm
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader 
 
@@ -24,6 +24,8 @@ def train(model: HydraMRRegressor,
           fold: int,
           epochs: int = 10, 
           lr: float = 0.001,
+          args: Namespace = None,
+          device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
           ):
     """Training loop for the Hydra-MR model.
     
@@ -41,11 +43,6 @@ def train(model: HydraMRRegressor,
         epochs (int, optional): Number of epochs to train. Defaults to 10.
         lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
     """
-    
-    if args.lr != 0.001:
-        lr = args.lr
-    if args.epochs != 10:
-        epochs = args.epochs
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
@@ -104,6 +101,7 @@ def train(model: HydraMRRegressor,
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-start:.2f}s)")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
+            wandb.log({f"best_val_loss_{fold}": best_val_loss})
             
         mean_val_loss = np.mean(val_losses)
         wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
@@ -129,8 +127,11 @@ def train(model: HydraMRRegressor,
     return epoch_train_losses, epoch_val_losses, best_val_loss
     
 
-def get_args():
-    parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
+def get_args(external_parser: ArgumentParser = None):
+    if external_parser is None:
+        parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
+    else:
+        parser = external_parser
     parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train. Default 10')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
@@ -144,13 +145,14 @@ def get_args():
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
     parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 1')
     parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
-    return parser.parse_args()
+    
+    if external_parser is not None:
+        return parser
+    else:
+        return parser.parse_args()
 
 
-if __name__ == '__main__':
-    args = get_args()
-    print(args)
-
+def main(args: Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}.")
  
@@ -201,7 +203,7 @@ if __name__ == '__main__':
         wandb.config.update({f"model_{fold}": model.name})
 
         # Train
-        k_fold_train_losses, k_fold_val_losses, best_val_loss = train(model, train_loader, val_loader, fold=fold)
+        k_fold_train_losses, k_fold_val_losses, best_val_loss = train(model, train_loader, val_loader, fold=fold, args=args, epochs=args.epochs, lr=args.lr, device=device)
     
         train_losses.append(k_fold_train_losses)
         val_losses.append(k_fold_val_losses)
@@ -235,3 +237,11 @@ if __name__ == '__main__':
     plt.close()
 
     wandb.finish()
+
+
+if __name__ == '__main__':
+    args = get_args()
+    print(args)
+    main()
+
+    
