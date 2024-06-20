@@ -32,11 +32,16 @@ def read_from_hdf5(filename):
     return data
 
 
+def  
+
+
+
 def main():
     # Takes about 40 seconds to load
-    loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
-    loaded_weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
+    weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
+    weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
 
+    KPI = "data/processed/w_kpis/segments.hdf5"
     debug = 1
 
 if __name__ == "__main__":

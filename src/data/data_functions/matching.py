@@ -114,7 +114,7 @@ def match_data(
         # dataframe with 4 columns: IRI (5), IRI (21), Venstre sporkøring, Højre sporkøring
         iri_rut_df = pd.DataFrame(iri_rut_array, columns=['IRI (5) [m/km]', 'IRI (21) [m/km]', 'Venstre sporkøring [mm]', 'Højre sporkøring [mm]'])
         for idx, row in (pbar := tqdm(p79_iri_rut[direction].iterrows())):
-            pbar.set_description(f"Combining IRI and RUT data for {direction} direction ({idx}/{len(p79_iri_rut[direction])}")
+            pbar.set_description(f"Combining IRI and RUT data for {direction} direction ({idx+1}/{len(p79_iri_rut[direction])}")
             distance = row['Distance [m]']
             mask = (p79[direction]['Distance [m]'] >= distance) & (p79[direction]['Distance [m]'] < distance+10)
             iri_rut_df.loc[mask, 'IRI (5) [m/km]'] = row[' IRI (5) [m/km]']
