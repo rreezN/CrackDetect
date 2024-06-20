@@ -2,7 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import numpy as np
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from pathlib import Path
@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from data.feature_dataloader import Features
 from models.hydramr import HydraMRRegressor, HydraMRRegressor_old
 
-def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
+def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, path_to_model: str = None, args: Namespace = None):
     """Run prediction for a given model and dataloader.
     
     Parameters:
@@ -31,9 +31,8 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
     test_losses = np.array([])
     
     test_iterator = tqdm(testloader, unit="batch", position=0, leave=False)
-
-    kpi_means = torch.tensor(testset.kpi_means)
-    kpi_stds = torch.tensor(testset.kpi_stds)
+    kpi_means = torch.tensor(testloader.dataset.kpi_means)
+    kpi_stds = torch.tensor(testloader.dataset.kpi_stds)
     
     for data, targets in test_iterator:
         output = model(data)
@@ -52,7 +51,7 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader):
         test_iterator.set_description(f'Overall RMSE (loss): {test_losses.mean():.2f} Batch RMSE (loss): {test_loss:.2f}')
         
         if args.plot_during:
-            plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), test_losses)
+            plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), show=True, args=args, path_to_model=path_to_model)
         
     return all_predictions, all_targets, test_losses
 
@@ -76,6 +75,9 @@ def calculate_errors(predictions, targets):
     if isinstance(predictions, torch.Tensor):
         predictions = predictions.detach().numpy()
     
+    # Threshold the predictions to be minimum 0
+    predictions = np.maximum(predictions, 0)
+    
     # Calculate RMSE between targets and predictions for each KPI
     RMSE = np.sqrt(np.mean(np.abs(targets - predictions)**2, axis=0))
     
@@ -84,7 +86,7 @@ def calculate_errors(predictions, targets):
     
     return RMSE, baseline_RMSE
 
-def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: bool = False):
+def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: bool = False, args: Namespace = None, path_to_model: str = None):
     """Plot the predictions against teh targets in a scatter plot. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
@@ -94,6 +96,9 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
     """
     predictions = predictions.detach().numpy()
     targets = targets.detach().numpy()
+    
+    # Threshold the predictions to be minimum 0
+    predictions = np.maximum(predictions, 0)
     
     red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
     blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
@@ -147,7 +152,7 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
     
 
 
-def plot_predictions_old(predictions: torch.Tensor, targets: torch.Tensor, test_losses: np.ndarray, show: bool = False):
+def plot_predictions_old(predictions: torch.Tensor, targets: torch.Tensor, test_losses: np.ndarray, show: bool = False, args: Namespace = None, path_to_model: str = None):
     """Plot the predictions against the targets. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
@@ -217,8 +222,11 @@ def plot_predictions_old(predictions: torch.Tensor, targets: torch.Tensor, test_
     plt.close()
     
 
-def get_args():
-    parser = ArgumentParser(description='Predict Model')
+def get_args(external_parser: ArgumentParser = None):
+    if external_parser is None:
+        parser = ArgumentParser(description='Predict Model')
+    else:
+        parser = external_parser
     parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
     parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv', help='Path to the data file.')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction.')
@@ -230,11 +238,14 @@ def get_args():
     parser.add_argument('--fold', type=int, default=1, help='Fold to use for prediction.')
     parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
     parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
-    return parser.parse_args()
-
-if __name__ == '__main__':
-    args = get_args()
+    parser.add_argument('--save_predictions', action='store_true', help='Save predictions to file. Default is False')
     
+    if external_parser is None:
+        return parser.parse_args()
+    else:
+        return parser
+
+def main(args: Namespace):
     # Load data
     testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
@@ -244,12 +255,22 @@ if __name__ == '__main__':
     model = HydraMRRegressor(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=args.hidden_dim, model_depth=args.model_depth, batch_norm=args.batch_norm)  # MultiRocket+Hydra 49728+5120
     model.load_state_dict(torch.load(args.model))
     
-    predictions, targets, test_losses = predict(model, test_loader)
-    
     path_to_model = Path(args.model).stem
     if path_to_model.startswith('best_'):
         path_to_model = path_to_model[5:]
     os.makedirs(f'reports/figures/model_results/{path_to_model}', exist_ok=True)
     
-    plot_predictions(predictions, targets)
+    predictions, targets, test_losses = predict(model, test_loader, args=args, path_to_model=path_to_model)
+    if args.save_predictions:
+        np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.npy', predictions.detach().numpy())
+        np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_targets.npy', targets.detach().numpy())
+    
+    plot_predictions(predictions, targets, show=False, args=args, path_to_model=path_to_model)
+
+
+if __name__ == '__main__':
+    args = get_args()
+    main(args)
+    
+    
     
