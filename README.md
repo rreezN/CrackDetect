@@ -58,7 +58,7 @@ python -m pip install -r requirements.txt
 ### Virtual environment in powershell
 Have `python >= 3.10`
 1. `python -m venv fleetenv` -- Create environment
-2. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect\src"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
+2. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
 3. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
 4. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
 5. `python -m pip install -U pip setuptools wheel`
