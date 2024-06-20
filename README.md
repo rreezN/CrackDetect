@@ -10,9 +10,9 @@
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
-<div style="text-align:center">
-    <img src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" style="width:80%">
-</div>
+<p align="center">
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" alt="drawing" width="350"/>
+</p>
 
 # Quickstart
 1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
