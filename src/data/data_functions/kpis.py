@@ -113,14 +113,14 @@ def compute_kpis_for_second(segment: h5py.Group, second_index: int, window_size:
 
         *KPI_PI* = (LCSe^2 + 2*TCSe)^0.1
 
-        *KPI_IRI* = ((IRL + IRR) / 2)^0.2
+        *KPI_IRI* = ((IRL + IRR) / 2)     # Note that the IRI is not taken to the power of 0.2 as in the paper. 
+                                          # This is because that the IRI values we use are already converted.
 
     Names of the ARAN attributes are based on the ARAN manual,
 
         Live Road Assessment based on modern car sensors (LiRA): Practical guide
         by Asmus Skar et al. (2022)
         
-
     Parameters
     ----------
     segment : h5py.Group
@@ -319,7 +319,7 @@ def rutting_mean(windowed_p79_data: np.ndarray, p79_attrs: h5py.AttributeManager
 
 def iri_mean(windowed_p79_data: np.ndarray, p79_attrs: h5py.AttributeManager) -> float:
     """
-    The IRI is computed as the average of the square root of the IRI for the left and right wheel tracks.
+    The IRI is computed as the average of the IRI values for the left and right wheel tracks.
 
     Parameters
     ----------
