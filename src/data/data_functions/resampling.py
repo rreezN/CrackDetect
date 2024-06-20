@@ -242,9 +242,10 @@ def extract_bit_data(segment: h5py.Group, start: int, end: int) -> tuple[np.ndar
 
 def resample(
         gm_file: str='data/interim/gm/segments.hdf5',
-        gopro_file: str='data/interim/gopro/segments.hdf5',
         aran_file: str='data/interim/aran/segments.hdf5',
         p79_file: str='data/interim/p79/segments.hdf5',
+        gopro_file: str='data/interim/gopro/segments.hdf5',
+        skip_gopro: bool = False,
         verbose: bool = False
     ) -> None:
     """
@@ -261,11 +262,6 @@ def resample(
     if not Path(gm_file).exists():
         raise FileNotFoundError(f"Input value 'gm_file' does not exist.")
     
-    if not isinstance(gopro_file, str):
-        raise TypeError(f"Input value 'gopro_file' type is {type(gopro_file)}, but expected str.")
-    if not Path(gopro_file).exists():
-        raise FileNotFoundError(f"Input value 'gopro_file' does not exist.")
-    
     if not isinstance(aran_file, str):
         raise TypeError(f"Input value 'aran_file' type is {type(aran_file)}, but expected str.")
     if not Path(aran_file).exists():
@@ -276,6 +272,15 @@ def resample(
     if not Path(p79_file).exists():
         raise FileNotFoundError(f"Input value 'p79_file' does not exist.")
     
+    if not isinstance(skip_gopro, bool):
+        raise TypeError(f"Input value 'skip_gopro' type is {type(skip_gopro)}, but expected bool.")
+    
+    if not skip_gopro:
+        if not isinstance(gopro_file, str):
+            raise TypeError(f"Input value 'gopro_file' type is {type(gopro_file)}, but expected str.")
+        if not Path(gopro_file).exists():
+            raise FileNotFoundError(f"Input value 'gopro_file' does not exist.")
+        
     if not isinstance(verbose, bool):
         raise TypeError(f"Input value 'verbose' type is {type(verbose)}, but expected bool.")
 
@@ -298,86 +303,90 @@ def resample(
     with h5py.File(gm_file, 'r') as gm:
         segment_files = [gm[str(i)] for i in range(len(gm))]
         pbar = tqdm(segment_files)
-        # Load gopro data
-        with h5py.File(gopro_file, 'r') as gopro:
-            # Load ARAN and P79 data
-            with h5py.File(aran_file, 'r') as aran:
-                with h5py.File(p79_file, 'r') as p79:
-                    # Open final processed segments file
-                    with h5py.File(wo_kpis_path, 'a') as wo_kpis:
-                        for i, segment in enumerate(pbar):
-                            pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
-                            segment_subgroup = wo_kpis.create_group(str(i))
+        # Load ARAN and P79 data
+        with h5py.File(aran_file, 'r') as aran:
+            with h5py.File(p79_file, 'r') as p79:
+                # Open final processed segments file
+                with h5py.File(wo_kpis_path, 'a') as wo_kpis:
+                    if not skip_gopro:
+                        gopro = h5py.File(gopro_file, 'r')
+                    else:
+                        # Create an empty dictionary to avoid checking if gopro exists in the loop
+                        gopro = {}
 
-                            # Add direction, trip name and pass name as attr to segment subgroup
-                            segment_subgroup.attrs.update(segment.attrs)
+                    for i, segment in enumerate(pbar):
+                        pbar.set_description(f"Resampling segment {i+1:03d}/{len(segment_files)}")
+                        segment_subgroup = wo_kpis.create_group(str(i))
 
-                            # Get relevant reference data
-                            aran_segment = aran[str(i)]
-                            aran_segment_lonlat = np.column_stack((aran_segment['Lon'], aran_segment['Lat']))
-                            p79_segment = p79[str(i)]
-                            p79_segment_lonlat = np.column_stack((p79_segment['Lon'], p79_segment['Lat']))
+                        # Add direction, trip name and pass name as attr to segment subgroup
+                        segment_subgroup.attrs.update(segment.attrs)
 
-                            # Resample the GM data
-                            resampled_gm_segment = resample_gm(segment, frequency=frequency)
-                            resampled_distances = resampled_gm_segment["distance"]
-                            gm_segment_lonlat = np.column_stack((resampled_gm_segment['gps_1'], resampled_gm_segment['gps_0']))
+                        # Get relevant reference data
+                        aran_segment = aran[str(i)]
+                        aran_segment_lonlat = np.column_stack((aran_segment['Lon'], aran_segment['Lat']))
+                        p79_segment = p79[str(i)]
+                        p79_segment_lonlat = np.column_stack((p79_segment['Lon'], p79_segment['Lat']))
 
-                            # resample the gopro data
-                            gopro_data_exists = False
-                            if str(i) in gopro.keys():
-                                gopro_data_exists = True
-                                gopro_segment = gopro[str(i)]
-                                resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
+                        # Resample the GM data
+                        resampled_gm_segment = resample_gm(segment, frequency=frequency)
+                        resampled_distances = resampled_gm_segment["distance"]
+                        gm_segment_lonlat = np.column_stack((resampled_gm_segment['gps_1'], resampled_gm_segment['gps_0']))
 
-                            # Cut segments into 1 second bits
-                            steps = (len(resampled_distances) // (frequency * seconds_per_step))
-                            for j in range(steps):
-                                start = j*frequency*seconds_per_step
-                                end = (j+1)*frequency*seconds_per_step
-                                time_subgroup = segment_subgroup.create_group(str(j))
-                                
-                                # concatenate the measurements for each 1 second bit
-                                gm_measurements = []
-                                gm_attributes = {}
-                                for i, (measurement_key, measurement_value) in enumerate(resampled_gm_segment.items()):
-                                    gm_attributes[measurement_key] = i
-                                    gm_measurements.append(measurement_value[start: end])
-                                gm_measurements = np.column_stack(gm_measurements)
-                                # Save the resampled GM data in groups of 'frequency' length
-                                gm_dataset = time_subgroup.create_dataset("gm", data=gm_measurements)
-                                gm_dataset.attrs.update(gm_attributes)
+                        # resample the gopro data
+                        gopro_data_exists = False
+                        if str(i) in gopro.keys():
+                            gopro_data_exists = True
+                            gopro_segment = gopro[str(i)]
+                            resampled_gopro_segment = resample_gopro(gopro_segment, resampled_distances)
 
-                                if gopro_data_exists:
-                                    # save the resampled gopro data in groups of 'frequency' length
-                                    gopro_measurements = []
-                                    gopro_attributes = {}
-                                    for i, (key, value) in enumerate(resampled_gopro_segment.items()):
-                                        values = value[start: end]
-                                        gopro_attributes[key] = i
-                                        gopro_measurements.append(values)
-                                    gopro_measurements = np.column_stack(gopro_measurements)
-                                    gopro_dataset = time_subgroup.create_dataset("gopro", data=gopro_measurements)
-                                    gopro_dataset.attrs.update(gopro_attributes)
-                    
-                                # Find the corresponding ARAN and P79 data for each 1 second bit using closest lonlat points
-                                bit_lonlat = gm_segment_lonlat[start: end]
+                        # Cut segments into 1 second bits
+                        steps = (len(resampled_distances) // (frequency * seconds_per_step))
+                        for j in range(steps):
+                            start = j*frequency*seconds_per_step
+                            end = (j+1)*frequency*seconds_per_step
+                            time_subgroup = segment_subgroup.create_group(str(j))
+                            
+                            # concatenate the measurements for each 1 second bit
+                            gm_measurements = []
+                            gm_attributes = {}
+                            for i, (measurement_key, measurement_value) in enumerate(resampled_gm_segment.items()):
+                                gm_attributes[measurement_key] = i
+                                gm_measurements.append(measurement_value[start: end])
+                            gm_measurements = np.column_stack(gm_measurements)
+                            # Save the resampled GM data in groups of 'frequency' length
+                            gm_dataset = time_subgroup.create_dataset("gm", data=gm_measurements)
+                            gm_dataset.attrs.update(gm_attributes)
 
-                                aran_match_start, aran_match_end = find_best_start_and_end_indeces_by_lonlat(aran_segment_lonlat, bit_lonlat)
-                                aran_bit_data, aran_bit_attributes = extract_bit_data(aran_segment, aran_match_start, aran_match_end)
-                                aran_dataset = time_subgroup.create_dataset("aran", data=aran_bit_data)
-                                aran_dataset.attrs.update(aran_bit_attributes)
-                                aran_counts.append(aran_match_end - aran_match_start)
+                            if gopro_data_exists:
+                                # save the resampled gopro data in groups of 'frequency' length
+                                gopro_measurements = []
+                                gopro_attributes = {}
+                                for i, (key, value) in enumerate(resampled_gopro_segment.items()):
+                                    values = value[start: end]
+                                    gopro_attributes[key] = i
+                                    gopro_measurements.append(values)
+                                gopro_measurements = np.column_stack(gopro_measurements)
+                                gopro_dataset = time_subgroup.create_dataset("gopro", data=gopro_measurements)
+                                gopro_dataset.attrs.update(gopro_attributes)
+                
+                            # Find the corresponding ARAN and P79 data for each 1 second bit using closest lonlat points
+                            bit_lonlat = gm_segment_lonlat[start: end]
 
-                                p79_match_start, p79_match_end = find_best_start_and_end_indeces_by_lonlat(p79_segment_lonlat, bit_lonlat)
-                                p79_bit_data, p79_bit_attributes = extract_bit_data(p79_segment, p79_match_start, p79_match_end)
-                                p79_dataset = time_subgroup.create_dataset("p79", data=p79_bit_data)
-                                p79_dataset.attrs.update(p79_bit_attributes)
-                                p79_counts.append(p79_match_end - p79_match_start)
+                            aran_match_start, aran_match_end = find_best_start_and_end_indeces_by_lonlat(aran_segment_lonlat, bit_lonlat)
+                            aran_bit_data, aran_bit_attributes = extract_bit_data(aran_segment, aran_match_start, aran_match_end)
+                            aran_dataset = time_subgroup.create_dataset("aran", data=aran_bit_data)
+                            aran_dataset.attrs.update(aran_bit_attributes)
+                            aran_counts.append(aran_match_end - aran_match_start)
 
-                                if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
-                                    # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
-                                    verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
+                            p79_match_start, p79_match_end = find_best_start_and_end_indeces_by_lonlat(p79_segment_lonlat, bit_lonlat)
+                            p79_bit_data, p79_bit_attributes = extract_bit_data(p79_segment, p79_match_start, p79_match_end)
+                            p79_dataset = time_subgroup.create_dataset("p79", data=p79_bit_data)
+                            p79_dataset.attrs.update(p79_bit_attributes)
+                            p79_counts.append(p79_match_end - p79_match_start)
+
+                            if verbose and (aran_counts[-1] < 3 or p79_counts[-1] < 3):
+                                # Plot the longitude and lattitude coordinates of the gm segment and the matched ARAN and P79 data
+                                verbose_resample_plot(bit_lonlat, aran_segment_lonlat, (aran_match_start, aran_match_end), p79_segment_lonlat, (p79_match_start, p79_match_end))
     
     
     if verbose:
