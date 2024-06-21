@@ -37,11 +37,11 @@ if __name__ == '__main__':
     # HOWEVER, we recommend using the feature_extraction.py script if you want greater control over the feature extraction process.
     # Similarly for the training args (train_hydra_mr.py script)
     
-    # Feature extraction args
+    # Set Feature extraction args
     args.feature_extractor = 'hydra'
     args.all_cols_wo_location = True
         
-    # Training args
+    # Set Training args
     args.epochs = 50
     args.lr = 0.001
     args.feature_extractors = ['HydraMV_8_64']
@@ -51,6 +51,9 @@ if __name__ == '__main__':
     args.dropout = 0.0
     args.batch_norm = True
     args.batch_size = 64
+    
+    # Set Prediction args
+    args.fold = 3
     args.model = 'models/HydraMRRegressor.pt'
     args.save_predictions = True
     

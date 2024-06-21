@@ -1,9 +1,10 @@
 # To Do
-- [ ] Main python fil der kører det hele
-  - [ ] Skal også validere noget i forhold til om output for den der lige har kørt er korrekt i forhold til det vi har af forventninger
+- [ ] Report: Table der forklarer alle arguments til hvert script og hvordan de bliver brugt
+- [X] Main python fil der kører det hele
+  - [X] Skal også validere noget i forhold til om output for den der lige har kørt er korrekt i forhold til det vi har af forventninger
 
 ## Model, Training and Feature Extraction
-- [ ] Post processering på predictions er ok (sørg for at alle predictions under 0 er 0)
+- [X] Post processering på predictions er ok (sørg for at alle predictions under 0 er 0)
 - [X] Some form of logging (wandb, hydra, whatever)
 - [ ] Consider what we want to do wrt. KPI scaling
   - Don't scale
