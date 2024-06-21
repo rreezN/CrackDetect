@@ -10,18 +10,37 @@
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
-(INSERT SOME PICTURES OF RESULTS)
-
+Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
+<p align="center">
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" alt="drawing" width="500"/>
+</p>
 
 # Quickstart
-1. Clone this repository
-2. Install requirements ```pip install -r requirements.txt```. Note this project requires python > 3.10
-3. Download the data (need to figure out how we want to share it)
-4. Create dataset with ```python src/data/make_dataset.py all```
-5. Extract features with ```python src/data/feature_extraction```
-6. Train model with ```python src/train_hydra_mr.py```
-7. Predict using trained model with ```python src/predict_model.py```
-8. See results in ```reports/figures/model_results```
+1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
+2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires python > 3.10
+3. Install requirements ```pip install -r requirements.txt```. 
+4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data))
+5. Run ```python src/main.py all```
+
+This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script is setup to recreate our results, and thus all arguments are pre specified. 
+
+It is possible to call *main.py* with individual steps, or beginning at a certain step. To call individual steps, you would replace all with the desired step. Possible steps are:
+```shell
+python src/main.py [all, make_data, extract_features, train_model, predict_model, validate_model]
+```
+
+Additionally, if you wish to start from a specific step, skipping the steps before, you can add the `--begin-from` argument, i.e. if you wish to start from predict_model you would call:
+```shell
+python src/main.py --begin-from predict_model
+```
+
+If you wish to go through each step manually with your own arguments, call each script directly with its own arguments:
+
+1. Create dataset with ```python src/data/make_dataset.py all```
+2. Extract features with ```python src/data/feature_extraction```
+3. Train model with ```python src/train_hydra_mr.py```
+4. Predict using trained model with ```python src/predict_model.py```
+5. See results in ```reports/figures/model_results```
 
 # Table of Contents
 - [crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
@@ -57,19 +76,21 @@ python -m pip install -r requirements.txt
 
 ### Virtual environment in powershell
 Have `python >= 3.10`
-1. `python -m venv fleetenv` -- Create environment
-2. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect\src"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
-3. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
-4. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
-5. `python -m pip install -U pip setuptools wheel`
-6. `python -m pip install -r requirements.txt`
-7. ...
-8. Profit
+1. CD to CrackDetect `cd CracDetect`
+2. `python -m venv fleetenv` -- Create environment
+3. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
+4. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
+5. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
+6. `python -m pip install -U pip setuptools wheel`
+7. `python -m pip install -r requirements.txt`
+8. ...
+9. Profit
 
-To activate venv:
+To activate venv in powershell:
 ```shell
 .\fleetenv\Scripts\Activate.ps1
 ```
+
 
 # Usage
 [(Back to top)](#table-of-contents)
@@ -78,11 +99,37 @@ There are several steps in the pipeline of this project. Detailed explanations o
 
 ## Downloading the data
 [(Back to top)](#table-of-contents)
-(HUGE PLACEHOLDER HERE)
 
-```shell
-dvc pull
-```
+The data is made available at [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&). 
+
+Once downloaded it should be unzipped and placed in the empty ```data/``` folder. The file structure should be as follows:
+- data
+  - raw
+    - AutoPi_CAN
+      - platoon_CPH1_HH.hdf5
+      - platoon_CPH1_VH.hdf5
+      - read_hdf5_platoon.m
+      - read_hdf5.m
+      - readme.txt
+      - visualize_hdf5.m
+    - gopro
+      - car1
+        - GH012200
+          - GH012200_HERO8 Black-ACCL.csv
+          - GH012200_HERO8 Black-GPS5.csv
+          - GH012200_HERO8 Black-GYRO.csv
+        - ...
+      - car3
+        - ...
+    - ref_data
+      - cph1_aran_hh.csv
+      - cph1_aran_vh.csv
+      - cph1_fric_hh.csv
+      - cph1_fric_vh.csv
+      - cph1_iri_mpd_rut_hh.csv
+      - cph1_iri_mpd_rut_vh.csv
+      - cph1_zp_hh.csv
+      - cph1_zp_vh.csv
 
 ## Preprocessing the data
 [(Notebook)](notebooks/make_dataset.ipynb) [(Back to top)](#table-of-contents)
@@ -114,10 +161,15 @@ There are two feature extractors implemented in this repository: [HYDRA](https:/
 
 The main feature extraction is found in [src/data/feature_extraction.py](src/data/feature_extraction.py). It has the following arguments and default parameters
 - `--cols acc.xyz_0 acc.xyz_1 acc.xyz_2`
+- `--all_cols` (default False)
+- `--all_cols_wo_location` (default False)
+- `--feature_extractor both` (choices: `multirocket`, `hydra`, `both`)
 - `--mr_num_features 50000`
 - `--hydra_input_length 250`
 - `--subset None`
 - `--name_identifier` (empty string)
+- `--folds 5`
+- `--seed 42`
 
 To extract features using HYDRA and MultiRocket, call 
 ```shell
@@ -133,18 +185,26 @@ The structure of the HDF5 features file can be seen in (LINK OR INSERT IMAGE HER
 
 A simple model has been implemented in [src/models/hydramr.py](src/models/hydramr.py). 
 The model training script is implemented in [src/train_hydra_mr.py](src/train_hydra_mr.py). It has the following arguments and default parameters
-- `--epochs 10`
+- `--epochs 50`
 - `--batch_size 32`
 - `--lr 1e-6`
-- `--feature_extractors MultiRocketMV_50000 HydraMV_8_64`
+- `--feature_extractors HydraMV_8_64`
 - `--name_identifier` (empty string)
+- `--folds 5`
+- `--model_name HydraMRRegressor`
+- `--weight_decay 0.0`
+- `--hidden_dim 64`
+- `--project_name hydra_mr_test` (for wandb)
+- `--dropout 0.5`
+- `--model_depth 0`
+- `--batch_norm True`
 
-To train the model using MultiRocket and Hydra on a multivariate dataset call
+To train the model using Hydra on a multivariate dataset call
 ```shell
 python src/train_hydra_mr.py
 ```
 
-The trained model will be saved in [models](models/), along with the best model during training (based on validation loss). The training curves are saved in [reports/figures/model_results](reports/figures/model_results/).
+The trained model will be saved in [models/](models/), along with the best model during training (based on validation loss) for each fold. The training curves are saved in [reports/figures/model_results](reports/figures/model_results/).
 
 Trained models will be saved based on the name in their model file scripts.
 
@@ -154,13 +214,18 @@ Trained models will be saved based on the name in their model file scripts.
 To predict using the trained model use the script [src/predict_model.py](src/predict_model.py). It has the following arguments and default parameters
 - `--model models/best_HydraMRRegressor.pt`
 - `--data data/processed/features.hdf5`
-- `--feature_extractors MultiRocketMV_50000 HydraMV_8_64`
+- `--feature_extractors HydraMV_8_64`
 - `--name_identifier` (empty string)
 - `--data_type test`
 - `--batch_size 32`
-- `--plot_during`
+- `--plot_during` (default False)
+- `--hidden_dim 64`
+- `--fold 1`
+- `--model_depth 0`
+- `--batch_norm True`
+- `--save_predictions` (default False)
 
-To run the script on the saved HydraMultiRocket model, call
+To run the script on the saved HydraMRRegressor model, call
 ```shell
 python src/predict_model.py
 ```
