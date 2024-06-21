@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import h5py
+import os
 from tqdm import tqdm
 import re
 import csv
@@ -202,9 +203,9 @@ def filter_entries(data):
     return filtered_data
 
 
-def save_to_csv(mapping, direction):
+def save_to_csv(path_to_aoi: str = "data/AOI", mapping = None, direction = None):
     name = f"mapping_{direction}_time_to_location.csv"
-    filename = f"data/AOI/{name}"
+    filename = os.path.join(path_to_aoi, name)
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -222,9 +223,9 @@ def save_to_csv(mapping, direction):
     print("CSV file has been created successfully.")
 
 
-def save_to_hdf5(mapping, direction):
+def save_to_hdf5(path_to_aoi: str = "data/AOI", mapping = None, direction = None):
     name = f"mapping_{direction}_time_to_location.hdf5"
-    filename = f"data/AOI/{name}"
+    filename = os.path.join(path_to_aoi, name)
 
     with h5py.File(filename, 'w') as hdf_file:
         # Create the HDF5 groups and datasets
@@ -270,8 +271,8 @@ def main():
         locations = get_locations(p79_, gm_data_)
         mapping = map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists, direction)
         cleaned_mapping = filter_entries(mapping) # TODO add funciton that cleans up the mapping dictionary right away
-        save_to_csv(cleaned_mapping, direction)
-        save_to_hdf5(cleaned_mapping, direction)
+        save_to_csv(mapping=cleaned_mapping, direction=direction)
+        save_to_hdf5(mapping=cleaned_mapping, direction=direction)
 
 
 if __name__ == "__main__":
