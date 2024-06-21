@@ -144,7 +144,7 @@ def get_args(external_parser: ArgumentParser = None):
     parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
     parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 1')
-    parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
+    parser.add_argument('--batch_norm', action="store_true", help='If batch normalization should be used in the model.')
     
     if external_parser is not None:
         return parser

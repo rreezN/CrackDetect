@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from data.feature_dataloader import Features
 from models.hydramr import HydraMRRegressor, HydraMRRegressor_old
 
-def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, path_to_model: str = None, args: Namespace = None):
+def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, path_to_model: str = None, plot_during: bool = False):
     """Run prediction for a given model and dataloader.
     
     Parameters:
@@ -50,7 +50,7 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, pat
         
         test_iterator.set_description(f'Overall RMSE (loss): {test_losses.mean():.2f} Batch RMSE (loss): {test_loss:.2f}')
         
-        if args.plot_during:
+        if plot_during:
             plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), show=True, args=args, path_to_model=path_to_model)
         
     return all_predictions, all_targets, test_losses
@@ -228,7 +228,7 @@ def get_args(external_parser: ArgumentParser = None):
     else:
         parser = external_parser
     parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
-    parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv', help='Path to the data file.')
+    parser.add_argument('--data', type=str, default='data/processed/features.hdf5', help='Path to the data file.')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
@@ -237,7 +237,7 @@ def get_args(external_parser: ArgumentParser = None):
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
     parser.add_argument('--fold', type=int, default=1, help='Fold to use for prediction.')
     parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
-    parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
+    parser.add_argument('--batch_norm', action="store_true", help='If batch normalization is used in the model')
     parser.add_argument('--save_predictions', action='store_true', help='Save predictions to file. Default is False')
     
     if external_parser is None:
@@ -247,7 +247,7 @@ def get_args(external_parser: ArgumentParser = None):
 
 def main(args: Namespace):
     # Load data
-    testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
+    testset = Features(args.data, data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     input_shape, target_shape = testset.get_data_shape()
@@ -260,7 +260,7 @@ def main(args: Namespace):
         path_to_model = path_to_model[5:]
     os.makedirs(f'reports/figures/model_results/{path_to_model}', exist_ok=True)
     
-    predictions, targets, test_losses = predict(model, test_loader, args=args, path_to_model=path_to_model)
+    predictions, targets, test_losses = predict(model, test_loader, plot_during=args.plot_during, path_to_model=path_to_model)
     if args.save_predictions:
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.npy', predictions.detach().numpy())
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_targets.npy', targets.detach().numpy())
