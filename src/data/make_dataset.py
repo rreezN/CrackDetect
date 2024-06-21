@@ -11,11 +11,11 @@ from src.data.data_functions.kpis import compute_kpis
 
 def main(args: Namespace) -> None:
 
-    begin_from = False
+    begun = False
 
-    if begin_from or args.mode in ['convert', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['convert', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---### Converting data ###---')
         convert()
         if not args.skip_gopro:
@@ -23,33 +23,33 @@ def main(args: Namespace) -> None:
             # Convert GoPro data to align with the GM trips
             preprocess_gopro_data()
     
-    if begin_from or args.mode in ['validate', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['validate', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---### Validating data ###---')
         validate(threshold=args.validation_threshold, verbose=args.verbose)
 
-    if begin_from or args.mode in ['segment', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['segment', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---### Segmenting data ###---')
         segment(speed_threshold=args.speed_threshold, time_threshold=args.time_threshold)
 
-    if begin_from or args.mode in ['match', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['match', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---###  Matching data  ###---')
         match_data(skip_gopro=args.skip_gopro)
     
-    if begin_from or args.mode in ['resample', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['resample', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---### Resampling data ###---')
         resample(verbose=args.verbose)
     
-    if begin_from or args.mode in ['kpi', 'all']:
-        if not begin_from and args.begin_from:
-            begin_from = True
+    if begun or args.mode in ['kpi', 'all']:
+        if not begun and args.begin_from:
+            begun = True
         print('    ---### Calculating KPIs ###---')
         compute_kpis()
 
