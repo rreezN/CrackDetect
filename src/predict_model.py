@@ -1,4 +1,5 @@
 import os
+import yaml
 import torch
 import torch.nn as nn
 import numpy as np
@@ -6,7 +7,7 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from pathlib import Path
-
+from scipy.stats import linregress
 from torch.utils.data import DataLoader
 
 from data.feature_dataloader import Features
@@ -104,8 +105,6 @@ def plot_predictions(predictions, targets, show: bool = False, save: bool = True
     # Threshold the predictions to be minimum 0
     predictions = np.maximum(predictions, 0)
     
-    red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
-    blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
     KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
     
     # Setup plot
@@ -141,6 +140,11 @@ def plot_predictions(predictions, targets, show: bool = False, save: bool = True
         axes[i].set_xlabel('Target', fontsize=12)
         axes[i].set_ylabel('Prediction', fontsize=12)
         
+        # Plot regression fit
+        slope, intercept, r_value, p_value, std_err = linregress(targets[:, i], predictions[:, i])
+        # adding the regression line to the scatter plot
+        axes[i].plot(targets[:, i], slope*targets[:, i] + intercept, color='royalblue', label=f'Regression Fit ' + r"($R^2 = $" + f"{r_value**2:.2f})", zorder=2)
+
         # Set title
         axes[i].title = axes[i].set_title(f'{KPI[i]}\nRMSE: {rmse[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}, correlation: {correlation:.2f}')
         axes[i].legend()
@@ -161,17 +165,13 @@ def get_args(external_parser: ArgumentParser = None):
         parser = ArgumentParser(description='Predict Model')
     else:
         parser = external_parser
-    parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
+    parser.add_argument('--model', type=str, default='models/HydraMRRegressor/HydraMRRegressor.pt', help='Path to the model file.')
     parser.add_argument('--data', type=str, default='data/processed/features.hdf5', help='Path to the data file.')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
     parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
-    parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
-    parser.add_argument('--fold', type=int, default=1, help='Fold to use for prediction.')
-    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
-    parser.add_argument('--batch_norm', action="store_true", help='If batch normalization is used in the model')
+    parser.add_argument('--fold', type=int, default=-1, help='Fold to use for prediction.')
     parser.add_argument('--save_predictions', action='store_true', help='Save predictions to file. Default is False')
     
     if external_parser is None:
@@ -180,13 +180,32 @@ def get_args(external_parser: ArgumentParser = None):
         return parser
 
 def main(args: Namespace):
+    # Get model params
+    experiment_dir = os.path.dirname(args.model)
+    model_params_path = os.path.join(experiment_dir, "model_params.yml")
+    with open(model_params_path, 'r') as stream:
+        model_params = yaml.safe_load(stream)
+
+    feature_extractors = model_params["feature_extractors"]
+    name_identifier = model_params["name_identifier"]
+    hidden_dim = model_params["hidden_dim"]
+    batch_norm = model_params["batch_norm"]
+    model_depth = model_params["model_depth"]
+
+    # Get fold if not specified
+    if args.fold == -1:
+        model_name = os.path.basename(args.model)
+        fold = model_params["trained_in_fold"][model_name]
+    else:
+        fold = args.fold
+
     # Load data
-    testset = Features(args.data, data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
+    testset = Features(args.data, data_type=args.data_type, feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     input_shape, target_shape = testset.get_data_shape()
     
-    model = HydraMRRegressor(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=args.hidden_dim, model_depth=args.model_depth, batch_norm=args.batch_norm)  # MultiRocket+Hydra 49728+5120
+    model = HydraMRRegressor(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=hidden_dim, model_depth=model_depth, batch_norm=batch_norm)  # MultiRocket+Hydra 49728+5120
     model.load_state_dict(torch.load(args.model))
     
     path_to_model = Path(args.model).stem
