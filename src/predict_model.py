@@ -1,4 +1,5 @@
 import os
+import yaml
 import torch
 import torch.nn as nn
 import numpy as np
@@ -169,7 +170,7 @@ def get_args(external_parser: ArgumentParser = None):
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
     parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
-    parser.add_argument('--fold', type=int, default=1, help='Fold to use for prediction.')
+    parser.add_argument('--fold', type=int, default=-1, help='Fold to use for prediction.')
     parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
     parser.add_argument('--batch_norm', action="store_true", help='If batch normalization is used in the model')
     parser.add_argument('--save_predictions', action='store_true', help='Save predictions to file. Default is False')
@@ -180,8 +181,22 @@ def get_args(external_parser: ArgumentParser = None):
         return parser
 
 def main(args: Namespace):
+
+    # Get fold if not specified
+    if args.fold == -1:
+        experiment_dir = os.path.dirname(args.model)
+        fold_dict_path = os.path.join(experiment_dir, "fold_dict.yml")
+
+        with open(fold_dict_path, 'r') as stream:
+            fold_dict = yaml.safe_load(stream)
+
+        model_name = os.path.basename(args.model)
+        fold = fold_dict[model_name]
+    else:
+        fold = args.fold
+
     # Load data
-    testset = Features(args.data, data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
+    testset = Features(args.data, data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     input_shape, target_shape = testset.get_data_shape()

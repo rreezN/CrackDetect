@@ -4,6 +4,7 @@ import wandb
 import numpy as np
 import torch.nn as nn
 import time
+import yaml
 
 from tqdm import tqdm
 from argparse import ArgumentParser, Namespace
@@ -17,6 +18,7 @@ from data.feature_dataloader import Features
 # Set seed for reproducibility
 set_all_seeds(42)
 OVERALL_BEST_VAL_LOSS = np.inf
+FOLD_DICT = {}
 
 def train(model: HydraMRRegressor, 
           train_loader: DataLoader, 
@@ -44,6 +46,11 @@ def train(model: HydraMRRegressor,
         lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
     """
     global OVERALL_BEST_VAL_LOSS
+    global FOLD_DICT
+
+    FOLD_DICT[f"best_{model.name}_{fold}.pt"] = fold
+    with open(f'models/{model.name}/fold_dict.yml', 'w') as outfile:
+        yaml.dump(FOLD_DICT, outfile, default_flow_style=False)
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
@@ -98,7 +105,7 @@ def train(model: HydraMRRegressor,
         if np.mean(val_losses) < best_val_loss:
             end = time.time()
             best_val_loss = np.mean(val_losses)
-            torch.save(model.state_dict(), f'models/best_{model.name}_{fold}.pt')
+            torch.save(model.state_dict(), f'models/{model.name}/best_{model.name}_{fold}.pt')
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-start:.2f}s)")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
@@ -106,7 +113,10 @@ def train(model: HydraMRRegressor,
         
         if np.mean(val_losses) < OVERALL_BEST_VAL_LOSS:
             OVERALL_BEST_VAL_LOSS = np.mean(val_losses)
-            torch.save(model.state_dict(), f'models/{model.name}.pt')
+            torch.save(model.state_dict(), f'models/{model.name}/{model.name}.pt')
+            FOLD_DICT[f"{model.name}.pt"] = fold
+            with open(f'models/{model.name}/fold_dict.yml', 'w') as outfile:
+                yaml.dump(FOLD_DICT, outfile, default_flow_style=False)
 
         mean_val_loss = np.mean(val_losses)
         wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
@@ -170,6 +180,9 @@ def main(args: Namespace) -> None:
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
     name_identifier = args.name_identifier
+
+    # Make experiment directory
+    os.makedirs(f'models/{args.model_name}', exist_ok=True)
 
     train_losses = []
     val_losses = []
