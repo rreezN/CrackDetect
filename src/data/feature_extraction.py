@@ -451,6 +451,9 @@ def main(args: Namespace) -> None:
     else:
         cols = args.cols
     
+    # To properly save data
+    args.cols = cols
+    
     # Load data
     print(f"Loading train data from {data_path}")
     train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=cols)
