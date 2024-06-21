@@ -6,7 +6,7 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from pathlib import Path
-
+from scipy.stats import linregress
 from torch.utils.data import DataLoader
 
 from data.feature_dataloader import Features
@@ -104,8 +104,6 @@ def plot_predictions(predictions, targets, show: bool = False, save: bool = True
     # Threshold the predictions to be minimum 0
     predictions = np.maximum(predictions, 0)
     
-    red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
-    blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
     KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
     
     # Setup plot
@@ -141,6 +139,11 @@ def plot_predictions(predictions, targets, show: bool = False, save: bool = True
         axes[i].set_xlabel('Target', fontsize=12)
         axes[i].set_ylabel('Prediction', fontsize=12)
         
+        # Plot regression fit
+        slope, intercept, r_value, p_value, std_err = linregress(targets[:, i], predictions[:, i])
+        # adding the regression line to the scatter plot
+        axes[i].plot(targets[:, i], slope*targets[:, i] + intercept, color='royalblue', label=f'Regression Fit ' + r"($R^2 = $" + f"{r_value**2:.2f})", zorder=2)
+
         # Set title
         axes[i].title = axes[i].set_title(f'{KPI[i]}\nRMSE: {rmse[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}, correlation: {correlation:.2f}')
         axes[i].legend()

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from scipy.stats import linregress
 
 from predict_model import calculate_errors
 
@@ -59,6 +60,11 @@ def plot_validation(predictions, targets, args: Namespace = None):
         axes[i].set_xlabel('Target', fontsize=12)
         axes[i].set_ylabel('Prediction', fontsize=12)
         
+        # Plot regression fit
+        slope, intercept, r_value, p_value, std_err = linregress(targets[:, i], predictions[:, i])
+        # adding the regression line to the scatter plot
+        axes[i].plot(targets[:, i], slope*targets[:, i] + intercept, color='royalblue', label=f'Regression Fit ' + r"($R^2 = $" + f"{r_value**2:.2f})", zorder=2)
+
         # Set title
         axes[i].title = axes[i].set_title(f'{KPI[i]}\nRMSE: {rmse[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}, correlation: {correlation:.2f}')
         axes[i].legend()
@@ -88,6 +94,11 @@ def plot_validation(predictions, targets, args: Namespace = None):
         axes[i+4].set_xlabel('FleetYeet Target', fontsize=12)
         axes[i+4].set_ylabel('FleetYeet Prediction', fontsize=12)
         
+                # Plot regression fit
+        slope, intercept, r_value, p_value, std_err = linregress(fleetyeet_targets[:, i], fleetyeet_predictions[:, i])
+        # adding the regression line to the scatter plot
+        axes[i+4].plot(fleetyeet_targets[:, i], slope*fleetyeet_targets[:, i] + intercept, color='indianred', label=f'Regression Fit ' + r"($R^2 = $" + f"{r_value**2:.2f})", zorder=2)
+
         # Set title
         axes[i+4].title = axes[i+4].set_title(f'{KPI[i]}\nRMSE: {fleetyeet_rmse[i]:.2f}, baseline RMSE: {fleetyeet_baseline[i]:.2f}, correlation: {correlation:.2f}')
         axes[i+4].legend()

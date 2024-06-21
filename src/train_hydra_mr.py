@@ -135,7 +135,7 @@ def get_args(external_parser: ArgumentParser = None):
         parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
     else:
         parser = external_parser
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train. Default 10')
+    parser.add_argument('--epochs', type=int, default=50, help=f'Number of epochs to train. Default 50')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is HydraMV_8_64.')
@@ -146,7 +146,7 @@ def get_args(external_parser: ArgumentParser = None):
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
     parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
-    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 1')
+    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
     parser.add_argument('--batch_norm', action="store_true", help='If batch normalization should be used in the model.')
     
     if external_parser is not None:
