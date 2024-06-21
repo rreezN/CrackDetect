@@ -18,6 +18,7 @@ from data.feature_dataloader import Features
 # Set seed for reproducibility
 set_all_seeds(42)
 OVERALL_BEST_VAL_LOSS = np.inf
+MODEL_PARAMS = {}
 FOLD_DICT = {}
 
 def train(model: HydraMRRegressor, 
@@ -46,11 +47,12 @@ def train(model: HydraMRRegressor,
         lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
     """
     global OVERALL_BEST_VAL_LOSS
-    global FOLD_DICT
+    global MODEL_PARAMS
 
     FOLD_DICT[f"best_{model.name}_{fold}.pt"] = fold
-    with open(f'models/{model.name}/fold_dict.yml', 'w') as outfile:
-        yaml.dump(FOLD_DICT, outfile, default_flow_style=False)
+    MODEL_PARAMS["trained_in_fold"] = FOLD_DICT
+    with open(f'models/{model.name}/model_params.yml', 'w') as outfile:
+        yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
@@ -115,8 +117,9 @@ def train(model: HydraMRRegressor,
             OVERALL_BEST_VAL_LOSS = np.mean(val_losses)
             torch.save(model.state_dict(), f'models/{model.name}/{model.name}.pt')
             FOLD_DICT[f"{model.name}.pt"] = fold
-            with open(f'models/{model.name}/fold_dict.yml', 'w') as outfile:
-                yaml.dump(FOLD_DICT, outfile, default_flow_style=False)
+            MODEL_PARAMS["trained_in_fold"] = FOLD_DICT
+            with open(f'models/{model.name}/model_params.yml', 'w') as outfile:
+                yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
 
         mean_val_loss = np.mean(val_losses)
         wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
@@ -166,9 +169,9 @@ def get_args(external_parser: ArgumentParser = None):
 
 
 def main(args: Namespace) -> None:
+    global MODEL_PARAMS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}.")
- 
 
     wandb.init(project=args.project_name, entity='fleetyeet')
     wandb.config.update(args, allow_val_change=True)
@@ -183,6 +186,10 @@ def main(args: Namespace) -> None:
 
     # Make experiment directory
     os.makedirs(f'models/{args.model_name}', exist_ok=True)
+    MODEL_PARAMS = vars(args)
+    path_to_model_params = f'models/{args.model_name}/model_params.yml'
+    with open(path_to_model_params, 'w') as outfile:
+        yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
 
     train_losses = []
     val_losses = []
@@ -234,6 +241,7 @@ def main(args: Namespace) -> None:
     print(f"Mean best validation loss: {mean_best_val_loss:.3f}")
     print(f"Standard deviation of best validation loss: {std_best_val_loss:.3f}")
     wandb.log({"mean_best_val_loss": mean_best_val_loss, "std_best_val_loss": std_best_val_loss})
+    wandb.save(path_to_model_params)
 
     # plot training curves
     for i in range(args.folds):
