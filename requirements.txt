@@ -14,3 +14,4 @@ pandas
 numba
 statsmodels
 scipy
+plotly
