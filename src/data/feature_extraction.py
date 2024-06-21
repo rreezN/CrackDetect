@@ -18,44 +18,6 @@ from src.models.multirocket.multirocket import MultiRocket
 from src.models.hydra.hydra_multivariate import HydraMultivariate
 from src.models.multirocket.multirocket_multivariate import MultiRocketMultivariate
 
-"""
-Example of features.hdf5 file structure 
-
-|-- train
-|   |-- statistics
-|   |   |-- MultiRocketMV_50000
-|   |   |   |-- mean
-|   |   |   |-- std
-|   |   |-- kpis
-|   |       |-- mean
-|   |       |-- std
-|   |       |-- min
-|   |       |-- max
-|   |-- Segment XX
-|       |-- Second XX
-|           |-- kpis
-|           |   |-- window_size [1, 2]
-|           |       |-- data
-|           |-- MultiRocketMV_50000_name_identifier
-|           |   |-- data
-|-- val
-|   |-- Segment XX
-|       |-- Second XX
-|           |-- kpis
-|           |   |-- window_size 1
-|           |      |-- data
-|           |-- MultiRocketMV_50000_name_identifier
-|               |-- data
-|-- test
-    |-- Segment XX
-        |-- Second XX
-            |-- KPIs
-            |   |-- window_size 1
-            |      |-- data
-            |-- MultiRocketMV_50000_name_identifier
-                |-- data
-"""
-
 
 # ======================================================================================================================
 #               Feature extraction from all data loaders and feature extractors
