@@ -16,7 +16,7 @@ from data.feature_dataloader import Features
 
 # Set seed for reproducibility
 set_all_seeds(42)
-
+OVERALL_BEST_VAL_LOSS = np.inf
 
 def train(model: HydraMRRegressor, 
           train_loader: DataLoader, 
@@ -43,6 +43,7 @@ def train(model: HydraMRRegressor,
         epochs (int, optional): Number of epochs to train. Defaults to 10.
         lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
     """
+    global OVERALL_BEST_VAL_LOSS
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
@@ -102,7 +103,11 @@ def train(model: HydraMRRegressor,
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
             wandb.log({f"best_val_loss_{fold}": best_val_loss})
-            
+        
+        if np.mean(val_losses) < OVERALL_BEST_VAL_LOSS:
+            OVERALL_BEST_VAL_LOSS = np.mean(val_losses)
+            torch.save(model.state_dict(), f'models/{model.name}.pt')
+
         mean_val_loss = np.mean(val_losses)
         wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
         epoch_val_losses.append(mean_val_loss)
@@ -120,9 +125,7 @@ def train(model: HydraMRRegressor,
         plt.tight_layout()
         os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
         plt.savefig(f'reports/figures/model_results/{model.name}/loss_{fold}.pdf')
-        plt.close()
-    
-    torch.save(model.state_dict(), f'models/{model.name}.pt')
+        plt.close() 
 
     return epoch_train_losses, epoch_val_losses, best_val_loss
     
@@ -196,7 +199,11 @@ def main(args: Namespace) -> None:
                                  dropout=args.dropout,
                                  name=args.model_name,
                                  model_depth=args.model_depth,
-                                 batch_norm=args.batch_norm
+                                 batch_norm=args.batch_norm,
+                                 kpi_means=torch.tensor(trainset.kpi_means),
+                                 kpi_stds=torch.tensor(trainset.kpi_stds),
+                                 kpi_mins=torch.tensor(trainset.kpi_mins),
+                                 kpi_maxs=torch.tensor(trainset.kpi_maxs)
                                  ).to(device)
         
         # wandb.watch(model, log='all')
@@ -242,6 +249,6 @@ def main(args: Namespace) -> None:
 if __name__ == '__main__':
     args = get_args()
     print(args)
-    main()
+    main(args)
 
     
