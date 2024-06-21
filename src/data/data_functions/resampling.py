@@ -131,7 +131,6 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
     start_time = time[0]
     end_time = time[-1]
     resampled_time = np.arange(start_time, end_time, 1/frequency)
-    n_samples = len(resampled_time)
     resampled_distance = interpolate(time, distance, resampled_time)
 
     # Create a new section pd dataframe
@@ -142,7 +141,7 @@ def resample_gm(section: h5py.Group, frequency: int = 250) -> dict[str, np.ndarr
     new_section["distance"] = resampled_distance
 
     for key, measurement in section.items():
-        # measurement = measurement[()]  #TODO: Check if this is necessary
+        # Better save than sorry... (duplicate timestamps can cause issues with interpolation)
         measurement_time, measurement_value = remove_duplicates(measurement[:, 0], measurement[:, 1:])
 
         # Interpolate distance by time
