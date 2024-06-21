@@ -17,7 +17,7 @@ from src.validate_model import get_args as get_validate_model_args
 def get_args():
     parser = ArgumentParser(conflict_handler='resolve')
     parser = get_make_dataset_args(parser)
-    parser.add_argument('mode', type=str, choices=['all', 'make_data', 'extract_features' 'train_model', 'predict_model', 'validate_model'], help='Mode to run the script in (all runs all modes in sequence)')
+    parser.add_argument('mode', type=str, choices=['all', 'make_data', 'extract_features', 'train_model', 'predict_model', 'validate_model'], help='Mode to run the script in (all runs all modes in sequence)')
     parser = get_feature_extraction_args(parser)
     parser = get_train_model_args(parser)
     parser = get_predict_model_args(parser)

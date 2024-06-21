@@ -20,11 +20,21 @@ Our results are in [reports/figures/our_model_results/](reports/figures/our_mode
 2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires python > 3.10
 3. Install requirements ```pip install -r requirements.txt```. 
 4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data))
-5. Run ```python src/main.py```
+5. Run ```python src/main.py all```
 
-This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script has all arguments that are available in each individual script, so if needed, they can be specified.
+This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script is setup to recreate our results, and thus all arguments are pre specified. 
 
-Optionally, if you wish to go through each step manually, it is possible to call each script on its own:
+It is possible to call *main.py* with individual steps, or beginning at a certain step. To call individual steps, you would replace all with the desired step. Possible steps are:
+```shell
+python src/main.py [all, make_data, extract_features, train_model, predict_model, validate_model]
+```
+
+Additionally, if you wish to start from a specific step, skipping the steps before, you can add the `--begin-from` argument, i.e. if you wish to start from predict_model you would call:
+```shell
+python src/main.py --begin-from predict_model
+```
+
+If you wish to go through each step manually with your own arguments, call each script directly with its own arguments:
 
 1. Create dataset with ```python src/data/make_dataset.py all```
 2. Extract features with ```python src/data/feature_extraction```
