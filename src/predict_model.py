@@ -32,9 +32,10 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, pat
     test_losses = np.array([])
     
     test_iterator = tqdm(testloader, unit="batch", position=0, leave=False)
-    kpi_means = torch.tensor(testloader.dataset.kpi_means)
-    kpi_stds = torch.tensor(testloader.dataset.kpi_stds)
     
+    kpi_means = model.kpi_means
+    kpi_stds = model.kpi_stds
+
     for data, targets in test_iterator:
         output = model(data)
         
