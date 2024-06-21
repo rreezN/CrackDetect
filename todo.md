@@ -1,5 +1,7 @@
 # To Do
 - [ ] Report: Table der forklarer alle arguments til hvert script og hvordan de bliver brugt
+- [ ] Flot figur over hdf5 fil struktur
+- [ ] Gennemlæs draft paper 5.1 feature extraction
 - [X] Main python fil der kører det hele
   - [X] Skal også validere noget i forhold til om output for den der lige har kørt er korrekt i forhold til det vi har af forventninger
 

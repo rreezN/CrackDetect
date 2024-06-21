@@ -176,7 +176,7 @@ To extract features using HYDRA and MultiRocket, call
 python src/data/feature_extraction.py
 ```
 
-The script will automatically setup the feature extractors based on the amount of cols (1 = univariate, >1 = multivariate). The features will be stored in [data/processed/features.hdf5](data/processed/features.hdf5), along with statistics used to standardize during training and prediction. Features and statistics will be saved under feature extractors based on their names as defined in the model scripts.
+The script will automatically set up the feature extractors based on the amount of cols (1 = univariate, >1 = multivariate). The features will be stored in [data/processed/features.hdf5](data/processed/features.hdf5), along with statistics used to standardize during training and prediction. Features and statistics will be saved under feature extractors based on their names as defined in the model scripts.
 
 The structure of the HDF5 features file can be seen in (LINK OR INSERT IMAGE HERE).
 
