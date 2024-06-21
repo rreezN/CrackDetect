@@ -106,7 +106,7 @@ def save_to_hdf5(mapping, direction):
 
 
 def main():
-    # # Takes about 40 seconds to load
+    # Takes about 40 seconds to load
     mapping_with_weights_hh = load_from_hdf5("data/AOI/mapping_hh_time_to_location.hdf5")
     mapping_with_weights_vh = load_from_hdf5("data/AOI/mapping_vh_time_to_location.hdf5")
     print("Loaded mapping")
@@ -122,8 +122,6 @@ def main():
     # Try to load the saved file
     # loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
     # loaded_weights_for_indexes_vh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
-
-    debug = 1
 
 if __name__ == "__main__":
     main()
