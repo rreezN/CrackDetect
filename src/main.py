@@ -53,8 +53,7 @@ if __name__ == '__main__':
     args.batch_size = 64
     
     # Set Prediction args
-    args.fold = 3
-    args.model = 'models/HydraMRRegressor.pt'
+    args.model = 'models/HydraMRRegressor/HydraMRRegressor.pt'
     args.save_predictions = True
     
     set_all_seeds(args.seed)
