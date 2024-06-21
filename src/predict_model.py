@@ -1,4 +1,5 @@
 import os
+import yaml
 import torch
 import torch.nn as nn
 import numpy as np
@@ -6,12 +7,13 @@ from argparse import ArgumentParser, Namespace
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from pathlib import Path
-
+from scipy.stats import linregress
 from torch.utils.data import DataLoader
+
 from data.feature_dataloader import Features
 from models.hydramr import HydraMRRegressor, HydraMRRegressor_old
 
-def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, path_to_model: str = None, args: Namespace = None):
+def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, path_to_model: str = None, plot_during: bool = False):
     """Run prediction for a given model and dataloader.
     
     Parameters:
@@ -31,9 +33,10 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, pat
     test_losses = np.array([])
     
     test_iterator = tqdm(testloader, unit="batch", position=0, leave=False)
-    kpi_means = torch.tensor(testloader.dataset.kpi_means)
-    kpi_stds = torch.tensor(testloader.dataset.kpi_stds)
     
+    kpi_means = model.kpi_means
+    kpi_stds = model.kpi_stds
+
     for data, targets in test_iterator:
         output = model(data)
         
@@ -45,12 +48,12 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, pat
         all_predictions = torch.cat((all_predictions, output), dim=0)
         all_targets = torch.cat((all_targets, targets), dim=0)
         
-        test_loss = torch.sqrt(loss_fn(output, targets)).item()
+        test_loss = loss_fn(output, targets).item()
         test_losses = np.append(test_losses, test_loss)
         
-        test_iterator.set_description(f'Overall RMSE (loss): {test_losses.mean():.2f} Batch RMSE (loss): {test_loss:.2f}')
+        test_iterator.set_description(f'Overall RMSE (loss): {np.sqrt(test_losses.mean()):.2f} Batch RMSE (loss): {np.sqrt(test_loss):.2f}')
         
-        if args.plot_during:
+        if plot_during:
             plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), show=True, args=args, path_to_model=path_to_model)
         
     return all_predictions, all_targets, test_losses
@@ -86,7 +89,7 @@ def calculate_errors(predictions, targets):
     
     return RMSE, baseline_RMSE
 
-def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: bool = False, args: Namespace = None, path_to_model: str = None):
+def plot_predictions(predictions, targets, show: bool = False, save: bool = True, args: Namespace = None, path_to_model: str = None):
     """Plot the predictions against teh targets in a scatter plot. Also reports the RMSE and correlation between the predictions and the targets.
 
     Args:
@@ -94,14 +97,14 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
         targets (torch.Tensor): Real targets.
         show (bool, optional): Whether or not to show the plot in addition to saving it. Defaults to False.
     """
-    predictions = predictions.detach().numpy()
-    targets = targets.detach().numpy()
+    if isinstance(predictions, torch.Tensor):
+        predictions = predictions.detach().numpy()
+    if isinstance(targets, torch.Tensor):
+        targets = targets.detach().numpy()
     
     # Threshold the predictions to be minimum 0
     predictions = np.maximum(predictions, 0)
     
-    red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
-    blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
     KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
     
     # Setup plot
@@ -137,6 +140,11 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
         axes[i].set_xlabel('Target', fontsize=12)
         axes[i].set_ylabel('Prediction', fontsize=12)
         
+        # Plot regression fit
+        slope, intercept, r_value, p_value, std_err = linregress(targets[:, i], predictions[:, i])
+        # adding the regression line to the scatter plot
+        axes[i].plot(targets[:, i], slope*targets[:, i] + intercept, color='royalblue', label=f'Regression Fit ' + r"($R^2 = $" + f"{r_value**2:.2f})", zorder=2)
+
         # Set title
         axes[i].title = axes[i].set_title(f'{KPI[i]}\nRMSE: {rmse[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}, correlation: {correlation:.2f}')
         axes[i].legend()
@@ -145,78 +153,8 @@ def plot_predictions(predictions: torch.Tensor, targets: torch.Tensor, show: boo
     # loss: {np.mean(test_losses):.2f},
     plt.suptitle(f'{data_type_name} Predictions vs Targets\nRMSE: {np.mean(rmse):.2f}, baseline RMSE: {np.mean(baseline_rmse):.2f}. correlation: {np.mean(correlations):.2f}', fontsize=24)
     plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
-    if show:
-        plt.show()
-    plt.close()
-    
-
-
-def plot_predictions_old(predictions: torch.Tensor, targets: torch.Tensor, test_losses: np.ndarray, show: bool = False, args: Namespace = None, path_to_model: str = None):
-    """Plot the predictions against the targets. Also reports the RMSE and correlation between the predictions and the targets.
-
-    Args:
-        predictions (torch.Tensor): _description_
-        targets (torch.Tensor): _description_
-        test_losses (np.ndarray): _description_
-        show (bool, optional): _description_. Defaults to False.
-    """
-    
-    predictions = predictions.detach().numpy()
-    targets = targets.detach().numpy()
-    
-    red_colors = ['lightcoral', 'firebrick', 'darkred', 'red']
-    blue_colors = ['lightblue', 'royalblue', 'darkblue', 'blue']
-    KPI = ['Damage Index (DI)', 'Rutting Index (RUT)', 'Patching Index (PI)', 'International Rougness Index (IRI)']
-    
-    # Setup plot
-    fig, axes = plt.subplots(2, 2, figsize=(20,10))
-    axes = axes.flat
-    
-    # Get errors
-    # TODO: Make sure this works... Might need to change the way errors are returned
-    # Or the way they are plotted
-    rmse, baseline_rmse, correlation = calculate_errors(predictions, targets)
-    correlations = correlation[1]
-    lags = correlation[0]
-    
-    # Plot each KPIs
-    for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse[i]:.2f}, correlation: {correlations[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}')
-        axes[i].plot(predictions[:, i], label="predicted", color='indianred', alpha=.75)
-        axes[i].plot(targets[:, i], label="target", color='royalblue', alpha=.75)
-        axes[i].plot(np.full(len(targets), np.mean(targets[:, i])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
-        axes[i].legend()
-        
-    plt.suptitle(f'{args.data_type} Predictions vs Targets, loss: {np.mean(test_losses):.2f}, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
-    if show:
-        plt.show()
-    plt.close()
-    
-    # Plot zoomed in version of each KPI
-    fig, axes = plt.subplots(2, 2, figsize=(20,10))
-    axes = axes.flat
-    start = 50
-    end = 100
-    
-    # Get zoomed in errors
-    rmse, baseline_rmse, correlation = calculate_errors(predictions[start:end], targets[start:end])
-    correlations = correlation[1]
-    lags = correlation[0]
-    
-    # Plot each KPIs
-    for i in range(len(axes)):
-        axes[i].title = axes[i].set_title(f'{KPI[i]}, RMSE: {rmse[i]:.2f}, correlation: {correlations[i]:.2f}, baseline RMSE: {baseline_rmse[i]:.2f}')
-        axes[i].plot(np.arange(start, end, step=1), predictions[:, i][start:end], label="predicted", color='indianred', alpha=.75)
-        axes[i].plot(np.arange(start, end, step=1), targets[:, i][start:end], label="target", color='royalblue', alpha=.75)
-        axes[i].plot(np.arange(start, end, step=1), np.full(len(targets[start:end]), np.mean(targets[:, i][start:end])), label="mean target (baseline)", linestyle='dotted', color='goldenrod', alpha=.75)
-        axes[i].legend()
-        
-    plt.suptitle(f'Zoomed {args.data_type} Predictions vs Targets, RMSE: {np.mean(rmse):.2f}, correlation: {np.mean(correlations):.2f} baseline RMSE: {np.mean(baseline_rmse):.2f}', fontsize=24)
-    plt.tight_layout()
-    plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions_zoomed.pdf')
+    if save:
+        plt.savefig(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.pdf')
     if show:
         plt.show()
     plt.close()
@@ -227,17 +165,13 @@ def get_args(external_parser: ArgumentParser = None):
         parser = ArgumentParser(description='Predict Model')
     else:
         parser = external_parser
-    parser.add_argument('--model', type=str, default='models/best_HydraMRRegressor.pt', help='Path to the model file.')
-    parser.add_argument('--data', type=str, default='data/processed/features.hdf5".csv', help='Path to the data file.')
-    parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction.')
+    parser.add_argument('--model', type=str, default='models/HydraMRRegressor/HydraMRRegressor.pt', help='Path to the model file.')
+    parser.add_argument('--data', type=str, default='data/processed/features.hdf5', help='Path to the data file.')
     parser.add_argument('--name_identifier', type=str, default='', help='Name identifier for the feature extractors.')
     parser.add_argument('--data_type', type=str, default='test', help='Type of data to use for prediction.', choices=['train', 'val', 'test'])
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for prediction.')
     parser.add_argument('--plot_during', action='store_true', help='Plot predictions during prediction.')
-    parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension of the model.')
-    parser.add_argument('--fold', type=int, default=1, help='Fold to use for prediction.')
-    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
-    parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
+    parser.add_argument('--fold', type=int, default=-1, help='Fold to use for prediction.')
     parser.add_argument('--save_predictions', action='store_true', help='Save predictions to file. Default is False')
     
     if external_parser is None:
@@ -246,13 +180,32 @@ def get_args(external_parser: ArgumentParser = None):
         return parser
 
 def main(args: Namespace):
+    # Get model params
+    experiment_dir = os.path.dirname(args.model)
+    model_params_path = os.path.join(experiment_dir, "model_params.yml")
+    with open(model_params_path, 'r') as stream:
+        model_params = yaml.safe_load(stream)
+
+    feature_extractors = model_params["feature_extractors"]
+    name_identifier = model_params["name_identifier"]
+    hidden_dim = model_params["hidden_dim"]
+    batch_norm = model_params["batch_norm"]
+    model_depth = model_params["model_depth"]
+
+    # Get fold if not specified
+    if args.fold == -1:
+        model_name = os.path.basename(args.model)
+        fold = model_params["trained_in_fold"][model_name]
+    else:
+        fold = args.fold
+
     # Load data
-    testset = Features(data_type=args.data_type, feature_extractors=args.feature_extractors, name_identifier=args.name_identifier, fold=args.fold)
+    testset = Features(args.data, data_type=args.data_type, feature_extractors=feature_extractors, name_identifier=name_identifier, fold=fold)
     test_loader = DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=0)
     
     input_shape, target_shape = testset.get_data_shape()
     
-    model = HydraMRRegressor(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=args.hidden_dim, model_depth=args.model_depth, batch_norm=args.batch_norm)  # MultiRocket+Hydra 49728+5120
+    model = HydraMRRegressor(in_features=input_shape[0], out_features=target_shape[0], hidden_dim=hidden_dim, model_depth=model_depth, batch_norm=batch_norm)  # MultiRocket+Hydra 49728+5120
     model.load_state_dict(torch.load(args.model))
     
     path_to_model = Path(args.model).stem
@@ -260,11 +213,11 @@ def main(args: Namespace):
         path_to_model = path_to_model[5:]
     os.makedirs(f'reports/figures/model_results/{path_to_model}', exist_ok=True)
     
-    predictions, targets, test_losses = predict(model, test_loader, args=args, path_to_model=path_to_model)
+    predictions, targets, test_losses = predict(model, test_loader, plot_during=args.plot_during, path_to_model=path_to_model)
     if args.save_predictions:
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.npy', predictions.detach().numpy())
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_targets.npy', targets.detach().numpy())
-    
+
     plot_predictions(predictions, targets, show=False, args=args, path_to_model=path_to_model)
 
 

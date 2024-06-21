@@ -4,6 +4,7 @@ import wandb
 import numpy as np
 import torch.nn as nn
 import time
+import yaml
 
 from tqdm import tqdm
 from argparse import ArgumentParser, Namespace
@@ -16,7 +17,9 @@ from data.feature_dataloader import Features
 
 # Set seed for reproducibility
 set_all_seeds(42)
-
+OVERALL_BEST_VAL_LOSS = np.inf
+MODEL_PARAMS = {}
+FOLD_DICT = {}
 
 def train(model: HydraMRRegressor, 
           train_loader: DataLoader, 
@@ -43,6 +46,13 @@ def train(model: HydraMRRegressor,
         epochs (int, optional): Number of epochs to train. Defaults to 10.
         lr (float, optional): Learning rate of the optimizer. Defaults to 0.001.
     """
+    global OVERALL_BEST_VAL_LOSS
+    global MODEL_PARAMS
+
+    FOLD_DICT[f"best_{model.name}_{fold}.pt"] = fold
+    MODEL_PARAMS["trained_in_fold"] = FOLD_DICT
+    with open(f'models/{model.name}/model_params.yml', 'w') as outfile:
+        yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
     
     # Set optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
@@ -97,12 +107,20 @@ def train(model: HydraMRRegressor,
         if np.mean(val_losses) < best_val_loss:
             end = time.time()
             best_val_loss = np.mean(val_losses)
-            torch.save(model.state_dict(), f'models/best_{model.name}_{fold}.pt')
+            torch.save(model.state_dict(), f'models/{model.name}/best_{model.name}_{fold}.pt')
             print(f"Saving best model with mean val loss: {np.mean(val_losses):.3f} at epoch {epoch+1} ({end-start:.2f}s)")
             # Note to windows users: you may need to run the script as administrator to save the model
             wandb.save(f'models/best_{model.name}_{fold}.pt')
             wandb.log({f"best_val_loss_{fold}": best_val_loss})
-            
+        
+        if np.mean(val_losses) < OVERALL_BEST_VAL_LOSS:
+            OVERALL_BEST_VAL_LOSS = np.mean(val_losses)
+            torch.save(model.state_dict(), f'models/{model.name}/{model.name}.pt')
+            FOLD_DICT[f"{model.name}.pt"] = fold
+            MODEL_PARAMS["trained_in_fold"] = FOLD_DICT
+            with open(f'models/{model.name}/model_params.yml', 'w') as outfile:
+                yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
+
         mean_val_loss = np.mean(val_losses)
         wandb.log({f"epoch_{fold}": epoch+1, f"val_loss_ {fold}": mean_val_loss})
         epoch_val_losses.append(mean_val_loss)
@@ -120,9 +138,7 @@ def train(model: HydraMRRegressor,
         plt.tight_layout()
         os.makedirs(f'reports/figures/model_results/{model.name}', exist_ok=True)
         plt.savefig(f'reports/figures/model_results/{model.name}/loss_{fold}.pdf')
-        plt.close()
-    
-    torch.save(model.state_dict(), f'models/{model.name}.pt')
+        plt.close() 
 
     return epoch_train_losses, epoch_val_losses, best_val_loss
     
@@ -132,7 +148,7 @@ def get_args(external_parser: ArgumentParser = None):
         parser = ArgumentParser(description='Train the Hydra-MultiRocket model.')
     else:
         parser = external_parser
-    parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train. Default 10')
+    parser.add_argument('--epochs', type=int, default=50, help=f'Number of epochs to train. Default 50')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training (batches are concatenated MR and Hydra features). Default 32')
     parser.add_argument('--lr', type=float, default=1e-6, help='Learning rate for the optimizer. Default 1e-6')
     parser.add_argument('--feature_extractors', type=str, nargs='+', default=['HydraMV_8_64'], help='Feature extractors to use for prediction. Default is HydraMV_8_64.')
@@ -143,8 +159,8 @@ def get_args(external_parser: ArgumentParser = None):
     parser.add_argument('--hidden_dim', type=int, default=64, help='Hidden dimension for the model. Default is 64')
     parser.add_argument('--project_name', type=str, default='hydra_mr_test', help='Name of the project on wandb. Default is hydra_mr_test to ensure we do not write into something important.')
     parser.add_argument('--dropout', type=float, default=0.5, help='Dropout rate for the model. Default is 0.5')
-    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 1')
-    parser.add_argument('--batch_norm', type=bool, default=True, help='Whether to use batch normalization in the model. Default is False')
+    parser.add_argument('--model_depth', type=int, default=0, help='Number of hidden layers in the model. Default is 0')
+    parser.add_argument('--batch_norm', action="store_true", help='If batch normalization should be used in the model.')
     
     if external_parser is not None:
         return parser
@@ -153,9 +169,9 @@ def get_args(external_parser: ArgumentParser = None):
 
 
 def main(args: Namespace) -> None:
+    global MODEL_PARAMS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}.")
- 
 
     wandb.init(project=args.project_name, entity='fleetyeet')
     wandb.config.update(args, allow_val_change=True)
@@ -167,6 +183,13 @@ def main(args: Namespace) -> None:
     # If you have a name_identifier in the stored features, you need to include this in the dataset
     # e.g. to use features from "MultiRocketMV_50000_subset100," set name_identifier = "subset100"
     name_identifier = args.name_identifier
+
+    # Make experiment directory
+    os.makedirs(f'models/{args.model_name}', exist_ok=True)
+    MODEL_PARAMS = vars(args)
+    path_to_model_params = f'models/{args.model_name}/model_params.yml'
+    with open(path_to_model_params, 'w') as outfile:
+        yaml.dump(MODEL_PARAMS, outfile, default_flow_style=False)
 
     train_losses = []
     val_losses = []
@@ -196,7 +219,11 @@ def main(args: Namespace) -> None:
                                  dropout=args.dropout,
                                  name=args.model_name,
                                  model_depth=args.model_depth,
-                                 batch_norm=args.batch_norm
+                                 batch_norm=args.batch_norm,
+                                 kpi_means=torch.tensor(trainset.kpi_means),
+                                 kpi_stds=torch.tensor(trainset.kpi_stds),
+                                 kpi_mins=torch.tensor(trainset.kpi_mins),
+                                 kpi_maxs=torch.tensor(trainset.kpi_maxs)
                                  ).to(device)
         
         # wandb.watch(model, log='all')
@@ -214,6 +241,7 @@ def main(args: Namespace) -> None:
     print(f"Mean best validation loss: {mean_best_val_loss:.3f}")
     print(f"Standard deviation of best validation loss: {std_best_val_loss:.3f}")
     wandb.log({"mean_best_val_loss": mean_best_val_loss, "std_best_val_loss": std_best_val_loss})
+    wandb.save(path_to_model_params)
 
     # plot training curves
     for i in range(args.folds):
@@ -242,6 +270,6 @@ def main(args: Namespace) -> None:
 if __name__ == '__main__':
     args = get_args()
     print(args)
-    main()
+    main(args)
 
     

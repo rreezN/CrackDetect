@@ -18,11 +18,20 @@ class HydraMRRegressor(torch.nn.Module):
                  dropout: float = 0.5,
                  name: str = 'HydraMRRegressor',
                  model_depth: int = 1,
-                 batch_norm: bool = False
+                 batch_norm: bool = False,
+                 kpi_means: torch.Tensor = None,
+                 kpi_stds: torch.Tensor = None,
+                 kpi_mins: torch.Tensor = None,
+                 kpi_maxs: torch.Tensor = None,
                  ) -> None:
         super(HydraMRRegressor, self).__init__()
         
         self.name = name
+        self.kpi_means = nn.Parameter(kpi_means) if kpi_means is not None else nn.Parameter(torch.zeros(out_features))
+        self.kpi_stds = nn.Parameter(kpi_stds) if kpi_stds is not None else nn.Parameter(torch.ones(out_features))
+        self.kpi_mins = nn.Parameter(kpi_mins) if kpi_mins is not None else nn.Parameter(torch.zeros(out_features))
+        self.kpi_maxs = nn.Parameter(kpi_maxs) if kpi_maxs is not None else nn.Parameter(torch.ones(out_features))
+        
         self.tanh = torch.nn.Tanh()
         
         # Input layer 
