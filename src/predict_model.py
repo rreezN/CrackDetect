@@ -46,10 +46,10 @@ def predict(model: torch.nn.Module, testloader: torch.utils.data.DataLoader, pat
         all_predictions = torch.cat((all_predictions, output), dim=0)
         all_targets = torch.cat((all_targets, targets), dim=0)
         
-        test_loss = torch.sqrt(loss_fn(output, targets)).item()
+        test_loss = loss_fn(output, targets).item()
         test_losses = np.append(test_losses, test_loss)
         
-        test_iterator.set_description(f'Overall RMSE (loss): {test_losses.mean():.2f} Batch RMSE (loss): {test_loss:.2f}')
+        test_iterator.set_description(f'Overall RMSE (loss): {np.sqrt(test_losses.mean()):.2f} Batch RMSE (loss): {np.sqrt(test_loss):.2f}')
         
         if plot_during:
             plot_predictions(all_predictions.detach().numpy(), all_targets.detach().numpy(), show=True, args=args, path_to_model=path_to_model)
@@ -197,7 +197,7 @@ def main(args: Namespace):
     if args.save_predictions:
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_predictions.npy', predictions.detach().numpy())
         np.save(f'reports/figures/model_results/{path_to_model}/{args.data_type}_targets.npy', targets.detach().numpy())
-    
+
     plot_predictions(predictions, targets, show=False, args=args, path_to_model=path_to_model)
 
 
