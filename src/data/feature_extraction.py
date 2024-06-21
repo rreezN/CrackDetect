@@ -431,12 +431,6 @@ class SubsetSampler(torch.utils.data.Sampler):
 
 
 def get_args(external_parser : ArgumentParser = None):
-    """Parses the arguments from the command line.
-
-    Returns:
-    -------
-        Namespace: Arguments from the command line
-    """
     if external_parser is None:
         parser = ArgumentParser(description='Hydra-MR')
     else:
@@ -445,11 +439,12 @@ def get_args(external_parser : ArgumentParser = None):
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--all_cols', action='store_true', help='Use all columns (signals) in the dataset')
     group.add_argument('--all_cols_wo_location', action='store_true', help='Use all columns except location signals')
-    parser.add_argument('--feature_extractor', default='both', choices=['multirocket', 'hydra', 'both'])
-    parser.add_argument('--mr_num_features', type=int, default=50000)
-    parser.add_argument('--hydra_input_length', type=int, default=250) # our input length is 250
-    parser.add_argument('--subset', type=int, default=None)
-    parser.add_argument('--name_identifier', type=str, default='')
+    parser.add_argument('--feature_extractor', type=str, default='both', choices=['multirocket', 'hydra', 'both'], help='Feature extractor to use')
+    parser.add_argument('--mr_num_features', type=int, default=50000, help='Number of features to extract from MultiRocket')
+    parser.add_argument('--hydra_k', type=int, default=8, help='Number of kernels in each group')
+    parser.add_argument('--hydra_g', type=int, default=64, help='Number of groups')
+    parser.add_argument('--subset', type=int, default=None, help='Subset of data to extract features from (will not extract statistics)')
+    parser.add_argument('--name_identifier', type=str, default='', help='Identifier to add to the feature extractor name')
     parser.add_argument('--folds', type=int, default=5, help='Number of folds for cross-validation, Default 5')
     parser.add_argument('--seed', type=int, default=42, help='Seed for reproducibility')
     
@@ -498,13 +493,15 @@ def main(args: Namespace) -> None:
     print(f"Loading train data from {data_path}")
     train_data = Platoon(data_path=data_path, data_type='train', feature_extraction=True, gm_cols=cols)
     
+    input_shape, _, _ = train_data.get_data_shape()
+    
     # Create feature extractors
     if len(cols) == 1:
         multi_rocket_transformer = MultiRocket(args.mr_num_features)
-        hydra_transformer = Hydra(args.hydra_input_length)
+        hydra_transformer = Hydra(input_shape[1], args.hydra_k, args.hydra_g)
     else:
         multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
-        hydra_transformer = HydraMultivariate(args.hydra_input_length, len(cols))
+        hydra_transformer = HydraMultivariate(input_shape[1], len(cols), args.hydra_k, args.hydra_g)
     
     if args.feature_extractor == 'multirocket':
         feature_extactors = [multi_rocket_transformer]

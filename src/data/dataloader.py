@@ -139,6 +139,23 @@ class Platoon(torch.utils.data.Dataset):
         plt.suptitle(f'Histograms of {self.data_type} GM data')
         plt.show()
     
+    def get_data_shape(self):
+        """Returns the shape of the data and target tensors.
+
+        Returns:
+        -------
+            If feature_extraction is False:
+            tuple: features.shape, targets.shape
+            Else:
+            tuple: features.shape, segment_nr, second_nr
+        """
+        if self.feature_extraction:
+            features, segment_nr, second_nr = self.__getitem__(0)
+            return features.shape, segment_nr, second_nr
+        else:
+            features, targets = self.__getitem__(0)
+            return features.shape, targets.shape
+    
     def print_arguments(self):
         print(f'Arguments: \n \
                     Data Path:          {self.data_path}\n \
