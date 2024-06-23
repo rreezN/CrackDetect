@@ -1,5 +1,8 @@
 # To Do
-- [ ] Report: Table der forklarer alle arguments til hvert script og hvordan de bliver brugt
+- [ ] Rapport: Flowchart over hele projekt + model del
+- [ ] Flot figur over hdf5 fil struktur
+- [ ] Gennemlæs draft paper 5.1 feature extraction
+- [X] Report: Table der forklarer alle arguments til hvert script og hvordan de bliver brugt
 - [X] Main python fil der kører det hele
   - [X] Skal også validere noget i forhold til om output for den der lige har kørt er korrekt i forhold til det vi har af forventninger
 
@@ -33,7 +36,7 @@
 - [X] Cross validation
 
 ## Experiments
-- [ ] Test out various signals for feature extraction
+- [X] Test out various signals for feature extraction
   - [X] All accelerations
   - [X] Only z-acceleration
   - [X] All signals that Asmus pointed out (all signals in matlab file)
