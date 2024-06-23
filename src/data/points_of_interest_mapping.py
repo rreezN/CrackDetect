@@ -4,7 +4,9 @@ import h5py
 from tqdm import tqdm
 import re
 import csv
-
+from typing import Tuple, Any, Dict, List
+import numpy as np
+import os
 
 parameter_dict = {
         'acc_long':     {'bstar': 198,      'rstar': 1,     'b': 198,   'r': 0.05   },
@@ -17,7 +19,21 @@ parameter_dict = {
     }
 
 
-def convertdata(data, parameter):
+def convertdata(data: np.ndarray, parameter: Dict[str, float]) -> np.ndarray:
+    """Convert data using provided parameters.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A numpy array where the first column is time and the second column is the data to be converted.
+    parameter : Dict[str, float]
+        A dictionary containing conversion parameters with keys 'bstar', 'rstar', 'b', and 'r'.
+
+    Returns
+    -------
+    np.ndarray
+        The converted data as a numpy array with the same shape as the input.
+    """
     bstar = parameter['bstar']
     rstar = parameter['rstar']
     b = parameter['b']
@@ -29,14 +45,42 @@ def convertdata(data, parameter):
     return data
 
 
-def unpack_hdf5(hdf5_file, convert: bool = False):
+def unpack_hdf5(hdf5_file: str, convert: bool = False) -> Dict[str, Any]:
+    """Unpack data from an HDF5 file, optionally converting it using predefined parameters.
+
+    Parameters
+    ----------
+    hdf5_file : str
+        Path to the HDF5 file to be unpacked.
+    convert : bool, optional
+        If True, convert data using predefined parameters, by default False.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A dictionary containing the unpacked data.
+    """
     with h5py.File(hdf5_file, 'r') as f:
         print(f)
         data = unpack_hdf5_(f, convert)
     return data
 
 
-def unpack_hdf5_(group, convert: bool = False):
+def unpack_hdf5_(group: h5py.Group, convert: bool = False) -> Dict[str, Any]:
+    """Recursively unpack data from an HDF5 group, optionally converting it using predefined parameters.
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The HDF5 group to unpack.
+    convert : bool, optional
+        If True, convert data using predefined parameters, by default False.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A dictionary containing the unpacked data.
+    """
     data = {}
     for key in group.keys():
         if isinstance(group[key], h5py.Group):
@@ -53,7 +97,24 @@ def unpack_hdf5_(group, convert: bool = False):
     return data
 
 
-def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray):
+def find_best_start_and_end_indeces_by_lonlat(trip: np.ndarray, section: np.ndarray) -> Tuple[int, int]:
+    """Find the start and end indices of the section data that are closest to the trip data.
+
+    Parameters
+    ----------
+    trip : np.ndarray
+        A numpy array with shape (n, 2), where n is the number of points. Each row represents 
+        a point with longitude and latitude (lon, lat) of the trip data.
+    section : np.ndarray
+        A numpy array with shape (m, 2), where m is the number of points. Each row represents 
+        a point with longitude and latitude (lon, lat) of the section data.
+
+    Returns
+    -------
+    Tuple[int, int]
+        The start and end indices in the trip data that are closest to the first and last points 
+        of the section data, respectively.
+    """
     # Find the start and end indeces of the section data that are closest to the trip data
     lon_a, lat_a = trip[:,0], trip[:,1]
     lon_b, lat_b = section[:,0], section[:,1]
@@ -69,7 +130,20 @@ def natural_key(string):
     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', string)]
 
 
-def define_trips_and_passes(segments):
+def define_trips_and_passes(segments: h5py.File) -> Tuple[List[str], Dict[str, List[str]]]:
+    """Define all trips and passes from the segments data.
+
+    Parameters
+    ----------
+    segments : h5py.File
+        The HDF5 file containing the segments data.
+
+    Returns
+    -------
+    Tuple[List[str], Dict[str, List[str]]]
+        A tuple containing a list of all trip names and a dictionary with pass lists for each trip.
+    """
+    
     # Define all_trip_names and pass_lists
     all_trip_names = ['16006', '16008', '16009', '16010', '16011']
     # Initialize the dictionary with empty sets for each trip
@@ -95,8 +169,22 @@ def define_trips_and_passes(segments):
     return all_trip_names, pass_lists
 
 
-def get_locations(p79, gm_data):
-    # Extract every 10th item starting from idx[0] to idx[1]+1, to get one location for each meter
+def get_locations(p79: pd.DataFrame, gm_data: Dict[str, np.ndarray]) -> List[List[float]]:
+    """Extract every 10th location from the trip data that corresponds to the section data.
+
+    Parameters
+    ----------
+    p79 : pd.DataFrame
+        A pandas DataFrame containing the trip data with 'Lat' and 'Lon' columns.
+    gm_data : Dict[str, np.ndarray]
+        A dictionary containing the section data. It should have a key 'gps' with the corresponding
+        GPS data as a numpy array.
+
+    Returns
+    -------
+    List[List[float]]
+        A list of locations where each location is a list containing longitude and latitude [lon, lat].
+    """
     lon_zp = p79['Lon']
     lat_zp = p79['Lat']
     idx = find_best_start_and_end_indeces_by_lonlat(p79[['Lat', 'Lon']].to_numpy(), gm_data['gps'][:,1:]) # TODO is this really the best place to start?? 
@@ -108,8 +196,32 @@ def get_locations(p79, gm_data):
     
     return locations
     
+# Add type hints to the function signature
 
-def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists, direction):
+def map_time_to_area_of_interst(segments: h5py.File, locations: List[List[float]], all_trip_names: List[str], pass_lists: Dict
+[str, List[str]], direction: str) -> Dict[int, Dict[str, Dict[str, Dict[str, List[float]]]]]:
+    """Map the time to the two best seconds for each pass in each trip for each location.
+    
+    Parameters
+    ----------
+    segments : h5py.File
+        The HDF5 file containing the segments data.
+    locations : List[List[float]]
+        A list of locations where each location is a list containing longitude and latitude [lon, lat].
+    all_trip_names : List[str]
+        A list of all trip names.
+    pass_lists : Dict[str, List[str]]   
+        A dictionary with pass lists for each trip.
+    direction : str
+        The direction of the segments to consider.
+
+    Returns
+    -------
+    Dict[int, Dict[str, Dict[str, Dict[str, List[float]]]]]
+        A dictionary where keys are indexes and values are dictionaries with trip names as keys and dictionaries with 
+        pass names as keys. The values are dictionaries with segment names as keys and lists of the two best seconds 
+        for each pass in each trip for each location.
+    """
     # Initialize the mapping dictionary
     mapping_to_the_two_best_seconds_for_each_pass_in_each_trip = {}
 
@@ -171,12 +283,34 @@ def map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists,
     return mapping_to_the_two_best_seconds_for_each_pass_in_each_trip
 
 
-def filter_entries(data):
-    # Here we filter out the entries that are not close enough to the real location or still have placeholder values
+def filter_entries(data: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]) -> Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]:
+    """Filter out entries that are not close enough to the real location or still have placeholder values.
+
+    Parameters
+    ----------
+    data : Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]
+        A nested dictionary containing the data to be filtered.
+
+    Returns
+    -------
+    Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]
+        A nested dictionary containing the filtered data.
+    """
     threshold = 1.e-4
     
-    # Function to filter the values within each pass
-    def filter_pass(pass_data):
+    def filter_pass(pass_data: Dict[str, List[Any]]) -> Dict[str, List[Any]]:
+        """Filter the values within each pass based on the distance threshold.
+
+        Parameters
+        ----------
+        pass_data : Dict[str, List[Any]]
+            A dictionary containing segment data and values for each pass.
+
+        Returns
+        -------
+        Dict[str, List[Any]]
+            A dictionary containing the filtered pass data.
+        """
         filtered_pass_data = {}
         for segment, values in pass_data.items():
             distance = values[0]
@@ -202,9 +336,25 @@ def filter_entries(data):
     return filtered_data
 
 
-def save_to_csv(mapping, direction):
+def save_to_csv(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str) -> None:
+    """Save a mapping of data to a CSV file with a specified direction.
+
+    Parameters
+    ----------
+    mapping : Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]
+
+    direction : str
+        The direction of the segments to consider.
+
+    Returns
+    -------
+    None
+    """
     name = f"mapping_{direction}_time_to_location.csv"
     filename = f"data/AOI/{name}"
+
+    if not os.path.exists('data/AOI'):
+        os.makedirs('data/AOI')
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -222,9 +372,28 @@ def save_to_csv(mapping, direction):
     print("CSV file has been created successfully.")
 
 
-def save_to_hdf5(mapping, direction):
+# Add type hints and docstrings to the function signature
+def save_to_hdf5(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str) -> None:
+    """Save a mapping of data to an HDF5 file with a specified direction.
+
+    Parameters
+    ----------
+    mapping : Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]
+        A dictionary where keys are indexes and values are dictionaries with trip names as keys and dictionaries with 
+        pass names as keys. The values are dictionaries with segment names as keys and lists of the two best seconds 
+        for each pass in each trip for each location.
+    direction : str
+        The direction to be used in the filename.
+
+    Returns
+    -------
+    None
+    """
     name = f"mapping_{direction}_time_to_location.hdf5"
     filename = f"data/AOI/{name}"
+
+    if not os.path.exists('data/AOI'):
+        os.makedirs('data/AOI')
 
     with h5py.File(filename, 'w') as hdf_file:
         # Create the HDF5 groups and datasets

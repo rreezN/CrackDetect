@@ -1,9 +1,25 @@
 import numpy as np
 import h5py
+from typing import Any, Dict, List
+import os
 
 
-def load_from_hdf5(filename):
 
+def load_from_hdf5(filename: str) -> Dict[str, Any]:
+    """Load data from an HDF5 file and convert it to a nested dictionary structure.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the HDF5 file to be loaded.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A nested dictionary containing the data from the HDF5 file, 
+        where groups are represented as dictionaries and datasets are converted to lists.
+
+    """
     def unpack_group(group):
         unpacked_data = {}
         for key, item in group.items():
@@ -19,7 +35,21 @@ def load_from_hdf5(filename):
     return loaded_mapping
 
 
-def read_from_hdf5(filename):
+def read_from_hdf5(filename: str) -> Dict[int, List[List[Any]]]:
+    """Read and convert data from an HDF5 file to a dictionary with specific conversions.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the HDF5 file to be read.
+
+    Returns
+    -------
+    Dict[int, List[List[Any]]]
+        A dictionary where keys are integers and values are lists of trips. 
+        Each trip is a list of items with specific type conversions applied.
+
+    """
     with h5py.File(filename, 'r') as hdf_file:
         data = {}
         for index in hdf_file.keys():
@@ -49,7 +79,19 @@ def read_from_hdf5(filename):
     return data
 
 
-def ln_of_ratio_sum_to_1(values):
+def ln_of_ratio_sum_to_1(values: np.ndarray) -> np.ndarray:
+    """Calculate normalized logarithm of ratio sums to 1 for a given array of values.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        An array of numerical values.
+
+    Returns
+    -------
+    np.ndarray
+        An array of normalized logarithmic ratios.
+    """
     total_values = np.sum(values)
     weight_values = -np.log(values / total_values)
     total = np.sum(weight_values)
@@ -57,7 +99,20 @@ def ln_of_ratio_sum_to_1(values):
     return weight_norms
 
 
-def calculate_weights(mapping):
+def calculate_weights(mapping: Dict[str, Dict[str, Dict[str, Dict[str, List[float]]]]]) -> Dict[int, List[List[Any]]]:
+    """Calculate weights for indexes based on a given mapping of data.
+
+    Parameters
+    ----------
+    mapping : Dict[str, Dict[str, Dict[str, Dict[str, List[float]]]]]
+        A nested dictionary containing data to calculate weights from.
+
+    Returns
+    -------
+    Dict[int, List[List[Any]]]
+        A dictionary where keys are indexes and values are lists of weights 
+        for cars, trips, segments, seconds, and their corresponding weight ratios.
+    """
     weights_for_indexes = {}
     indexes = np.sort([int(x) for x in mapping])
     for index in indexes:
@@ -89,9 +144,28 @@ def calculate_weights(mapping):
     return weights_for_indexes
 
 
-def save_to_hdf5(mapping, direction):
+def save_to_hdf5(mapping: Dict[int, List[List[Any]]], direction: str) -> None:
+    """Save a mapping of data to an HDF5 file with a specified direction.
+
+    Parameters
+    ----------
+    mapping : Dict[int, List[List[Any]]]
+        A dictionary where keys are indexes and values are lists of trips.
+        Each trip is a list of items to be saved.
+    direction : str
+        The direction to be used in the filename.
+
+    Returns
+    -------
+    None
+        This function does not return any value.
+
+    """
     name = f"AOI_weighted_mapping_{direction}.hdf5"
     filename = f"data/AOI/{name}"
+
+    if not os.path.exists('data/AOI'):
+        os.makedirs('data/AOI')
 
     with h5py.File(filename, 'w') as hdf_file:
         # Create the HDF5 groups and datasets
