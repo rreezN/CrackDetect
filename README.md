@@ -19,8 +19,18 @@ Our results are in [reports/figures/our_model_results/](reports/figures/our_mode
 </p>
 
 <p align="center">
-  <img align="center" src="reports/figures/jupyter/POI/std_plot.PNG" alt="drawing" width="500"/>
+  <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
 </p>
+
+
+<div style="text-align:center">
+    <img src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" style="width:70%">
+</div>
+
+
+<div style="text-align:center">
+    <img src="reports/figures/jupyter/POI/std_plot.png" style="width:70%">
+</div>
 
 # Quickstart
 1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
