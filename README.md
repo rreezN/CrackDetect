@@ -2,13 +2,11 @@
     <img src="reports/figures/jupyter/POI/POI_figure.png" style="width:100%">
 </div>
 
-# crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
+# CrackDetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
 
 [<img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">]()
 [<img src="https://img.shields.io/badge/Weights_&_Biases-FFBE00?style=for-the-badge&logo=WeightsAndBiases&logoColor=white">]()
 [<img src="https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue">]()
-
-(Maybe put abstract from report here)
 
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
