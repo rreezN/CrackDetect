@@ -85,13 +85,12 @@ python -m pip install -r requirements.txt
 Have `python >= 3.10`
 1. CD to CrackDetect `cd CracDetect`
 2. `python -m venv fleetenv` -- Create environment
-3. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
-4. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
-5. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
-6. `python -m pip install -U pip setuptools wheel`
-7. `python -m pip install -r requirements.txt`
-8. ...
-9. Profit
+3. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
+4. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
+5. `python -m pip install -U pip setuptools wheel`
+6. `python -m pip install -r requirements.txt`
+7. ...
+8. Profit
 
 To activate venv in powershell:
 ```shell
