@@ -1,3 +1,5 @@
+from __init__ import *
+
 from typing import DefaultDict
 import h5py
 import seaborn as sns
@@ -5,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from tqdm import tqdm
-from dataloader import Platoon
+from src.data.dataloader import Platoon
 from torch.utils.data import DataLoader
 from collections import defaultdict 
 from scipy.stats import gaussian_kde

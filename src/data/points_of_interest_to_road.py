@@ -1,3 +1,5 @@
+from __init__ import *
+
 import os
 
 import h5py
@@ -12,8 +14,8 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from .feature_dataloader import Features
-from ..models.hydramr import HydraMRRegressor
+from src.data.feature_dataloader import Features
+from src.models.hydramr import HydraMRRegressor
 
 from typing import Any, Dict, List, Tuple
 
