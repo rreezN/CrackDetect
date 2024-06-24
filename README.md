@@ -57,6 +57,7 @@ If you wish to go through each step manually with your own arguments, call each 
   - [Feature extraction](#feature-extraction)
   - [Model training](#model-training)
   - [Predicting](#predicting)
+    - [Points of Interest (POI)](#points-of-interest-poi)
 - [Credits](#credits)
 - [License](#license)
 
@@ -242,7 +243,7 @@ The model will predict on the specified data set, plot the predictions and save 
   <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" width="500"/>
 </p>
 
-### POI 
+### Points of Interest (POI) 
 Finally the predictions is translated to the actual locations in the real world; the process can be seen in the top figure of the README. To investigate it one can run the Points of Interest Notebook ```notebooks/POI.ipynb```.
 
 <p align="center">
