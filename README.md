@@ -246,6 +246,9 @@ python src/predict_model.py
 
 The model will predict on the specified data set, plot the predictions and save them in [reports/figures/model_results](reports/figures/model_results/).
 
+### POI 
+Finally the predictions is translated to the actual locations in the real world; the process can be seen in the top figure of the README. To investigate it one can run the Points of Interest Notebook ```notebooks/POI.ipynb```.
+
 # Credits
 - [David Ari Ostenfeldt](https://github.com/DavidAriOstenfeldt)
 - [Dennis Chenxi Zhuang](https://github.com/rreezN)
