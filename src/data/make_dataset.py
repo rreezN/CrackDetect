@@ -1,4 +1,4 @@
-from __init__ import *
+from .__init__ import *
 from argparse import ArgumentParser, Namespace
 
 from src.data.data_functions.converting import convert

@@ -1,4 +1,4 @@
-from __init__ import *
+from .__init__ import *
 
 from typing import DefaultDict
 import h5py
