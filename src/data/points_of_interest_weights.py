@@ -1,7 +1,8 @@
 import numpy as np
 import h5py
-from typing import Any, Dict, List
 import os
+from pathlib import Path
+from typing import Any, Dict, List
 
 
 
@@ -144,7 +145,7 @@ def calculate_weights(mapping: Dict[str, Dict[str, Dict[str, Dict[str, List[floa
     return weights_for_indexes
 
 
-def save_to_hdf5(mapping: Dict[int, List[List[Any]]], direction: str) -> None:
+def save_weights_hdf5(mapping: Dict[int, List[List[Any]]], direction: str, path_to_aoi: str = "data/AOI") -> None:
     """Save a mapping of data to an HDF5 file with a specified direction.
 
     Parameters
@@ -154,6 +155,8 @@ def save_to_hdf5(mapping: Dict[int, List[List[Any]]], direction: str) -> None:
         Each trip is a list of items to be saved.
     direction : str
         The direction to be used in the filename.
+    path_to_aoi : str
+        The path to the directory where the HDF5 file will be saved.
 
     Returns
     -------
@@ -161,8 +164,9 @@ def save_to_hdf5(mapping: Dict[int, List[List[Any]]], direction: str) -> None:
         This function does not return any value.
 
     """
+    Path(path_to_aoi).mkdir(parents=True, exist_ok=True)
     name = f"AOI_weighted_mapping_{direction}.hdf5"
-    filename = f"data/AOI/{name}"
+    filename = os.path.join(path_to_aoi, name)
 
     if not os.path.exists('data/AOI'):
         os.makedirs('data/AOI')
@@ -190,8 +194,8 @@ def main():
     weights_for_indexes_vh = calculate_weights(mapping_with_weights_vh)
 
     # Save the weights to a file
-    save_to_hdf5(weights_for_indexes_hh, "hh")
-    save_to_hdf5(weights_for_indexes_vh, "vh")
+    save_weights_hdf5(weights_for_indexes_hh, "hh")
+    save_weights_hdf5(weights_for_indexes_vh, "vh")
     
     # Try to load the saved file
     # loaded_weights_for_indexes_hh = read_from_hdf5("data/AOI/AOI_weighted_mapping_hh.hdf5")
