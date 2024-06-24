@@ -3,6 +3,7 @@ import pandas as pd
 import h5py
 import os
 from tqdm import tqdm
+from pathlib import Path
 import re
 import csv
 from typing import Tuple, Any, Dict, List
@@ -337,25 +338,24 @@ def filter_entries(data: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]) 
     return filtered_data
 
 
-def save_to_csv(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str) -> None:
+def save_mapping_csv(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str, path_to_aoi: str = "data/AOI") -> None:
     """Save a mapping of data to a CSV file with a specified direction.
 
     Parameters
     ----------
     mapping : Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]]
-
     direction : str
         The direction of the segments to consider.
+    path_to_aoi : str
+        The path to the area of interest, by default "data/AOI".
 
     Returns
     -------
     None
     """
+    Path(path_to_aoi).mkdir(parents=True, exist_ok=True)
     name = f"mapping_{direction}_time_to_location.csv"
-    filename = f"data/AOI/{name}"
-
-    if not os.path.exists('data/AOI'):
-        os.makedirs('data/AOI')
+    filename = os.path.join(path_to_aoi, name)
     
     with open(filename, mode='w', newline='') as file:
         writer = csv.writer(file)
@@ -374,7 +374,7 @@ def save_to_csv(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], 
 
 
 # Add type hints and docstrings to the function signature
-def save_to_hdf5(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str) -> None:
+def save_mapping_hdf5(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]], direction: str, path_to_aoi: str = "data/AOI") -> None:
     """Save a mapping of data to an HDF5 file with a specified direction.
 
     Parameters
@@ -385,16 +385,16 @@ def save_to_hdf5(mapping: Dict[int, Dict[str, Dict[str, Dict[str, List[Any]]]]],
         for each pass in each trip for each location.
     direction : str
         The direction to be used in the filename.
+    path_to_aoi : str
+        The path to the area of interest, by default "data/AOI".
 
     Returns
     -------
     None
     """
+    Path(path_to_aoi).mkdir(parents=True, exist_ok=True)
     name = f"mapping_{direction}_time_to_location.hdf5"
-    filename = f"data/AOI/{name}"
-
-    if not os.path.exists('data/AOI'):
-        os.makedirs('data/AOI')
+    filename = os.path.join(path_to_aoi, name)
 
     with h5py.File(filename, 'w') as hdf_file:
         # Create the HDF5 groups and datasets
@@ -440,8 +440,8 @@ def main():
         locations = get_locations(p79_, gm_data_)
         mapping = map_time_to_area_of_interst(segments, locations, all_trip_names, pass_lists, direction)
         cleaned_mapping = filter_entries(mapping) # TODO add funciton that cleans up the mapping dictionary right away
-        save_to_csv(mapping=cleaned_mapping, direction=direction)
-        save_to_hdf5(mapping=cleaned_mapping, direction=direction)
+        save_mapping_csv(mapping=cleaned_mapping, direction=direction)
+        save_mapping_hdf5(mapping=cleaned_mapping, direction=direction)
 
 
 if __name__ == "__main__":
