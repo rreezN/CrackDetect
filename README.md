@@ -1,25 +1,24 @@
 <div style="text-align:center">
-    <img src="reports/figures/jupyter/POI/POI_figure.png" style="width:90%">
+    <img src="reports/figures/jupyter/POI/POI_figure.png" style="width:100%">
 </div>
 
-# crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
+# CrackDetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
 
 [<img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white">]()
 [<img src="https://img.shields.io/badge/Weights_&_Biases-FFBE00?style=for-the-badge&logo=WeightsAndBiases&logoColor=white">]()
 [<img src="https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue">]()
 
-(Maybe put abstract from report here)
-
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction.
 
 # Results
 Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
+
 <p align="center">
-  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" alt="drawing" width="500"/>
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" width="500"/>
 </p>
 
 <p align="center">
-  <img align="center" src="reports/figures/jupyter/POI/std_plot.PNG" alt="drawing" width="500"/>
+  <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
 </p>
 
 # Quickstart
@@ -85,13 +84,12 @@ python -m pip install -r requirements.txt
 Have `python >= 3.10`
 1. CD to CrackDetect `cd CracDetect`
 2. `python -m venv fleetenv` -- Create environment
-3. Add `$env:PYTHONPATH += ";Absolute\path\to\CrackDetect"` to `fleetenv\Scripts\Activate.ps1` at the end before signature block.
-4. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
-5. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
-6. `python -m pip install -U pip setuptools wheel`
-7. `python -m pip install -r requirements.txt`
-8. ...
-9. Profit
+3. `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` -- Change execution policy if necessary (to be executed in powershell)
+4. `.\fleetenv\Scripts\Activate.ps1` -- Activate venv
+5. `python -m pip install -U pip setuptools wheel`
+6. `python -m pip install -r requirements.txt`
+7. ...
+8. Profit
 
 To activate venv in powershell:
 ```shell
@@ -161,6 +159,14 @@ A single step can be run by changing `all` to the desired step (e.g. `matching`)
 python src/data/make_dataset.py --begin_from validate 
 ```
 
+The main data preprocessing script is found in [src/data/make_dataset.py](src/data/make_dataset.py). It has the following arguments and default parameters
+- `mode all`
+- `--begin-from` (False)
+- `--skip-gopro` (False)
+- `--speed-threshold 5`
+- `--time-threshold 10`
+- `--verbose` (False)
+
 ## Feature extraction
 [(Notebook)](notebooks/feature_extraction.ipynb) [(Back to top)](#table-of-contents)
 
@@ -172,7 +178,8 @@ The main feature extraction is found in [src/data/feature_extraction.py](src/dat
 - `--all_cols_wo_location` (default False)
 - `--feature_extractor both` (choices: `multirocket`, `hydra`, `both`)
 - `--mr_num_features 50000`
-- `--hydra_input_length 250`
+- `--hydra_k 8`
+- `--hydra_g 64`
 - `--subset None`
 - `--name_identifier` (empty string)
 - `--folds 5`
@@ -194,7 +201,7 @@ A simple model has been implemented in [src/models/hydramr.py](src/models/hydram
 The model training script is implemented in [src/train_hydra_mr.py](src/train_hydra_mr.py). It has the following arguments and default parameters
 - `--epochs 50`
 - `--batch_size 32`
-- `--lr 1e-6`
+- `--lr 1e-3`
 - `--feature_extractors HydraMV_8_64`
 - `--name_identifier` (empty string)
 - `--folds 5`
@@ -204,7 +211,7 @@ The model training script is implemented in [src/train_hydra_mr.py](src/train_hy
 - `--project_name hydra_mr_test` (for wandb)
 - `--dropout 0.5`
 - `--model_depth 0`
-- `--batch_norm True`
+- `--batch_norm` (False)
 
 To train the model using Hydra on a multivariate dataset call
 ```shell
@@ -219,18 +226,14 @@ Trained models will be saved based on the name in their model file scripts.
 [(Notebook)](notebooks/predict_model.ipynb) [(Back to top)](#table-of-contents)
 
 To predict using the trained model use the script [src/predict_model.py](src/predict_model.py). It has the following arguments and default parameters
-- `--model models/best_HydraMRRegressor.pt`
+- `--model models/HydraMRRegressor/HydraMRRegressor.pt`
 - `--data data/processed/features.hdf5`
-- `--feature_extractors HydraMV_8_64`
 - `--name_identifier` (empty string)
 - `--data_type test`
 - `--batch_size 32`
-- `--plot_during` (default False)
-- `--hidden_dim 64`
-- `--fold 1`
-- `--model_depth 0`
-- `--batch_norm True`
-- `--save_predictions` (default False)
+- `--plot_during` (False)
+- `--fold -1`
+- `--save_predictions` (False)
 
 To run the script on the saved HydraMRRegressor model, call
 ```shell

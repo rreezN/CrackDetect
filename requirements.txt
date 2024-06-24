@@ -1,6 +1,4 @@
 torch >= 2.1.0
-dvc
-dvc-gdrive
 mlflow
 wandb
 tqdm
