@@ -1,5 +1,5 @@
 <div style="text-align:center">
-    <img src="reports/figures/jupyter/POI/POI_figure.png" style="width:90%">
+    <img src="reports/figures/jupyter/POI/POI_figure.png" style="width:100%">
 </div>
 
 # crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)
