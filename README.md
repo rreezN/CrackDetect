@@ -21,6 +21,10 @@ Our results are in [reports/figures/our_model_results/](reports/figures/our_mode
   <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
 </p>
 
+<p align="center">
+  <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width="500"/>
+</p>
+
 # Quickstart
 1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
 2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires python > 3.10
@@ -49,7 +53,7 @@ If you wish to go through each step manually with your own arguments, call each 
 5. See results in ```reports/figures/model_results```
 
 # Table of Contents
-- [crackdetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
+- [CrackDetect (Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data)](#crackdetect-machine-learning-approach-for-real-time-assessment-of-road-pavement-service-life-based-on-vehicle-fleet-data)
 - [Results](#results)
 - [Quickstart](#quickstart)
 - [Table of Contents](#table-of-contents)
