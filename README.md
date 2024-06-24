@@ -15,15 +15,13 @@ Repository containing code for the project Machine-learning approach for real-ti
 # Results
 Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
 
-<div style="text-align:center">
-    <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" style="width:70%">
-</div>
+<p align="center">
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" width="500"/>
+</p>
 
--
-
-<div style="text-align:center">
-    <img align="center" src="reports/figures/jupyter/POI/std_plot.png" style="width:70%">
-</div>
+<p align="center">
+  <img align="center" src="reports/figures/jupyter/POI/std_plot.PNG" alt="drawing" width="500"/>
+</p>
 
 # Quickstart
 1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
