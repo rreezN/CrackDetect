@@ -20,7 +20,7 @@ Our results are in [reports/figures/our_model_results/](reports/figures/our_mode
 </p>
 
 <p align="center">
-  <img align="center" src="reports/figures/jupyter/POI/std_plot.PNG" alt="drawing" width="500"/>
+  <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
 </p>
 
 # Quickstart
