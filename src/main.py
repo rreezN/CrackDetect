@@ -1,3 +1,5 @@
+from __init__ import *
+
 from time import time
 from argparse import ArgumentParser, Namespace
 

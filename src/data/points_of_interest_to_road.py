@@ -6,6 +6,7 @@ import pandas as pd
 from pathlib import Path
 import plotly.express as px
 import numpy as np
+import yaml
 
 import torch
 import torch.nn as nn
@@ -13,6 +14,8 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from .feature_dataloader import Features
 from ..models.hydramr import HydraMRRegressor
+
+from typing import Any, Dict, List, Tuple
 
 def predict(model: torch.nn.Module, dataloader: DataLoader):
     """Run prediction for a given model and dataloader.
@@ -56,12 +59,42 @@ def predict(model: torch.nn.Module, dataloader: DataLoader):
     return all_predictions, all_targets, losses
 
 
-def model_loader(feature_path, fold, feature_extractors, batch_size, model_path, hidden_dim, model_depth, batch_norm):
+def model_loader(experiment_dir: str, model_name: str) -> Tuple[Dict[str, Features], Dict[str, DataLoader], HydraMRRegressor]:
+    """Load the model and the corresponding datasets and dataloaders.
+
+    Parameters
+    ----------
+    experiment_dir : str
+        The path to the experiment directory.
+    model_name : str
+        The name of the model to be loaded.
+
+    Returns
+    -------
+    Tuple[Dict[str, Features], Dict[str, DataLoader], HydraMRRegressor]
+        A tuple containing dictionaries of datasets and dataloaders and the model.
+    """
+    prefix = experiment_dir.split("models/")[0]
+    model_path = os.path.join(experiment_dir, model_name)
+    params_path = os.path.join(experiment_dir, "model_params.yml")
+
+    with open(params_path, 'r') as stream:
+        model_params = yaml.safe_load(stream)
+
+    # Get fold if not specified
+    fold = model_params["trained_in_fold"][model_name]
+    feature_path = os.path.join(prefix, model_params["data"])
+    batch_size = model_params["batch_size"]
+
+    feature_extractors = model_params["feature_extractors"]
+    hidden_dim = model_params["hidden_dim"]
+    batch_norm = model_params["batch_norm"]
+    model_depth = model_params["model_depth"]
+
     datasets = {
         "train": Features(feature_path, data_type="train", feature_extractors=feature_extractors, fold=fold),
         "val": Features(feature_path, data_type="val", feature_extractors=feature_extractors, fold=fold),
         "test": Features(feature_path, data_type="test", feature_extractors=feature_extractors, fold=fold)
-
     }
 
     dataloaders = {
@@ -82,7 +115,23 @@ def model_loader(feature_path, fold, feature_extractors, batch_size, model_path,
     return datasets, dataloaders, model
 
 
-def get_all_predictions(datasets, dataloaders, model):
+def get_all_predictions(datasets: Dict[str, Features], dataloaders: Dict[str, DataLoader], model: HydraMRRegressor) -> Dict[int, Dict[int, List[float]]]:
+    """Get predictions for all datasets and store them in a nested dictionary.
+
+    Parameters
+    ----------
+    datasets : Dict[str, Features]
+        A dictionary containing the datasets.
+    dataloaders : Dict[str, DataLoader]
+        A dictionary containing the dataloaders.
+    model : HydraMRRegressor
+        The model to be used for prediction.
+
+    Returns
+    -------
+    Dict[int, Dict[int, List[float]]]
+        A nested dictionary containing the predictions for each segment-second pair.
+    """
     all_predictions = torch.tensor([])
     all_targets = torch.tensor([])
 
@@ -108,7 +157,25 @@ def get_all_predictions(datasets, dataloaders, model):
     return road_predictions
 
 
+# TODO add type hints for weights, locations, gm
 def get_predictions_for_POIs(weights_hh, locations_hh, road_predictions):
+    """
+    Get the predictions for the POIs based on the weights, locations and road predictions.
+
+    Parameters
+    ----------
+    weights_hh : Dict[str, List[List[Any]]]
+        A dictionary containing the weights for each POI.
+    locations_hh : Dict[str, List[float]]
+        A dictionary containing the locations for each POI.
+    road_predictions : Dict[int, Dict[int, List[float]]]
+        A nested dictionary containing the predictions for each segment-second pair.
+
+    Returns
+    -------
+    Tuple[List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float]
+        A tuple containing the latitude, longitude, and predictions for each KPI and their standard deviations.
+    """
     lat = []
     lon = []
     preds_POI_di = []
@@ -159,7 +226,25 @@ def get_predictions_for_POIs(weights_hh, locations_hh, road_predictions):
     return lat, lon, preds_POI_di, preds_POI_rut, preds_POI_pi, preds_POI_iri, preds_POI_di_std, preds_POI_rut_std, preds_POI_pi_std, preds_POI_iri_std
 
 
-def get_kpis_for_POIs(weights_hh, locations_hh, gm):
+# TODO add type hints for weights, locations, gm
+def get_kpis_for_POIs(weights, locations, gm):
+    """
+    Get the KPIs for the POIs based on the weights, locations and ground measurements.
+    
+    Parameters
+    ----------
+    weights : Dict[str, List[List[Any]]]
+        A dictionary containing the weights for each POI.
+    locations : Dict[str, List[float]]
+        A dictionary containing the locations for each POI.
+    gm : Dict[str, Dict[str, Dict[str, Dict[str, List[float]]]]]
+        A nested dictionary containing the ground measurements.
+        
+    Returns
+    -------
+    Tuple[List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float], List[float]
+        A tuple containing the latitude, longitude, and KPIs for each POI and their standard deviations.
+    """
     lat = []
     lon = []
     kpis_POI_di = []
@@ -173,11 +258,11 @@ def get_kpis_for_POIs(weights_hh, locations_hh, gm):
     kpis_POI_iri_std = []
 
     # Convert list of POIs into sorted list
-    int_list = [int(x) for x in weights_hh.keys()]
+    int_list = [int(x) for x in weights.keys()]
     sorted_idx = sorted(int_list)
 
-    for POI_hh in sorted_idx: # weights_hh.keys():
-        loc = locations_hh[POI_hh]
+    for POI in sorted_idx:
+        loc = locations[POI]
         lon.append(loc[0])
         lat.append(loc[1])
 
@@ -188,7 +273,7 @@ def get_kpis_for_POIs(weights_hh, locations_hh, gm):
         current_kpis_POI_pi = []
         current_kpis_POI_iri = []
 
-        for MOI in weights_hh[POI_hh]:
+        for MOI in weights[POI]:
             MOI_segment = MOI[2]
             MOI_second = MOI[3]
             current_kpis_POI_weight.append(MOI[4])
