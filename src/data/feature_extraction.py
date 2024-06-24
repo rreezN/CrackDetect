@@ -468,13 +468,13 @@ def main(args: Namespace) -> None:
         multi_rocket_transformer = MultiRocketMultivariate(args.mr_num_features)
         hydra_transformer = HydraMultivariate(input_shape[1], len(cols), args.hydra_k, args.hydra_g)
     
-    if args.feature_extractor == 'multirocket':
+    if args.feature_extractor.lower() == 'multirocket':
         feature_extactors = [multi_rocket_transformer]
         print(f"Extracting features using {multi_rocket_transformer.name}")
-    elif args.feature_extractor == 'hydra':
+    elif args.feature_extractor.lower() == 'hydra':
         feature_extactors = [hydra_transformer]
         print(f"Extracting features using {hydra_transformer.name}")
-    elif args.feature_extractor == 'both':
+    elif args.feature_extractor.lower() == 'both':
         feature_extactors = [multi_rocket_transformer, hydra_transformer]
         print(f"Extracting features using {multi_rocket_transformer.name} and {hydra_transformer.name}")
     else:
