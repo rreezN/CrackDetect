@@ -3,8 +3,6 @@ from __init__ import *
 from time import time
 from argparse import ArgumentParser, Namespace
 
-import sys
-
 from src.util.utils import set_all_seeds
 from src.data.make_dataset import main as make_dataset
 from src.data.make_dataset import get_args as get_make_dataset_args
