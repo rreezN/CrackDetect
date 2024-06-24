@@ -14,15 +14,7 @@ Repository containing code for the project Machine-learning approach for real-ti
 Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
 
 <p align="center">
-  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" width="500"/>
-</p>
-
-<p align="center">
-  <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
-</p>
-
-<p align="center">
-  <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width="500"/>
+  <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width=90%/>
 </p>
 
 # Quickstart
@@ -65,6 +57,7 @@ If you wish to go through each step manually with your own arguments, call each 
   - [Feature extraction](#feature-extraction)
   - [Model training](#model-training)
   - [Predicting](#predicting)
+    - [Points of Interest (POI)](#points-of-interest-poi)
 - [Credits](#credits)
 - [License](#license)
 
@@ -246,14 +239,26 @@ python src/predict_model.py
 
 The model will predict on the specified data set, plot the predictions and save them in [reports/figures/model_results](reports/figures/model_results/).
 
-### POI 
+<p align="center">
+  <img align="center" src="reports/figures/our_model_results/HydraMRRegressor/test_predictions_preview.png" width="500"/>
+</p>
+
+### Points of Interest (POI) 
 Finally the predictions is translated to the actual locations in the real world; the process can be seen in the top figure of the README. To investigate it one can run the Points of Interest Notebook ```notebooks/POI.ipynb```.
+
+<p align="center">
+  <img align="center" src="reports/figures/jupyter/POI/std_plot.png" alt="drawing" width="500"/>
+</p>
+
+<p align="center">
+  <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width="500"/>
+</p>
 
 # Credits
 - [David Ari Ostenfeldt](https://github.com/DavidAriOstenfeldt)
 - [Dennis Chenxi Zhuang](https://github.com/rreezN)
 - [Kasper Niklas Kjær Hansen](https://github.com/KasperNiklas)
-- [Kristian R. Møllmann](https://github.com/KristianMoellmann)
+- [Kristian Rhindal Møllmann](https://github.com/KristianMoellmann)
 - [Kristoffer Marboe](https://github.com/KrisMarboe)
 
 **Supervisors**
