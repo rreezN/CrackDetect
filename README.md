@@ -253,7 +253,7 @@ Finally the predictions is translated to the actual locations in the real world;
 - [David Ari Ostenfeldt](https://github.com/DavidAriOstenfeldt)
 - [Dennis Chenxi Zhuang](https://github.com/rreezN)
 - [Kasper Niklas Kjær Hansen](https://github.com/KasperNiklas)
-- [Kristian R. Møllmann](https://github.com/KristianMoellmann)
+- [Kristian Rhindal Møllmann](https://github.com/KristianMoellmann)
 - [Kristoffer Marboe](https://github.com/KrisMarboe)
 
 **Supervisors**
