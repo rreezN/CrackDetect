@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 
 
 def delete_model(file_path: str, keys: list[str]):
+    # NOTE: Not tested with the new hdf5 file structure. Use with caution.
     """Delets models from the hdf5 file.
 
     Parameters:

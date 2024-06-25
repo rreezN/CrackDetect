@@ -189,7 +189,24 @@ python src/data/feature_extraction.py
 
 The script will automatically set up the feature extractors based on the amount of cols (1 = univariate, >1 = multivariate). The features will be stored in [data/processed/features.hdf5](data/processed/features.hdf5), along with statistics used to standardize during training and prediction. Features and statistics will be saved under feature extractors based on their names as defined in the model scripts.
 
-The structure of the HDF5 features file can be seen in (LINK OR INSERT IMAGE HERE).
+The structure of the HDF5 features file can be seen below
+
+<div style="text-align:center">
+    <img src="reports/figures/features_tree.png" style="width:50%">
+</div>
+
+You can print the structure of your own features.hdf5 file with `src/data/check_hdf5.py` by calling
+
+```shell
+python src/data/check_hdf5.py
+```
+
+`check_hdf5` has the following arguments and defaults
+
+- `--file_path data/processed/features.hdf5`
+- `--limit 3`
+- `--summary` (False)
+
 
 ## Model training
 [(Notebook)](notebooks/train_model.ipynb) [(Back to top)](#table-of-contents)
