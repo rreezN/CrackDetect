@@ -18,10 +18,10 @@ Our results are in [reports/figures/our_model_results/](reports/figures/our_mode
 </p>
 
 # Quickstart
-1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
-2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires ```python >= 3.10```
+1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```.
+2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires ```python >= 3.10```.
 3. Install requirements ```pip install -r requirements.txt```. 
-4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data))
+4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data)).
 5. Run ```python src/main.py all```
 
 This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script is setup to recreate our results, and thus all arguments are pre specified. 
