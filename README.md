@@ -11,17 +11,17 @@
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction. An overview of the project can be found in the [user manual](User_manual.pdf).
 
 # Results
-Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
+Our results are found in [reports/figures/our_model_results/](reports/figures/our_model_results/).
 
 <p align="center">
   <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width=90%/>
 </p>
 
 # Quickstart
-1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```
-2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires python > 3.10
+1. Clone this repository ```git clone https://github.com/rreezN/CrackDetect.git```.
+2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires ```python >= 3.10```.
 3. Install requirements ```pip install -r requirements.txt```. 
-4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data))
+4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data)).
 5. Run ```python src/main.py all```
 
 This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script is setup to recreate our results, and thus all arguments are pre specified. 
@@ -189,7 +189,24 @@ python src/data/feature_extraction.py
 
 The script will automatically set up the feature extractors based on the amount of cols (1 = univariate, >1 = multivariate). The features will be stored in [data/processed/features.hdf5](data/processed/features.hdf5), along with statistics used to standardize during training and prediction. Features and statistics will be saved under feature extractors based on their names as defined in the model scripts.
 
-The structure of the HDF5 features file can be seen in (LINK OR INSERT IMAGE HERE).
+The structure of the HDF5 features file can be seen below
+
+<div style="text-align:center">
+    <img src="reports/figures/features_tree.png" style="width:50%">
+</div>
+
+You can print the structure of your own features.hdf5 file with `src/data/check_hdf5.py` by calling
+
+```shell
+python src/data/check_hdf5.py
+```
+
+`check_hdf5` has the following arguments and defaults
+
+- `--file_path data/processed/features.hdf5`
+- `--limit 3`
+- `--summary` (False)
+
 
 ## Model training
 [(Notebook)](notebooks/train_model.ipynb) [(Back to top)](#table-of-contents)
