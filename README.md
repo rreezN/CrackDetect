@@ -11,7 +11,7 @@
 Repository containing code for the project Machine-learning approach for real-time assessment of road pavement service life based on vehicle fleet data. Complete pipeline including data preprocessing, feature extraction, model training and prediction. An overview of the project can be found in the [user manual](User_manual.pdf).
 
 # Results
-Our results are in [reports/figures/our_model_results/](reports/figures/our_model_results/).
+Our results are found in [reports/figures/our_model_results/](reports/figures/our_model_results/).
 
 <p align="center">
   <img align="center" src="reports/figures/jupyter/POI/iri_kpis_map.png" alt="drawing" width=90%/>
