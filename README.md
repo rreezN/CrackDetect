@@ -22,7 +22,8 @@ Our results are found in [reports/figures/our_model_results/](reports/figures/ou
 2. (Optional) Create [Virtual environment in powershell](#virtual-environment-in-powershell). Note this project requires ```python >= 3.10```.
 3. Install requirements ```pip install -r requirements.txt```. 
 4. Download the data from [sciencedata.dk](https://sciencedata.dk/themes/deic_theme_oc7/apps/files_sharing/public.php?g=dtu.dk&t=df00c89039ec32807b9c8d794bc8e2f5&), unzip it and place it in the data folder (see [data section](#downloading-the-data)).
-5. Run ```python src/main.py all```
+5. Call ```wandb disabled``` if you have not set-up a suitable wandb project. (This project and entity information has been hard-coded into ```src\train_hydra_mr.py``` as the ```wandb.init()``` command.)
+6. Run ```python src/main.py all```
 
 This will run all steps of the pipeline, from data preprocessing to model prediction. At the end a plot will appear that shows our (FleetYeeters) results and the results from the newly trained model. It will extract features using a Hydra model from all signals except location signals. The *main.py* script is setup to recreate our results, and thus all arguments are pre specified. 
 
